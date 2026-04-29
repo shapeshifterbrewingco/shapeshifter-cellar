@@ -174,6 +174,38 @@ export interface PackagingSplit {
   clip_colour: string | null
   collars_on_site: number
   decals_on_site: number
+  // Packaging QC readings
+  best_before_date: string | null
+  bbt_temp_c: number | null
+  bbt_co2_vol: number | null
+  bbt_do_ppb: number | null
+  can_co2_vol: number | null
+  can_do_ppb: number | null
+  unders_sor: string | null
+  // Stock distribution
+  stock_venue_kegs: number | null
+  stock_venue_cartons: number | null
+  stock_options_kegs: number | null
+  stock_options_cartons: number | null
+  stock_sales_kegs: number | null
+  stock_sales_cartons: number | null
+}
+
+// Transfer report log fields (matching physical paper form)
+export interface TransferReportData {
+  // Pre-transfer
+  brite_cooling_on: boolean
+  fv_temp_pre_c: string
+  brite_temp_pre_c: string
+  purge_start: string
+  purge_finish: string
+  transfer_start: string
+  transfer_finish: string
+  // Post-transfer
+  brite_temp_post_c: string
+  brite_pressure_psi: string
+  initial_carb_performed: boolean
+  fv_cooling_off: boolean
 }
 
 export interface NextScheduledBrew {

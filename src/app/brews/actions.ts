@@ -143,6 +143,18 @@ export async function transferBrew(data: {
   volume_out_l: number
   batch_code: string | null
   notes: string
+  // Transfer report fields
+  brite_cooling_on?: boolean
+  fv_temp_pre_c?: number | null
+  brite_temp_pre_c?: number | null
+  purge_start?: string | null
+  purge_finish?: string | null
+  transfer_start?: string | null
+  transfer_finish?: string | null
+  brite_temp_post_c?: number | null
+  brite_pressure_psi?: number | null
+  initial_carb_performed?: boolean
+  fv_cooling_off?: boolean
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -156,6 +168,17 @@ export async function transferBrew(data: {
     volume_out_l: data.volume_out_l,
     transferred_by: user.email ?? user.id,
     notes: data.notes.trim() || null,
+    brite_cooling_on: data.brite_cooling_on ?? null,
+    fv_temp_pre_c: data.fv_temp_pre_c ?? null,
+    brite_temp_pre_c: data.brite_temp_pre_c ?? null,
+    purge_start: data.purge_start || null,
+    purge_finish: data.purge_finish || null,
+    transfer_start: data.transfer_start || null,
+    transfer_finish: data.transfer_finish || null,
+    brite_temp_post_c: data.brite_temp_post_c ?? null,
+    brite_pressure_psi: data.brite_pressure_psi ?? null,
+    initial_carb_performed: data.initial_carb_performed ?? null,
+    fv_cooling_off: data.fv_cooling_off ?? null,
   })
 
   await supabase.from('brews').update({
@@ -186,6 +209,21 @@ export async function packageBrew(data: {
   packages: { format: PackageFormat; qty: number; volume_l: number }[]
   notes: string
   batch_code: string
+  // Packaging QC readings
+  best_before_date?: string | null
+  bbt_temp_c?: number | null
+  bbt_co2_vol?: number | null
+  bbt_do_ppb?: number | null
+  can_co2_vol?: number | null
+  can_do_ppb?: number | null
+  unders_sor?: string | null
+  // Stock distribution
+  stock_venue_kegs?: number | null
+  stock_venue_cartons?: number | null
+  stock_options_kegs?: number | null
+  stock_options_cartons?: number | null
+  stock_sales_kegs?: number | null
+  stock_sales_cartons?: number | null
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -204,6 +242,37 @@ export async function packageBrew(data: {
       volume_l: pkg.volume_l,
       notes: data.notes.trim() || null,
     })
+  }
+
+  // Upsert QC + stock data into packaging_splits (create if no plan existed)
+  const hasQcData = data.best_before_date || data.bbt_temp_c != null || data.bbt_co2_vol != null ||
+    data.bbt_do_ppb != null || data.can_co2_vol != null || data.can_do_ppb != null ||
+    data.unders_sor || data.stock_venue_kegs != null || data.stock_options_kegs != null || data.stock_sales_kegs != null
+  if (hasQcData) {
+    await supabase.from('packaging_splits').upsert({
+      brew_id: data.brew_id,
+      // Required fields with safe defaults for new rows
+      hop_load: 'medium',
+      qty_24x375: 0,
+      qty_16x440: 0,
+      qty_keg30: 0,
+      qty_keg50: 0,
+      // QC fields
+      best_before_date: data.best_before_date || null,
+      bbt_temp_c: data.bbt_temp_c ?? null,
+      bbt_co2_vol: data.bbt_co2_vol ?? null,
+      bbt_do_ppb: data.bbt_do_ppb ?? null,
+      can_co2_vol: data.can_co2_vol ?? null,
+      can_do_ppb: data.can_do_ppb ?? null,
+      unders_sor: data.unders_sor || null,
+      stock_venue_kegs: data.stock_venue_kegs ?? null,
+      stock_venue_cartons: data.stock_venue_cartons ?? null,
+      stock_options_kegs: data.stock_options_kegs ?? null,
+      stock_options_cartons: data.stock_options_cartons ?? null,
+      stock_sales_kegs: data.stock_sales_kegs ?? null,
+      stock_sales_cartons: data.stock_sales_cartons ?? null,
+      updated_at: now,
+    }, { onConflict: 'brew_id', ignoreDuplicates: false })
   }
 
   await supabase.from('brews').update({
@@ -359,6 +428,16 @@ export async function getBrewVdkReadings(brew_id: string) {
 }
 
 // ── Update batch code ─────────────────────────────────────────
+
+export async function updateBrewVolume(brew_id: string, volume_l: number) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('brews')
+    .update({ volume_l, updated_at: new Date().toISOString() })
+    .eq('id', brew_id)
+  if (error) throw error
+  revalidatePath('/')
+}
 
 export async function updateBatchCode(brew_id: string, batch_code: string) {
   const supabase = await createClient()

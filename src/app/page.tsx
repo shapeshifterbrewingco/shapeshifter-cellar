@@ -3,7 +3,6 @@ import { getDashboardData } from '@/lib/dashboard'
 import { getUtilityTemps } from '@/lib/frigid'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/app/settings/actions'
-import { MOCK_DASHBOARD } from '@/lib/mock-data'
 import { DEFAULT_SETTINGS } from '@/types'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
 import type { FrigidReading } from '@/lib/frigid'
@@ -12,7 +11,7 @@ import type { AppSettings } from '@/types'
 export const revalidate = 60
 
 export default async function DashboardPage() {
-  let tanks = MOCK_DASHBOARD
+  let tanks: import('@/types').TankDashboardData[] = []
   let recipes: RecipeOption[] = []
   let currentUser = 'Unknown'
   let utilityTemps: FrigidReading[] = []

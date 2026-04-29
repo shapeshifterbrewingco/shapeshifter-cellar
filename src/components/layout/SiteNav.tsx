@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, FlaskConical, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, CalendarDays, Settings } from 'lucide-react'
+import { Menu, X, FlaskConical, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, LogIn, CalendarDays, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
@@ -30,7 +30,6 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav className="flex flex-col h-full px-3 mt-4">
-      {/* Main nav items */}
       <div className="flex flex-col gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} onClick={onNavigate} className={linkClass(href)}>
@@ -64,10 +63,32 @@ function Logo({ size = 'md' }: { size?: 'sm' | 'md' }) {
   )
 }
 
-export function SiteNav() {
-  const [open, setOpen] = useState(false)
+function AuthButton({ onNavigate }: { onNavigate?: () => void }) {
+  const [signedIn, setSignedIn] = useState<boolean | null>(null)
   const [, startTransition] = useTransition()
   const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => setSignedIn(!!user))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session?.user)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const btnClass = "flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white/55 hover:text-white hover:bg-white/10 transition-colors w-full"
+
+  if (signedIn === null) return null // don't flash wrong state
+
+  if (!signedIn) {
+    return (
+      <Link href="/login" onClick={onNavigate} className={btnClass}>
+        <LogIn className="h-5 w-5 flex-shrink-0" />
+        Sign in
+      </Link>
+    )
+  }
 
   function handleLogout() {
     startTransition(async () => {
@@ -76,6 +97,17 @@ export function SiteNav() {
       router.push('/login')
     })
   }
+
+  return (
+    <button onClick={handleLogout} className={btnClass}>
+      <LogOut className="h-5 w-5 flex-shrink-0" />
+      Sign out
+    </button>
+  )
+}
+
+export function SiteNav() {
+  const [open, setOpen] = useState(false)
 
   return (
     <>
@@ -89,13 +121,7 @@ export function SiteNav() {
           <NavLinks />
         </div>
         <div className="px-3 py-3 border-t border-white/10">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white/55 hover:text-white hover:bg-white/10 transition-colors w-full"
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            Sign out
-          </button>
+          <AuthButton />
         </div>
       </aside>
 
@@ -132,13 +158,7 @@ export function SiteNav() {
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
             <div className="px-3 py-3 border-t border-white/10">
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white/55 hover:text-white hover:bg-white/10 transition-colors w-full"
-              >
-                <LogOut className="h-5 w-5 flex-shrink-0" />
-                Sign out
-              </button>
+              <AuthButton onNavigate={() => setOpen(false)} />
             </div>
           </aside>
         </>

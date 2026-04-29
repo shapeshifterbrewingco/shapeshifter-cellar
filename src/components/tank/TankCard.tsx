@@ -20,7 +20,7 @@ import { PackageModal } from '@/components/dashboard/PackageModal'
 import { VdkModal } from '@/components/dashboard/VdkModal'
 import { PackagingSplitModal } from '@/components/dashboard/PackagingSplitModal'
 import { BrewModal } from '@/components/schedule/BrewModal'
-import { updateBrewStage, endBrew, updateBatchCode } from '@/app/brews/actions'
+import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume } from '@/app/brews/actions'
 import { setTankTarget } from '@/app/tanks/actions'
 import { calcAbv } from '@/lib/utils'
 import { PACKAGE_FORMATS, HOP_LOAD_LOSS } from '@/types'
@@ -60,6 +60,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [showEditBatch, setShowEditBatch] = useState(false)
   const [batchInput, setBatchInput] = useState(brew?.batch_code ?? '')
+  const [showEditVolume, setShowEditVolume] = useState(false)
+  const [volumeInput, setVolumeInput] = useState(String(brew?.volume_l ?? ''))
   const [showDiacetylModal, setShowDiacetylModal] = useState(false)
   const [diacetylTemp, setDiacetylTemp] = useState(String(settings.diacetyl_rest_temp_c))
   const [showChillModal, setShowChillModal] = useState(false)
@@ -348,6 +350,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -378,6 +381,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -388,8 +392,10 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <>
                         <Button size="sm" variant="outline"
                           className="flex-1 h-8 text-sm bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100 hover:border-sky-300 gap-1.5"
-                          onClick={() => setShowPackageModal(true)}>
-                          <Package className="h-4 w-4" /> Package / Keg
+                          onClick={() => tank.type === 'fermenter' ? setShowTransferModal(true) : setShowPackageModal(true)}>
+                          {tank.type === 'fermenter'
+                            ? <><ChevronRight className="h-4 w-4" /> Transfer</>
+                            : <><Package className="h-4 w-4" /> Package / Keg</>}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 cursor-pointer flex-shrink-0">
@@ -407,6 +413,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -442,6 +449,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -585,6 +593,28 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                   className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancel</button>
                 <button type="button" onClick={() => { startTransition(() => updateBatchCode(brew.id, batchInput)); setShowEditBatch(false) }}
                   className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90">Save</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showEditVolume && brew && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-gray-900">Edit volume</h2>
+              <div className="flex items-center gap-2">
+                <input type="number" step="1" min="0" value={volumeInput}
+                  onChange={e => setVolumeInput(e.target.value)} autoFocus
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                <span className="text-sm text-gray-500 font-medium flex-shrink-0">L</span>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowEditVolume(false)}
+                  className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="button" onClick={() => {
+                  const v = parseFloat(volumeInput)
+                  if (!isNaN(v) && v > 0) startTransition(() => updateBrewVolume(brew.id, v))
+                  setShowEditVolume(false)
+                }} className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90">Save</button>
               </div>
             </div>
           </div>
@@ -788,6 +818,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -816,6 +847,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -826,8 +858,10 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 <>
                   <Button size="sm" variant="outline"
                     className="flex-1 h-8 text-sm bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100 hover:border-sky-300 gap-1.5"
-                    onClick={() => setShowPackageModal(true)}>
-                    <Package className="h-4 w-4" /> Package / Keg
+                    onClick={() => tank.type === 'fermenter' ? setShowTransferModal(true) : setShowPackageModal(true)}>
+                    {tank.type === 'fermenter'
+                      ? <><ChevronRight className="h-4 w-4" /> Transfer</>
+                      : <><Package className="h-4 w-4" /> Package / Keg</>}
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 cursor-pointer flex-shrink-0">
@@ -843,6 +877,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -878,6 +913,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -1094,6 +1130,45 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 onClick={() => {
                   startTransition(() => updateBatchCode(brew.id, batchInput))
                   setShowEditBatch(false)
+                }}
+                className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showEditVolume && brew && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-900">Edit volume</h2>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                value={volumeInput}
+                onChange={e => setVolumeInput(e.target.value)}
+                autoFocus
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <span className="text-sm text-gray-500 font-medium flex-shrink-0">L</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEditVolume(false)}
+                className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const v = parseFloat(volumeInput)
+                  if (!isNaN(v) && v > 0) startTransition(() => updateBrewVolume(brew.id, v))
+                  setShowEditVolume(false)
                 }}
                 className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90"
               >

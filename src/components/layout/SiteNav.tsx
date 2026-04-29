@@ -131,6 +131,15 @@ export function SiteNav() {
             <div className="flex-1 flex flex-col overflow-y-auto py-2">
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
+            <div className="px-3 py-3 border-t border-white/10">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white/55 hover:text-white hover:bg-white/10 transition-colors w-full"
+              >
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+                Sign out
+              </button>
+            </div>
           </aside>
         </>
       )}

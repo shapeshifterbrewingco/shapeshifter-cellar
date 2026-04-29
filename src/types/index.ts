@@ -1,3 +1,39 @@
+// ─── App Settings ────────────────────────────────────────────────────────────
+
+export interface AppSettings {
+  diacetyl_rest_temp_c: number
+  on_chill_temp_c: number
+  ale_weeks: number
+  lager_weeks: number
+  default_hop_load: 'low' | 'medium' | 'high'
+  default_brew_volume_l: number | null
+  // Excise rates ($/LaL) — updated ~6-monthly
+  excise_rate_can_std: number
+  excise_rate_keg_std: number
+  excise_rate_rtd: number
+  excise_rate_keg_mid: number
+  // SA Canning contract rates — cost per can = (vol_ml/1000) * per_l + per_end
+  sa_canning_rate_per_l: number    // $/litre fill
+  sa_canning_rate_per_end: number  // $/end (lid) per can
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  diacetyl_rest_temp_c: 21,
+  on_chill_temp_c: 2,
+  ale_weeks: 4,
+  lager_weeks: 6,
+  default_hop_load: 'medium',
+  default_brew_volume_l: null,
+  excise_rate_can_std: 63.75,
+  excise_rate_keg_std: 43.39,
+  excise_rate_rtd: 107.99,
+  excise_rate_keg_mid: 33.11,
+  sa_canning_rate_per_l: 0.99,
+  sa_canning_rate_per_end: 0.069,
+}
+
+// ─── Recipes ─────────────────────────────────────────────────────────────────
+
 export type RecipeTag = 'core' | 'seasonal' | 'limited' | 'collaboration'
 
 export const RECIPE_TAGS: RecipeTag[] = ['core', 'seasonal', 'limited', 'collaboration']
@@ -114,15 +150,37 @@ export const HOP_LOAD_LABELS: Record<HopLoad, string> = {
   high: 'High',
 }
 
+export type ExciseCategory = 'standard' | 'rtd' | 'mid_strength'
+
+export const EXCISE_CATEGORY_LABELS: Record<ExciseCategory, string> = {
+  standard: 'Standard beer',
+  rtd: 'RTD',
+  mid_strength: 'Mid-strength',
+}
+
 export interface PackagingSplit {
   id: string
-  brew_id: string
+  brew_id: string | null
+  scheduled_brew_id?: string | null
   hop_load: HopLoad
   qty_24x375: number
   qty_16x440: number
   qty_keg30: number
   qty_keg50: number
   notes: string | null
+  // Excise & canning fields
+  abv: number | null
+  excise_category: ExciseCategory | null
+  clip_colour: string | null
+  collars_on_site: number
+  decals_on_site: number
+}
+
+export interface NextScheduledBrew {
+  id: string
+  scheduled_date: string
+  recipe_name: string | null
+  recipe: { name: string } | null
 }
 
 export interface TankDashboardData {
@@ -136,6 +194,7 @@ export interface TankDashboardData {
   style_colour?: string | null
   latest_vdk?: { result: VdkResult; recorded_at: string } | null
   packaging_split?: PackagingSplit | null
+  next_scheduled_brew?: NextScheduledBrew | null
 }
 
 export const STAGE_LABELS: Record<TankStage, string> = {

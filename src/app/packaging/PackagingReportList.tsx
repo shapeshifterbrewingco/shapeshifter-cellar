@@ -69,45 +69,45 @@ export function PackagingReportList({ items }: Props) {
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </span>
 
-                <div className="flex-shrink-0 w-16 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                <div className="flex-shrink-0 w-16 text-xs font-black text-gray-700 uppercase tracking-wide">
                   {item.tank_name}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{item.beer_name}</p>
+                    <p className="text-sm font-bold text-gray-900 truncate">{item.beer_name}</p>
                     {item.batch_code && (
-                      <span className="text-[10px] font-medium text-gray-400 tabular-nums flex-shrink-0">{item.batch_code}</span>
+                      <span className="text-xs font-bold text-gray-400 tabular-nums flex-shrink-0">{item.batch_code}</span>
                     )}
                   </div>
-                  {item.style && <p className="text-xs text-gray-400 truncate">{item.style}</p>}
+                  {item.style && <p className="text-xs text-gray-500 truncate">{item.style}</p>}
                 </div>
 
                 {/* ABV */}
                 <div className="flex-shrink-0 text-right w-20 hidden sm:block">
                   {item.abv != null
-                    ? <p className="text-xs font-semibold text-indigo-600 tabular-nums">{item.abv.toFixed(1)}% ABV</p>
+                    ? <p className="text-xs font-bold text-indigo-600 tabular-nums">{item.abv.toFixed(1)}% ABV</p>
                     : null}
                   {item.og_plato != null && (
-                    <p className="text-xs text-gray-400 tabular-nums">OG {item.og_plato}°P</p>
+                    <p className="text-xs text-gray-500 tabular-nums">OG {item.og_plato}°P</p>
                   )}
                 </div>
 
                 {/* Total volume */}
                 <div className="flex-shrink-0 text-right w-20 hidden md:block">
-                  <p className="text-xs font-semibold text-gray-700 tabular-nums">{item.total_volume_l.toFixed(1)}L total</p>
+                  <p className="text-xs font-bold text-gray-700 tabular-nums">{item.total_volume_l.toFixed(1)}L total</p>
                   <p className="text-xs text-gray-400">{item.runs.length} run{item.runs.length !== 1 ? 's' : ''}</p>
                 </div>
 
                 {/* Latest packaging date */}
                 <div className="flex-shrink-0 text-right w-28 hidden lg:block">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs font-medium text-gray-600">
                     {latestRun ? format(parseISO(latestRun.packaged_at), 'd MMM yyyy') : '—'}
                   </p>
-                  <p className="text-[10px] text-gray-400">last packaged</p>
+                  <p className="text-xs text-gray-400">last packaged</p>
                 </div>
 
-                <span className="flex-shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#09434d]/10 text-[#09434d]">
+                <span className="flex-shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#09434d]/10 text-[#09434d]">
                   Packaged
                 </span>
               </button>
@@ -123,9 +123,9 @@ export function PackagingReportList({ items }: Props) {
                       { label: 'FG', value: item.final_plato != null ? `${item.final_plato}°P` : '—' },
                       { label: 'ABV', value: item.abv != null ? `${item.abv.toFixed(1)}%` : '—', accent: true },
                     ].map(({ label, value, accent }) => (
-                      <div key={label} className="bg-white rounded-lg border border-gray-100 px-3 py-2">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</p>
-                        <p className={`text-sm font-semibold mt-0.5 tabular-nums ${accent ? 'text-indigo-600' : 'text-gray-800'}`}>{value}</p>
+                      <div key={label} className="bg-white rounded-lg border border-gray-100 px-3 py-2.5">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{label}</p>
+                        <p className={`text-base font-black mt-0.5 tabular-nums ${accent ? 'text-indigo-600' : 'text-gray-900'}`}>{value}</p>
                       </div>
                     ))}
                   </div>
@@ -135,12 +135,12 @@ export function PackagingReportList({ items }: Props) {
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium text-gray-400">Date</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-400">Format</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-400">Qty</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-400">Volume</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-400">By</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-400">Notes</th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Date</th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Format</th>
+                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Qty</th>
+                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Volume</th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">By</th>
+                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Notes</th>
                         </tr>
                       </thead>
                       <tbody>

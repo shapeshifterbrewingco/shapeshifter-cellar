@@ -2,9 +2,12 @@ import { TankGrid } from '@/components/dashboard/TankGrid'
 import { getDashboardData } from '@/lib/dashboard'
 import { getUtilityTemps } from '@/lib/frigid'
 import { createClient } from '@/lib/supabase/server'
+import { getSettings } from '@/app/settings/actions'
 import { MOCK_DASHBOARD } from '@/lib/mock-data'
+import { DEFAULT_SETTINGS } from '@/types'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
 import type { FrigidReading } from '@/lib/frigid'
+import type { AppSettings } from '@/types'
 
 export const revalidate = 60
 
@@ -13,12 +16,15 @@ export default async function DashboardPage() {
   let recipes: RecipeOption[] = []
   let currentUser = 'Unknown'
   let utilityTemps: FrigidReading[] = []
+  let settings = DEFAULT_SETTINGS
 
   try {
-    const [supabase, frigidTemps] = await Promise.all([
+    const [supabase, frigidTemps, fetchedSettings] = await Promise.all([
       createClient(),
       getUtilityTemps(),
+      getSettings(),
     ])
+    settings = fetchedSettings
     utilityTemps = frigidTemps
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -77,7 +83,7 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="px-4 py-2">
-        <TankGrid tanks={tanks} recipes={recipes} currentUser={currentUser} utilityTemps={utilityTemps} />
+        <TankGrid tanks={tanks} recipes={recipes} currentUser={currentUser} utilityTemps={utilityTemps} settings={settings} />
       </div>
     </main>
   )

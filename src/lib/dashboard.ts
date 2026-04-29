@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { TankDashboardData, PackagingSplit } from '@/types'
+import type { TankDashboardData, PackagingSplit, NextScheduledBrew } from '@/types'
 import { differenceInDays } from 'date-fns'
 
 export async function getDashboardData(supabase: SupabaseClient): Promise<TankDashboardData[]> {
@@ -11,6 +11,8 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
     .order('sort_order')
 
   if (tanksError) throw tanksError
+
+  const tankIds = tanks?.map((t: { id: string }) => t.id) ?? []
 
   // 2. Beer styles (for colour resolution)
   const { data: beerStyles } = await supabase
@@ -56,7 +58,33 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
     }
   }
 
-  // 6. Latest VDK reading per brew
+  // 6. Next scheduled brew per tank (for empty tank cards)
+  const today = new Date().toISOString().slice(0, 10)
+  const nextScheduledByTank = new Map<string, NextScheduledBrew>()
+  if (tankIds.length > 0) {
+    const { data: upcoming } = await supabase
+      .from('scheduled_brews')
+      .select('id, tank_id, scheduled_date, recipe_name, recipes(name)')
+      .eq('event_type', 'brew')
+      .not('status', 'in', '(done,cancelled)')
+      .gte('scheduled_date', today)
+      .in('tank_id', tankIds)
+      .order('scheduled_date', { ascending: true })
+
+    for (const s of upcoming ?? []) {
+      if (s.tank_id && !nextScheduledByTank.has(s.tank_id)) {
+        const recipe = Array.isArray(s.recipes) ? s.recipes[0] ?? null : (s.recipes as { name: string } | null)
+        nextScheduledByTank.set(s.tank_id, {
+          id: s.id,
+          scheduled_date: s.scheduled_date,
+          recipe_name: s.recipe_name,
+          recipe: recipe ? { name: (recipe as { name: string }).name } : null,
+        })
+      }
+    }
+  }
+
+  // 7. Latest VDK reading per brew
   let latestVdk: Record<string, { result: string; recorded_at: string }> = {}
   if (brewIds.length > 0) {
     const { data: vdkReadings } = await supabase
@@ -69,8 +97,7 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
     }
   }
 
-  // 7. Latest temperature per tank
-  const tankIds = tanks?.map((t: { id: string }) => t.id) ?? []
+  // 8. Latest temperature per tank
   const latestTemp: Record<string, { temperature_c: number; set_point_c: number | null; recorded_at: string }> = {}
 
   if (tankIds.length > 0) {
@@ -87,7 +114,7 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
     }
   }
 
-  // 8. Assemble
+  // 9. Assemble
   type BrewRow = { id: string; recipe_id: string | null; tank_id: string; brew_day: string; volume_l: number; og_plato: number | null; stage: string; beer_name: string; style: string | null; notes: string | null; batch_code: string | null }
   type TankRow = { id: string; name: string; type: 'fermenter' | 'brite'; frigid_tank_name: string | null; frigid_asset_id: string | null; sort_order: number; desired_set_point_c: number | null }
 
@@ -134,6 +161,7 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
       style_colour: brew?.style ? (styleColourMap.get(brew.style) ?? null) : null,
       latest_vdk: brew ? (latestVdk[brew.id] as import('@/types').TankDashboardData['latest_vdk'] ?? null) : null,
       packaging_split: brew ? (splitsByBrew[brew.id] ?? null) : null,
+      next_scheduled_brew: !brew ? (nextScheduledByTank.get(tank.id) ?? null) : null,
     }
   })
 }

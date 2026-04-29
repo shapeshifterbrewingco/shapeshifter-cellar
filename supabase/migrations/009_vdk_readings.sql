@@ -21,3 +21,6 @@ curl -s -H "x-api-key: t5il7nka6tpjy4rcl9jox02w66f03sk40h44hz54" \
 curl -s -H "x-api-key: t5il7nka6tpjy4rcl9jox02w66f03sk40h44hz54" \
   https://xtm0vu1op0.execute-api.ap-southeast-2.amazonaws.com/Prod/asset/list \
   | python3 -c "import json,sys; [print(x.get('reference',''), x.get('id','')) for x in json.load(sys.stdin) if x.get('reference')]"
+
+git remote add origin https://github.com/shapeshifterbrewingco/shapeshifter-cellar.git
+git push -u origin main

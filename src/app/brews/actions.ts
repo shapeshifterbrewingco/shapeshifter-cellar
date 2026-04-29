@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { setTankTarget } from '@/app/tanks/actions'
 import { STAGE_LABELS } from '@/types'
-import type { TankStage, PackageFormat, HopLoad, PackagingSplit } from '@/types'
+import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
 
 // ── Batch code ────────────────────────────────────────────────
 
@@ -61,6 +61,25 @@ export async function assignBrew(data: {
       recorded_by: user.email ?? user.id,
       notes: 'Initial reading',
     })
+  }
+
+  // Auto-link any pre-planned packaging split from a scheduled pack event for this tank
+  const { data: packEvent } = await supabase
+    .from('scheduled_brews')
+    .select('id')
+    .eq('tank_id', data.tank_id)
+    .eq('event_type', 'pack')
+    .not('status', 'in', '(done,cancelled)')
+    .order('scheduled_date', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (packEvent) {
+    await supabase
+      .from('packaging_splits')
+      .update({ brew_id: brew.id })
+      .eq('scheduled_brew_id', packEvent.id)
+      .is('brew_id', null)
   }
 
   revalidatePath('/')
@@ -354,37 +373,80 @@ export async function updateBatchCode(brew_id: string, batch_code: string) {
 // ── Packaging split ───────────────────────────────────────────
 
 export async function savePackagingSplit(data: {
-  brew_id: string
+  brew_id?: string | null
+  scheduled_brew_id?: string | null
   hop_load: HopLoad
   qty_24x375: number
   qty_16x440: number
   qty_keg30: number
   qty_keg50: number
   notes: string
+  abv?: number | null
+  excise_category?: ExciseCategory | null
+  clip_colour?: string | null
+  collars_on_site?: number
+  decals_on_site?: number
 }) {
   const supabase = await createClient()
-  const { error } = await supabase
-    .from('packaging_splits')
-    .upsert({
-      brew_id: data.brew_id,
-      hop_load: data.hop_load,
-      qty_24x375: data.qty_24x375,
-      qty_16x440: data.qty_16x440,
-      qty_keg30: data.qty_keg30,
-      qty_keg50: data.qty_keg50,
-      notes: data.notes.trim() || null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'brew_id' })
-  if (error) throw error
+
+  // Find existing split by either ID
+  let existingId: string | null = null
+  if (data.brew_id) {
+    const { data: row } = await supabase
+      .from('packaging_splits').select('id').eq('brew_id', data.brew_id).maybeSingle()
+    existingId = row?.id ?? null
+  }
+  if (!existingId && data.scheduled_brew_id) {
+    const { data: row } = await supabase
+      .from('packaging_splits').select('id').eq('scheduled_brew_id', data.scheduled_brew_id).maybeSingle()
+    existingId = row?.id ?? null
+  }
+
+  const payload = {
+    brew_id: data.brew_id ?? null,
+    scheduled_brew_id: data.scheduled_brew_id ?? null,
+    hop_load: data.hop_load,
+    qty_24x375: data.qty_24x375,
+    qty_16x440: data.qty_16x440,
+    qty_keg30: data.qty_keg30,
+    qty_keg50: data.qty_keg50,
+    notes: data.notes.trim() || null,
+    abv: data.abv ?? null,
+    excise_category: data.excise_category ?? null,
+    clip_colour: data.clip_colour?.trim() || null,
+    collars_on_site: data.collars_on_site ?? 0,
+    decals_on_site: data.decals_on_site ?? 0,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (existingId) {
+    const { error } = await supabase.from('packaging_splits').update(payload).eq('id', existingId)
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from('packaging_splits').insert(payload)
+    if (error) throw error
+  }
+
   revalidatePath('/')
+  revalidatePath('/schedule')
 }
 
 export async function getPackagingSplit(brew_id: string): Promise<PackagingSplit | null> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('packaging_splits')
-    .select('id, brew_id, hop_load, qty_24x375, qty_16x440, qty_keg30, qty_keg50, notes')
+    .select('id, brew_id, scheduled_brew_id, hop_load, qty_24x375, qty_16x440, qty_keg30, qty_keg50, notes, abv, excise_category, clip_colour, collars_on_site, decals_on_site')
     .eq('brew_id', brew_id)
+    .maybeSingle()
+  return data as PackagingSplit | null
+}
+
+export async function getScheduledSplit(scheduled_brew_id: string): Promise<PackagingSplit | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('packaging_splits')
+    .select('id, brew_id, scheduled_brew_id, hop_load, qty_24x375, qty_16x440, qty_keg30, qty_keg50, notes, abv, excise_category, clip_colour, collars_on_site, decals_on_site')
+    .eq('scheduled_brew_id', scheduled_brew_id)
     .maybeSingle()
   return data as PackagingSplit | null
 }

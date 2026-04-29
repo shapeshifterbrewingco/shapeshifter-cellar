@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getSettings } from '@/app/settings/actions'
 import { ScheduleView } from './ScheduleView'
 import type { ScheduledBrew } from '@/types'
 
@@ -7,7 +8,7 @@ export const revalidate = 0
 export default async function SchedulePage() {
   const supabase = await createClient()
 
-  const [{ data: brews, error: brewsError }, { data: recipes }, { data: tanks }] = await Promise.all([
+  const [{ data: brews, error: brewsError }, { data: recipes }, { data: tanks }, settings] = await Promise.all([
     supabase
       .from('scheduled_brews')
       .select('*, recipe:recipes(id, name, style), tank:tanks!tank_id(id, name), dest_tank:tanks!dest_tank_id(id, name)')
@@ -22,6 +23,7 @@ export default async function SchedulePage() {
       .from('tanks')
       .select('id, name')
       .order('name'),
+    getSettings(),
   ])
 
   if (brewsError) console.error('scheduled_brews query error:', brewsError)
@@ -36,6 +38,7 @@ export default async function SchedulePage() {
           brews={(brews ?? []) as ScheduledBrew[]}
           recipes={recipes ?? []}
           tanks={tanks ?? []}
+          settings={settings}
         />
       </div>
     </main>

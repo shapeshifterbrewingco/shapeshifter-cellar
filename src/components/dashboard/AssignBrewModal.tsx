@@ -16,6 +16,7 @@ export interface RecipeOption {
 interface Props {
   tank: Tank
   recipes: RecipeOption[]
+  defaultVolumeL?: number | null
   onClose: () => void
 }
 
@@ -23,12 +24,12 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function AssignBrewModal({ tank, recipes, onClose }: Props) {
+export function AssignBrewModal({ tank, recipes, defaultVolumeL, onClose }: Props) {
   const [recipeId, setRecipeId] = useState('')
   const [beerName, setBeerName] = useState('')
   const [style, setStyle] = useState('')
   const [brewDay, setBrewDay] = useState(today())
-  const [volumeL, setVolumeL] = useState('')
+  const [volumeL, setVolumeL] = useState(defaultVolumeL != null ? String(defaultVolumeL) : '')
   const [ogPlato, setOgPlato] = useState('')
   const [ph, setPh] = useState('5.4')
   const [notes, setNotes] = useState('')
@@ -75,7 +76,7 @@ export function AssignBrewModal({ tank, recipes, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">Assign Brew — {tank.name}</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Start Brew — {tank.name}</h2>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-4 w-4" />
           </button>

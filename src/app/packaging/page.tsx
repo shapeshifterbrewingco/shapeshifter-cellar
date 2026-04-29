@@ -11,8 +11,8 @@ export default async function PackagingPage() {
       <div className="px-6 py-6 max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Packaging Reports</h1>
-            <p className="text-sm text-gray-400 mt-0.5">{items.length} batch{items.length !== 1 ? 'es' : ''} packaged</p>
+            <h1 className="text-2xl font-black text-gray-900">Packaging</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{items.length} batch{items.length !== 1 ? 'es' : ''} packaged</p>
           </div>
         </div>
         <PackagingReportList items={items} />

@@ -62,6 +62,7 @@ export async function createScheduledBrew(data: {
   }
 
   revalidatePath('/schedule')
+  revalidatePath('/')
 }
 
 export async function updateScheduledBrew(id: string, data: {
@@ -99,6 +100,7 @@ export async function updateScheduledBrew(id: string, data: {
   }
 
   revalidatePath('/schedule')
+  revalidatePath('/')
 }
 
 export async function deleteScheduledBrew(id: string) {
@@ -106,4 +108,5 @@ export async function deleteScheduledBrew(id: string) {
   const { error } = await supabase.from('scheduled_brews').delete().eq('id', id)
   if (error) throw error
   revalidatePath('/schedule')
+  revalidatePath('/')
 }

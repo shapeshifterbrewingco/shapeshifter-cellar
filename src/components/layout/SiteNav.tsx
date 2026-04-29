@@ -3,14 +3,14 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, FlaskConical, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, CalendarDays } from 'lucide-react'
+import { Menu, X, FlaskConical, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, CalendarDays, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
   { href: '/',            label: 'Cellar',           icon: FlaskConical },
   { href: '/schedule',    label: 'Schedule',         icon: CalendarDays },
   { href: '/history',     label: 'History',          icon: Clock },
-  { href: '/readings',    label: 'Readings',         icon: Thermometer },
+  { href: '/readings',    label: 'Temp Log',         icon: Thermometer },
   { href: '/packaging',   label: 'Packaging',        icon: PackageCheck },
   { href: '/reports',     label: 'Reports',          icon: BarChart3 },
   { href: '/recipes',     label: 'Recipes',          icon: BookOpen },
@@ -21,23 +21,32 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
 
+  const linkClass = (href: string) =>
+    `flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors ${
+      isActive(href)
+        ? 'bg-white/15 text-white font-semibold'
+        : 'text-white/55 hover:text-white hover:bg-white/10 font-medium'
+    }`
+
   return (
-    <nav className="flex flex-col gap-1 px-3 mt-4">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          onClick={onNavigate}
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-            isActive(href)
-              ? 'bg-white/15 text-white'
-              : 'text-white/60 hover:text-white hover:bg-white/10'
-          }`}
-        >
-          <Icon className="h-5 w-5 flex-shrink-0" />
-          {label}
+    <nav className="flex flex-col h-full px-3 mt-4">
+      {/* Main nav items */}
+      <div className="flex flex-col gap-1">
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} onClick={onNavigate} className={linkClass(href)}>
+            <Icon className="h-5 w-5 flex-shrink-0" />
+            {label}
+          </Link>
+        ))}
+      </div>
+
+      {/* Settings — pinned at bottom */}
+      <div className="mt-auto pt-3 border-t border-white/10 pb-1">
+        <Link href="/settings" onClick={onNavigate} className={linkClass('/settings')}>
+          <Settings className="h-5 w-5 flex-shrink-0" />
+          Settings
         </Link>
-      ))}
+      </div>
     </nav>
   )
 }
@@ -72,19 +81,19 @@ export function SiteNav() {
     <>
       {/* ── Desktop sidebar ──────────────────────────────────── */}
       <aside className="hidden md:flex flex-col w-44 bg-primary fixed top-0 left-0 bottom-0 z-30">
-        <div className="px-4 py-5 border-b border-white/10">
+        <div className="px-4 py-5 border-b border-white/10 flex flex-col items-center gap-1">
           <Logo />
+          <p className="text-white font-bold text-xs text-center leading-tight">Shapeshifter Brewing Co</p>
         </div>
-        <div className="flex-1 overflow-y-auto py-2">
+        <div className="flex-1 flex flex-col overflow-y-auto py-2">
           <NavLinks />
         </div>
-        <div className="px-4 py-3 border-t border-white/10 flex flex-col gap-2">
-          <p className="text-white/25 text-xs">Shapeshifter Brewing Co</p>
+        <div className="px-3 py-3 border-t border-white/10">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-white/40 hover:text-white/80 text-xs transition-colors"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white/55 hover:text-white hover:bg-white/10 transition-colors w-full"
           >
-            <LogOut className="h-3.5 w-3.5" />
+            <LogOut className="h-5 w-5 flex-shrink-0" />
             Sign out
           </button>
         </div>
@@ -119,7 +128,7 @@ export function SiteNav() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto py-2">
+            <div className="flex-1 flex flex-col overflow-y-auto py-2">
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
           </aside>

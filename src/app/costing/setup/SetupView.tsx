@@ -11,6 +11,7 @@ import {
   saveAdditive, deleteAdditive, saveOverheads,
 } from './actions'
 import type { MaterialRow, AdditiveRow } from './actions'
+import { PackagingImport } from './PackagingImport'
 import { MATERIAL_CATEGORY_LABELS } from '@/lib/packaging-materials'
 import type { MaterialCategory } from '@/lib/packaging-materials'
 
@@ -25,6 +26,7 @@ export function SetupView({ materials, additives, ingredients, settings }: Props
   return (
     <div className="space-y-5">
       <OverheadsCard settings={settings} />
+      <PackagingImport />
       <MaterialsCard materials={materials} />
       <AdditivesCard additives={additives} ingredients={ingredients} />
     </div>

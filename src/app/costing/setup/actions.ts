@@ -184,3 +184,93 @@ export async function getIngredientOptions(): Promise<{ id: string; name: string
     .order('name')
   return (data ?? []) as { id: string; name: string; category: string }[]
 }
+
+// ── Bulk import of parsed packaging costs ────────────────────
+
+export interface ParsedMaterial {
+  name: string
+  category: MaterialCategory
+  price: number | null
+  unit: string
+  supplier: string | null
+  notes: string | null
+  qty_16x440: number | null
+  qty_24x375: number | null
+  qty_keg30: number | null
+  qty_keg50: number | null
+}
+
+/**
+ * Upsert parsed cost lines into the price book and set their per-format
+ * consumption. Matches on name so re-importing an updated price list
+ * refreshes prices rather than creating duplicates.
+ */
+export async function importPackagingCosts(items: ParsedMaterial[]): Promise<{
+  created: number; updated: number; usageSet: number
+}> {
+  const supabase = await createClient()
+  let created = 0, updated = 0, usageSet = 0
+
+  const { data: existing } = await supabase
+    .from('packaging_materials').select('id, name')
+  const byName = new Map(
+    (existing ?? []).map((m: { id: string; name: string }) => [m.name.toLowerCase().trim(), m.id]),
+  )
+
+  for (const item of items) {
+    const name = item.name?.trim()
+    if (!name) continue
+
+    let id = byName.get(name.toLowerCase())
+
+    if (id) {
+      const { error } = await supabase.from('packaging_materials').update({
+        price_per_unit: item.price,
+        supplier: item.supplier,
+        notes: item.notes,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      }).eq('id', id)
+      if (error) throw error
+      updated++
+    } else {
+      const { data, error } = await supabase.from('packaging_materials').insert({
+        name,
+        category: item.category,
+        unit: item.unit || 'each',
+        price_per_unit: item.price,
+        supplier: item.supplier,
+        notes: item.notes,
+        is_active: true,
+      }).select('id').single()
+      if (error) throw error
+      id = data.id as string
+      byName.set(name.toLowerCase(), id)
+      created++
+    }
+
+    const qtys: [PackageFormat, number | null][] = [
+      ['16x440', item.qty_16x440],
+      ['24x375', item.qty_24x375],
+      ['keg30',  item.qty_keg30],
+      ['keg50',  item.qty_keg50],
+    ]
+    // Only formats the document actually spoke about. A null is silence,
+    // not zero, so an existing quantity is left alone.
+    for (const [format, qty] of qtys) {
+      if (qty == null) continue
+      if (qty <= 0) {
+        await supabase.from('format_material_usage')
+          .delete().eq('material_id', id).eq('format', format)
+      } else {
+        await supabase.from('format_material_usage')
+          .upsert({ material_id: id, format, qty_per_unit: qty },
+                  { onConflict: 'format,material_id' })
+      }
+      usageSet++
+    }
+  }
+
+  revalidatePath('/costing')
+  return { created, updated, usageSet }
+}

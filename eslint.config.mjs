@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Read-only diagnostic scripts, not part of the app build
+    "scripts/**",
   ]),
 ]);
 

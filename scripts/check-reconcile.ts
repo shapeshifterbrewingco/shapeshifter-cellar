@@ -37,6 +37,7 @@ async function main() {
   // One synthetic line carrying the sheet's ingredient total, so the
   // comparison isolates the packaging and allocation maths.
   const ingredients: PricedIngredient[] = [{
+    recipeIngredientId: null,
     ingredientId: 'sheet', name: 'Ingredients (from sheet)',
     quantity: 1, unit: 'each',
     pricePerUnit: INGREDIENTS_TOTAL, priceUnit: 'each', supplier: 'sheet',

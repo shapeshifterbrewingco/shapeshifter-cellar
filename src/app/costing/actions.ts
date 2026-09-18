@@ -138,14 +138,14 @@ export async function getCostingReference(): Promise<CostingReference> {
     getSettings(),
     supabase
       .from('format_material_usage')
-      .select('format, qty_per_unit, material_id, packaging_materials(id, name, category, price_per_unit, is_active)'),
+      .select('format, qty_per_unit, material_id, packaging_materials(id, name, category, price_per_unit, supplier, is_active)'),
   ])
 
   type UsageRow = {
     format: PackageFormat
     qty_per_unit: number
     material_id: string
-    packaging_materials: { id: string; name: string; category: string; price_per_unit: number | null; is_active: boolean } | null
+    packaging_materials: { id: string; name: string; category: string; price_per_unit: number | null; supplier: string | null; is_active: boolean } | null
   }
 
   const materials: MaterialUsage[] = ((usage ?? []) as unknown as UsageRow[])
@@ -158,6 +158,7 @@ export async function getCostingReference(): Promise<CostingReference> {
       qtyPerUnit: Number(u.qty_per_unit),
       pricePerUnit: u.packaging_materials!.price_per_unit != null
         ? Number(u.packaging_materials!.price_per_unit) : null,
+      supplier: u.packaging_materials!.supplier,
     }))
 
   return {
@@ -198,7 +199,7 @@ export async function getRecipeCostInputs(recipeId: string): Promise<RecipeCostI
   const [{ data: recipe }, { data: rows }] = await Promise.all([
     supabase.from('recipes').select('brew_volume_l, target_abv').eq('id', recipeId).single(),
     supabase.from('recipe_ingredients')
-      .select('name, quantity, unit, ingredient_id, addition_stage')
+      .select('id, name, quantity, unit, ingredient_id, addition_stage')
       .eq('recipe_id', recipeId)
       .order('sort_order'),
   ])
@@ -209,6 +210,7 @@ export async function getRecipeCostInputs(recipeId: string): Promise<RecipeCostI
   const ingredients: PricedIngredient[] = (rows ?? []).map((r) => {
     const p = r.ingredient_id ? prices.get(r.ingredient_id) : undefined
     return {
+      recipeIngredientId: r.id,
       ingredientId: r.ingredient_id ?? null,
       name: r.name,
       quantity: r.quantity != null ? Number(r.quantity) : null,
@@ -361,5 +363,106 @@ export async function getSnapshots(recipeId: string | null): Promise<SnapshotRow
 export async function deleteSnapshot(id: string) {
   const supabase = await createClient()
   await supabase.from('batch_cost_snapshots').delete().eq('id', id)
+  revalidatePath('/costing')
+}
+
+// ── Fixing gaps without leaving the costing screen ───────────
+
+/**
+ * Add a price to an ingredient and make it the one costing uses.
+ * This is the fix for a "no price" line: the recipe importer creates
+ * ingredient rows from recipe names, so plenty of them carry no price.
+ */
+export async function addIngredientPrice(args: {
+  ingredientId: string
+  price: number
+  unit: string
+  supplier: string
+  producer?: string | null
+}) {
+  const supabase = await createClient()
+
+  const { error } = await supabase.from('ingredient_prices').upsert({
+    ingredient_id: args.ingredientId,
+    supplier: args.supplier.trim() || 'Manual entry',
+    producer: args.producer?.trim() ?? '',
+    price_per_unit: args.price,
+    unit: args.unit,
+    imported_at: new Date().toISOString(),
+  }, { onConflict: 'ingredient_id,supplier,producer' })
+  if (error) throw error
+
+  // A hand-entered price is a deliberate choice, so prefer it over whatever
+  // else is on file for this ingredient.
+  await supabase.from('ingredient_prices')
+    .update({ is_preferred: false }).eq('ingredient_id', args.ingredientId)
+  await supabase.from('ingredient_prices')
+    .update({ is_preferred: true })
+    .eq('ingredient_id', args.ingredientId)
+    .eq('supplier', args.supplier.trim() || 'Manual entry')
+    .eq('producer', args.producer?.trim() ?? '')
+
+  revalidatePath('/costing')
+}
+
+/** Fix a recipe line that has no quantity, or whose unit cannot be costed. */
+export async function updateRecipeLine(args: {
+  recipeIngredientId: string
+  quantity: number | null
+  unit: string | null
+}) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('recipe_ingredients').update({
+    quantity: args.quantity,
+    unit: args.unit?.trim() || null,
+  }).eq('id', args.recipeIngredientId)
+  if (error) throw error
+  revalidatePath('/costing')
+}
+
+/** Every price on file for an ingredient, so the right one can be chosen. */
+export async function getPricesForIngredient(ingredientId: string): Promise<{
+  id: string; supplier: string; producer: string | null
+  pricePerUnit: number | null; unit: string; isPreferred: boolean
+}[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('ingredient_prices')
+    .select('id, supplier, producer, price_per_unit, unit, is_preferred')
+    .eq('ingredient_id', ingredientId)
+    .order('price_per_unit')
+
+  return ((data ?? []) as {
+    id: string; supplier: string; producer: string | null
+    price_per_unit: number | null; unit: string; is_preferred: boolean | null
+  }[]).map((p) => ({
+    id: p.id, supplier: p.supplier, producer: p.producer,
+    pricePerUnit: p.price_per_unit != null ? Number(p.price_per_unit) : null,
+    unit: p.unit, isPreferred: p.is_preferred ?? false,
+  }))
+}
+
+export async function choosePriceRow(ingredientId: string, priceId: string) {
+  const supabase = await createClient()
+  await supabase.from('ingredient_prices')
+    .update({ is_preferred: false }).eq('ingredient_id', ingredientId)
+  const { error } = await supabase.from('ingredient_prices')
+    .update({ is_preferred: true }).eq('id', priceId)
+  if (error) throw error
+  revalidatePath('/costing')
+}
+
+/** Price one packaging material without leaving the costing screen. */
+export async function setMaterialPrice(materialId: string, price: number, supplier?: string | null) {
+  const supabase = await createClient()
+  const patch: Record<string, unknown> = {
+    price_per_unit: price,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  }
+  if (supplier != null && supplier.trim()) patch.supplier = supplier.trim()
+
+  const { error } = await supabase.from('packaging_materials').update(patch).eq('id', materialId)
+  if (error) throw error
   revalidatePath('/costing')
 }

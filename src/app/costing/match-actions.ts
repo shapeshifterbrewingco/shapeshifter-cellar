@@ -170,3 +170,31 @@ export async function setPreferredPrice(ingredientId: string, priceId: string) {
   if (error) throw error
   revalidatePath('/costing')
 }
+
+/** Ranked candidates for one recipe line, fetched on demand. */
+export async function getCandidatesForLine(recipeIngredientId: string): Promise<MatchCandidate[]> {
+  const supabase = await createClient()
+  const { data: row } = await supabase
+    .from('recipe_ingredients')
+    .select('name, category')
+    .eq('id', recipeIngredientId)
+    .single()
+  if (!row) return []
+
+  const library = await loadLibrary(supabase)
+  // Only priced entries are useful when the point is to get a cost.
+  const priced = library.filter((l) => l.pricePerUnit != null)
+  return findCandidates(row.name, row.category, priced, 10)
+}
+
+/** Free-text search of the priced library, for when no candidate fits. */
+export async function searchPricedLibrary(query: string): Promise<MatchCandidate[]> {
+  const q = query.trim()
+  if (q.length < 2) return []
+  const supabase = await createClient()
+  const library = await loadLibrary(supabase)
+  return library
+    .filter((l) => l.pricePerUnit != null && l.name.toLowerCase().includes(q.toLowerCase()))
+    .slice(0, 12)
+    .map((l) => ({ ...l, score: 1 }))
+}

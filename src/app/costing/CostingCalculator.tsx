@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useMemo, useTransition } from 'react'
+import { Fragment, useState, useEffect, useMemo, useTransition } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, Check, Save, Wand2, Link2 } from 'lucide-react'
 import {
   calculateCosting, suggestSplit, EMPTY_SPLIT, formatMoney,
-  FORMAT_ORDER, FORMAT_META, CLARITY_LABELS,
+  FORMAT_ORDER, FORMAT_META, CLARITY_LABELS, GAP_LABELS,
 } from '@/lib/costing'
 import type { Clarity, SplitQuantities, CostingResult, CostLine } from '@/lib/costing'
+import { FixLine, FixMaterial } from './FixLine'
 import type { ExciseCategory } from '@/types'
 import { EXCISE_CATEGORY_LABELS } from '@/types'
 import {
@@ -43,18 +44,34 @@ export function CostingCalculator({ recipes, reference, prefills }: Props) {
 
   const recipe = recipes.find((r) => r.id === recipeId) ?? null
 
-  // Load the recipe's priced ingredients
+  // Load the recipe's priced ingredients. `reloadKey` bumps after an inline
+  // fix so the cost reflects the change without a page reload.
+  const [reloadKey, setReloadKey] = useState(0)
+
   useEffect(() => {
-    if (!recipeId) { setInputs(null); return }
-    setLoading(true)
-    getRecipeCostInputs(recipeId)
-      .then((i) => {
+    let live = true
+    // State changes stay inside the async callbacks so the effect does not
+    // set state synchronously on mount and trigger a cascading render.
+    ;(async () => {
+      if (!recipeId) { setInputs(null); return }
+      setLoading(true)
+      try {
+        const i = await getRecipeCostInputs(recipeId)
+        if (!live) return
         setInputs(i)
         setVolume((v) => v || (i.recipeVolumeL != null ? String(i.recipeVolumeL) : ''))
         setAbv((a) => a || (i.targetAbv != null ? String(i.targetAbv) : ''))
-      })
-      .finally(() => setLoading(false))
-  }, [recipeId])
+      } finally {
+        if (live) setLoading(false)
+      }
+    })()
+    return () => { live = false }
+  }, [recipeId, reloadKey])
+
+  function reload() {
+    setReloadKey((k) => k + 1)
+    getClarityAdditives(clarity).then(setAdditives)
+  }
 
   // Load the additive template for bright or hazy
   useEffect(() => {
@@ -269,7 +286,7 @@ export function CostingCalculator({ recipes, reference, prefills }: Props) {
         </p>
       )}
 
-      {result && <ResultPanel result={result} onSave={handleSave} saved={saved} />}
+      {result && <ResultPanel result={result} onSave={handleSave} saved={saved} onFixed={reload} />}
     </div>
   )
 }
@@ -303,8 +320,8 @@ function VolumeBar({ result }: { result: CostingResult }) {
 
 // ── Results ────────────────────────────────────────────────
 
-function ResultPanel({ result, onSave, saved }: {
-  result: CostingResult; onSave: () => void; saved: boolean
+function ResultPanel({ result, onSave, saved, onFixed }: {
+  result: CostingResult; onSave: () => void; saved: boolean; onFixed: () => void
 }) {
   const used = result.formats.filter((f) => f.qty > 0)
   const shown = used.length > 0 ? used : result.formats
@@ -401,9 +418,9 @@ function ResultPanel({ result, onSave, saved }: {
       </section>
 
       {/* Ingredient breakdown */}
-      <Breakdown title="Ingredients" lines={result.ingredientLines} />
+      <Breakdown title="Ingredients" lines={result.ingredientLines} onFixed={onFixed} />
       {result.additiveLines.length > 0 && (
-        <Breakdown title="Process additives" lines={result.additiveLines} />
+        <Breakdown title="Process additives" lines={result.additiveLines} onFixed={onFixed} />
       )}
 
       {/* Per-format make-up */}
@@ -424,12 +441,15 @@ function ResultPanel({ result, onSave, saved }: {
           </thead>
           <tbody>
             {shown.map((f) => (
-              <tr key={f.format} className="border-b border-gray-50 last:border-0">
+              <Fragment key={f.format}>
+              <tr className="border-b border-gray-50 align-top">
                 <td className="py-1.5 text-gray-800">
                   {f.label}
                   {f.qty > 0 && <span className="text-gray-400 ml-1.5">× {f.qty}</span>}
                   {!f.materialsComplete && (
-                    <span className="text-amber-600 ml-1.5 text-xs">materials unpriced</span>
+                    <span className="text-amber-600 ml-1.5 text-xs">
+                      {f.materialLines.filter((l) => l.gap).length} unpriced
+                    </span>
                   )}
                 </td>
                 <td className="py-1.5 text-right tabular-nums text-gray-600">{formatMoney(f.liquidCost)}</td>
@@ -438,6 +458,27 @@ function ResultPanel({ result, onSave, saved }: {
                 <td className="py-1.5 text-right tabular-nums text-gray-600">{formatMoney(f.overheadCost)}</td>
                 <td className="py-1.5 text-right tabular-nums font-semibold text-gray-900">{formatMoney(f.unitCost)}</td>
               </tr>
+              {f.materialLines.some((l) => l.gap) && (
+                <tr className="border-b border-gray-50">
+                  <td colSpan={6} className="pb-3 pl-4">
+                    <p className="text-[11px] text-gray-400 mb-1.5">
+                      Missing from {f.label}. Each one makes the cost above too low.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {f.materialLines.filter((l) => l.gap && l.materialId).map((l) => (
+                        <FixMaterial
+                          key={l.materialId}
+                          materialId={l.materialId!}
+                          name={l.name}
+                          detail={l.detail}
+                          onFixed={onFixed}
+                        />
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -446,25 +487,36 @@ function ResultPanel({ result, onSave, saved }: {
   )
 }
 
-function Breakdown({ title, lines }: { title: string; lines: CostLine[] }) {
+function Breakdown({ title, lines, onFixed }: {
+  title: string; lines: CostLine[]; onFixed: () => void
+}) {
   if (lines.length === 0) return null
   const priced = lines.filter((l) => l.gap == null).length
+  const fixable = lines.length - priced
 
   return (
     <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
       <details open={priced < lines.length}>
         <summary className="text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer">
           {title} — {priced}/{lines.length} priced
+          {fixable > 0 && (
+            <span className="ml-2 font-normal normal-case tracking-normal text-amber-700">
+              {fixable} to fix
+            </span>
+          )}
         </summary>
         <table className="w-full text-sm mt-3">
           <tbody>
             {lines.map((l, i) => (
-              <tr key={`${l.name}-${i}`} className="border-b border-gray-50 last:border-0">
+              <tr key={`${l.name}-${i}`} className="border-b border-gray-50 last:border-0 align-top">
                 <td className="py-1.5">
                   <span className={l.gap ? 'text-amber-700' : 'text-gray-800'}>{l.name}</span>
                   <span className="text-gray-400 text-xs ml-2">
                     {l.quantity != null ? `${l.quantity.toFixed(2)} ${l.unit ?? ''}` : 'no quantity'}
                   </span>
+                  {l.gap && l.recipeIngredientId && (
+                    <FixLine line={l} onFixed={onFixed} />
+                  )}
                 </td>
                 <td className="py-1.5 text-right text-xs text-gray-400 whitespace-nowrap">
                   {l.pricePerUnit != null
@@ -475,7 +527,7 @@ function Breakdown({ title, lines }: { title: string; lines: CostLine[] }) {
                 <td className="py-1.5 text-right tabular-nums w-24">
                   {l.cost != null
                     ? <span className="text-gray-800 font-medium">{formatMoney(l.cost)}</span>
-                    : <span className="text-amber-600 text-xs">{gapLabel(l.gap)}</span>}
+                    : <span className="text-amber-600 text-xs">{GAP_LABELS[l.gap!]}</span>}
                 </td>
               </tr>
             ))}
@@ -484,13 +536,6 @@ function Breakdown({ title, lines }: { title: string; lines: CostLine[] }) {
       </details>
     </section>
   )
-}
-
-function gapLabel(gap: CostLine['gap']): string {
-  if (gap === 'not-linked') return 'not linked'
-  if (gap === 'no-price') return 'no price'
-  if (gap === 'unit-mismatch') return 'unit mismatch'
-  return ''
 }
 
 // ── Small pieces ───────────────────────────────────────────

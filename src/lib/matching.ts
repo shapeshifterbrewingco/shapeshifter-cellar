@@ -69,13 +69,6 @@ function tokenHit(token: string, libraryTokens: string[]): boolean {
   return false
 }
 
-function tokenOverlap(a: string[], b: string[]): number {
-  if (a.length === 0 || b.length === 0) return 0
-  const hits = a.filter((t) => tokenHit(t, b)).length
-  const back = b.filter((t) => tokenHit(t, a)).length
-  return (hits + back) / (a.length + b.length)
-}
-
 /**
  * Score one library entry against a recipe ingredient name.
  *

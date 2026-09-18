@@ -103,6 +103,8 @@ export function convertUnits(qty: number, from: string | null, to: string | null
 // ── Inputs ───────────────────────────────────────────────────
 
 export interface PricedIngredient {
+  /** recipe_ingredients row, so a fix can write back to the recipe. */
+  recipeIngredientId: string | null
   ingredientId: string | null
   name: string
   quantity: number | null
@@ -131,6 +133,7 @@ export interface MaterialUsage {
   /** Per carton for can formats, per keg for keg formats. */
   qtyPerUnit: number
   pricePerUnit: number | null
+  supplier?: string | null
 }
 
 export interface OverheadRates {
@@ -178,6 +181,8 @@ export interface CostingInput {
 
 // ── Outputs ──────────────────────────────────────────────────
 
+export type CostGap = 'not-linked' | 'no-quantity' | 'no-price' | 'unit-mismatch'
+
 export interface CostLine {
   name: string
   detail: string
@@ -188,7 +193,12 @@ export interface CostLine {
   cost: number | null
   supplier: string | null
   /** Why this line has no cost. Null when it is priced. */
-  gap: 'no-price' | 'not-linked' | 'unit-mismatch' | null
+  gap: CostGap | null
+  /** Set for recipe lines, so the gap can be fixed from the costing screen. */
+  recipeIngredientId: string | null
+  ingredientId: string | null
+  /** Set for packaging material lines, for the same reason. */
+  materialId?: string | null
 }
 
 export interface FormatCost {
@@ -265,15 +275,19 @@ function priceLine(
   priceUnit: string | null,
   supplier: string | null,
   linked: boolean,
+  recipeIngredientId: string | null = null,
+  ingredientId: string | null = null,
 ): CostLine {
   let cost: number | null = null
-  let gap: CostLine['gap'] = null
+  let gap: CostGap | null = null
 
+  // Ordered by what has to be fixed first. A line with no quantity cannot be
+  // costed even when it is priced, so say that rather than "no price".
   if (!linked) {
     gap = 'not-linked'
-  } else if (pricePerUnit == null) {
-    gap = 'no-price'
   } else if (quantity == null) {
+    gap = 'no-quantity'
+  } else if (pricePerUnit == null) {
     gap = 'no-price'
   } else {
     const converted = convertUnits(quantity, unit, priceUnit)
@@ -284,7 +298,17 @@ function priceLine(
     }
   }
 
-  return { name, detail, quantity, unit, pricePerUnit, priceUnit, cost, supplier, gap }
+  return {
+    name, detail, quantity, unit, pricePerUnit, priceUnit, cost, supplier, gap,
+    recipeIngredientId, ingredientId,
+  }
+}
+
+export const GAP_LABELS: Record<CostGap, string> = {
+  'not-linked': 'not linked',
+  'no-quantity': 'no quantity',
+  'no-price': 'no price',
+  'unit-mismatch': 'unit mismatch',
 }
 
 export function calculateCosting(input: CostingInput): CostingResult {
@@ -312,6 +336,7 @@ export function calculateCosting(input: CostingInput): CostingResult {
         : 'Recipe',
       scaledQty, ing.unit, ing.pricePerUnit, ing.priceUnit, ing.supplier,
       ing.ingredientId != null,
+      ing.recipeIngredientId, ing.ingredientId,
     )
   })
 
@@ -333,6 +358,7 @@ export function calculateCosting(input: CostingInput): CostingResult {
 
   for (const l of [...ingredientLines, ...additiveLines]) {
     if (l.gap === 'not-linked') gaps.push(`${l.name} is not linked to the ingredient library`)
+    else if (l.gap === 'no-quantity') gaps.push(`${l.name} has no quantity in the recipe`)
     else if (l.gap === 'no-price') gaps.push(`${l.name} has no price on file`)
     else if (l.gap === 'unit-mismatch') gaps.push(`${l.name} is in ${l.unit ?? '?'} but priced per ${l.priceUnit ?? '?'}`)
   }
@@ -366,10 +392,13 @@ export function calculateCosting(input: CostingInput): CostingResult {
 
     const materialLines: CostLine[] = materials
       .filter((m) => m.format === format)
-      .map((m) => priceLine(
-        m.name, `${m.qtyPerUnit} per ${meta.isKeg ? 'keg' : 'carton'}`,
-        m.qtyPerUnit, 'each', m.pricePerUnit, 'each', null, true,
-      ))
+      .map((m) => ({
+        ...priceLine(
+          m.name, `${m.qtyPerUnit} per ${meta.isKeg ? 'keg' : 'carton'}`,
+          m.qtyPerUnit, 'each', m.pricePerUnit, 'each', m.supplier ?? null, true,
+        ),
+        materialId: m.materialId,
+      }))
 
     const materialsCost = sum(materialLines)
     const materialsComplete = materialLines.every((l) => l.gap == null)

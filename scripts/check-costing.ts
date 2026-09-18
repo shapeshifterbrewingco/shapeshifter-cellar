@@ -44,6 +44,7 @@ async function main() {
     const cands = findCandidates(r.name, r.category, priced)
     const pick = isConfidentMatch(cands) ? cands[0] : null
     return {
+      recipeIngredientId: null,
       ingredientId: pick?.id ?? null,
       name: r.name,
       quantity: r.quantity != null ? Number(r.quantity) : null,

@@ -15,6 +15,15 @@ export interface AppSettings {
   // SA Canning contract rates — cost per can = (vol_ml/1000) * per_l + per_end
   sa_canning_rate_per_l: number    // $/litre fill
   sa_canning_rate_per_end: number  // $/end (lid) per can
+  // Overheads folded into unit cost, spread across packaged litres
+  overhead_labour_per_batch: number
+  overhead_energy_per_batch: number
+  overhead_chemicals_per_batch: number
+  overhead_water_per_batch: number
+  overhead_other_per_l: number
+  // Costing defaults
+  default_loss_pct: number
+  default_clarity: 'bright' | 'hazy'
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -30,6 +39,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   excise_rate_keg_mid: 33.11,
   sa_canning_rate_per_l: 0.99,
   sa_canning_rate_per_end: 0.069,
+  overhead_labour_per_batch: 0,
+  overhead_energy_per_batch: 0,
+  overhead_chemicals_per_batch: 0,
+  overhead_water_per_batch: 0,
+  overhead_other_per_l: 0,
+  default_loss_pct: 10,
+  default_clarity: 'bright',
 }
 
 // ─── Recipes ─────────────────────────────────────────────────────────────────
@@ -172,6 +188,10 @@ export interface PackagingSplit {
   abv: number | null
   excise_category: ExciseCategory | null
   clip_colour: string | null
+  // Costing inputs
+  clarity: 'bright' | 'hazy' | null
+  volume_into_tank_l: number | null
+  loss_pct: number | null
   collars_on_site: number
   decals_on_site: number
   // Packaging QC readings

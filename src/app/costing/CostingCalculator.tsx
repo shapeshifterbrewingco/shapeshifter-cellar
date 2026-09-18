@@ -9,6 +9,7 @@ import {
 } from '@/lib/costing'
 import type { Clarity, SplitQuantities, CostingResult, CostLine } from '@/lib/costing'
 import { FixLine, FixMaterial } from './FixLine'
+import { AmbiguousUnits } from './AmbiguousUnits'
 import type { ExciseCategory } from '@/types'
 import { EXCISE_CATEGORY_LABELS } from '@/types'
 import {
@@ -237,6 +238,8 @@ export function CostingCalculator({ recipes, reference, prefills }: Props) {
           )}
         </div>
       </section>
+
+      {recipeId && <AmbiguousUnits key={`${recipeId}-${reloadKey}`} recipeId={recipeId} onResolved={reload} />}
 
       {/* ── Packaging split ───────────────────────────────── */}
       <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">

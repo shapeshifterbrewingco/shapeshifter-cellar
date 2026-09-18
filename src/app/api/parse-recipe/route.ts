@@ -31,7 +31,20 @@ Return ONLY a single valid JSON object — no markdown, no explanation:
     }
   ]
 }
-Use null for any fields not found. For addition_stage: "malt" for base malts/grains, "mash_hop" for first wort/mash hops, "kettle_hop" for bittering/flavour hops with time, "dry_hop" for post-fermentation hops, "yeast" for yeast. Include ALL ingredients.`
+Use null for any fields not found. For addition_stage: "malt" for base malts/grains, "mash_hop" for first wort/mash hops, "kettle_hop" for bittering/flavour hops with time, "dry_hop" for post-fermentation hops, "yeast" for yeast. Include ALL ingredients.
+
+UNITS — this matters, get it right:
+- "unit" must be ONE single unit: g, kg, mL, L, each or pkg. Never a compound
+  like "g/kg" or "mL/L".
+- Brew sheets often head a column "G/KG" or "ML/L". That means the column holds
+  EITHER grams or kilograms, not grams per kilogram. It is not a dose rate.
+  Decide which one the number is and return that single unit.
+- Decide by magnitude and by what the ingredient is. Kettle additions, finings,
+  water salts, enzymes and nutrients are dosed in grams: Whirlfloc 15, Antifoam
+  100, Polygel 170 and Servomyces 15 are all grams. Base malts and hops in the
+  tens or hundreds are kilograms.
+- If a quantity is written with its unit inline, such as "250g" or "1kg", put the
+  number in "quantity" and the unit in "unit". Do not leave the unit in the name.`
 
 export interface ParsedRecipe {
   name: string

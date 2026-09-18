@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/app/settings/actions'
 import type { PackageFormat } from '@/types'
-import { convertUnits } from '@/lib/costing'
+import { convertUnits, isAmbiguousUnit, likelyUnit } from '@/lib/costing'
 import type {
   Clarity, PricedIngredient, ClarityAdditive, MaterialUsage,
   OverheadRates, CanningRates, ExciseRates, CostingResult,
@@ -465,4 +465,63 @@ export async function setMaterialPrice(materialId: string, price: number, suppli
   const { error } = await supabase.from('packaging_materials').update(patch).eq('id', materialId)
   if (error) throw error
   revalidatePath('/costing')
+}
+
+// ── Ambiguous units copied off a brew sheet column ──────────
+
+export interface AmbiguousLine {
+  id: string
+  name: string
+  quantity: number | null
+  unit: string
+  proposed: string
+}
+
+/**
+ * Recipe lines whose unit came straight off a column heading such as "G/KG".
+ * That means grams OR kilograms, so the line cannot be costed until one is
+ * chosen. `proposed` is the one the magnitude points to.
+ */
+export async function getAmbiguousUnits(recipeId: string): Promise<AmbiguousLine[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('recipe_ingredients')
+    .select('id, name, quantity, unit')
+    .eq('recipe_id', recipeId)
+    .order('sort_order')
+
+  return ((data ?? []) as { id: string; name: string; quantity: number | null; unit: string | null }[])
+    .filter((r) => isAmbiguousUnit(r.unit))
+    .map((r) => {
+      const qty = r.quantity != null ? Number(r.quantity) : null
+      return {
+        id: r.id,
+        name: r.name,
+        quantity: qty,
+        unit: r.unit as string,
+        proposed: likelyUnit(r.unit, qty) ?? 'g',
+      }
+    })
+}
+
+/**
+ * Resolve every ambiguous unit on a recipe. Pass a unit to force all of them,
+ * or leave it out to take the proposal for each line.
+ */
+export async function resolveAmbiguousUnits(
+  recipeId: string, force?: string,
+): Promise<number> {
+  const supabase = await createClient()
+  const lines = await getAmbiguousUnits(recipeId)
+
+  for (const l of lines) {
+    const { error } = await supabase
+      .from('recipe_ingredients')
+      .update({ unit: force ?? l.proposed })
+      .eq('id', l.id)
+    if (error) throw error
+  }
+
+  revalidatePath('/costing')
+  return lines.length
 }

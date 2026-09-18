@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { Check, Loader2, Search, X } from 'lucide-react'
-import { formatMoney, GAP_LABELS } from '@/lib/costing'
+import { formatMoney, GAP_LABELS, isAmbiguousUnit, likelyUnit } from '@/lib/costing'
 import type { CostLine } from '@/lib/costing'
 import type { MatchCandidate } from '@/lib/matching'
 import { getCandidatesForLine, searchPricedLibrary, linkIngredient } from './match-actions'
@@ -40,7 +40,13 @@ export function FixLine({ line, onFixed }: { line: CostLine; onFixed: () => void
   const [supplier, setSupplier] = useState('')
 
   const [qty, setQty] = useState(line.quantity != null ? String(line.quantity) : '')
-  const [qtyUnit, setQtyUnit] = useState(line.unit ?? 'kg')
+  // An ambiguous unit like "g/kg" is not a real option, so start on the one
+  // the amount most likely means rather than showing an invalid selection.
+  const [qtyUnit, setQtyUnit] = useState(
+    isAmbiguousUnit(line.unit)
+      ? (likelyUnit(line.unit, line.quantity) ?? 'g')
+      : (line.unit && UNITS.includes(line.unit) ? line.unit : 'kg'),
+  )
 
   const needsProduct = line.gap === 'not-linked' || line.gap === 'no-price'
   const needsQty = line.gap === 'no-quantity' || line.gap === 'unit-mismatch'
@@ -226,7 +232,9 @@ export function FixLine({ line, onFixed }: { line: CostLine; onFixed: () => void
         <div>
           <p className="text-[11px] font-medium text-gray-600 mb-1">
             {line.gap === 'unit-mismatch'
-              ? `The recipe says ${line.unit ?? '?'}, which cannot be costed against a price per ${line.priceUnit ?? '?'}. Correct it.`
+              ? isAmbiguousUnit(line.unit)
+                ? `The recipe says ${line.unit}, which is a column heading meaning one unit or the other. Pick which.`
+                : `The recipe says ${line.unit ?? '?'}, which cannot be costed against a price per ${line.priceUnit ?? '?'}. Correct it.`
               : 'Set the quantity the recipe uses'}
           </p>
           <div className="flex flex-wrap items-center gap-1.5">

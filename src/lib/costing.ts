@@ -85,8 +85,10 @@ function resolveUnit(u: string): { dim: 'mass' | 'volume' | 'count'; factor: num
 /**
  * Convert a quantity between units of the same dimension.
  * Returns null when the units are not comparable — the caller must treat that
- * as a costing gap rather than assuming a 1:1 match. A dosing rate such as
- * "g/kg" is deliberately not convertible: it is a rate, not a quantity.
+ * as a costing gap rather than assuming a 1:1 match. A compound unit such as
+ * "g/kg" is not convertible because it is ambiguous, not because it is a rate:
+ * brew sheets head a column "G/KG" to mean the number is in grams OR
+ * kilograms, and only a human knows which.
  */
 export function convertUnits(qty: number, from: string | null, to: string | null): number | null {
   const f = norm(from)
@@ -500,6 +502,41 @@ export function suggestSplit(packagedVolumeL: number, kegShare = 0.5): SplitQuan
 }
 
 export const EMPTY_SPLIT: SplitQuantities = { '24x375': 0, '16x440': 0, keg30: 0, keg50: 0 }
+
+/**
+ * A unit copied straight off a brew sheet column heading, such as "g/kg" or
+ * "mL/L". It means the number is in one unit or the other, so it cannot be
+ * costed until someone says which.
+ */
+export function isAmbiguousUnit(unit: string | null | undefined): boolean {
+  return !!unit && unit.includes('/')
+}
+
+/**
+ * The two units an ambiguous one could mean, smaller first.
+ * "g/kg" gives ['g', 'kg'].
+ */
+export function ambiguousOptions(unit: string | null | undefined): [string, string] | null {
+  if (!isAmbiguousUnit(unit)) return null
+  const parts = unit!.split('/').map((p) => p.trim()).filter(Boolean)
+  if (parts.length !== 2) return null
+  return [parts[0], parts[1]]
+}
+
+/**
+ * Which of the two an amount is most likely to be, judged on magnitude.
+ * Kettle additions, finings and salts are dosed in grams, so 170 is grams and
+ * not 170 kg. Anything in the hundreds of the larger unit is implausible for a
+ * single addition.
+ */
+export function likelyUnit(unit: string | null | undefined, quantity: number | null): string | null {
+  const opts = ambiguousOptions(unit)
+  if (!opts) return null
+  const [small, large] = opts
+  if (quantity == null) return small
+  // Over ~10 of the larger unit stops being credible for a single addition.
+  return quantity > 10 ? small : large
+}
 
 export function formatMoney(n: number | null | undefined, dp = 2): string {
   if (n == null || !isFinite(n)) return '—'

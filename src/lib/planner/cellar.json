@@ -1,0 +1,146 @@
+{
+  "_comment": "Shapeshifter Findon cellar. Verified 7 Sep 2026 with James. Update here when the cellar changes; the solver reads this file.",
+  "brew_days": [
+    "Tue",
+    "Thu"
+  ],
+  "canning_days": [
+    "Wed"
+  ],
+  "canning_note": "Wednesday-only for CANS because the mobile canner attends. Kegs can be packed any day.",
+  "batch_litres": 1000,
+  "vessels": {
+    "FV1": {
+      "type": "fermenter",
+      "large": false,
+      "racking_arm": true
+    },
+    "FV2": {
+      "type": "fermenter",
+      "large": false,
+      "racking_arm": true
+    },
+    "FV3": {
+      "type": "fermenter",
+      "large": false,
+      "racking_arm": true
+    },
+    "FV4": {
+      "type": "fermenter",
+      "large": true,
+      "racking_arm": true
+    },
+    "FV5": {
+      "type": "fermenter",
+      "large": true,
+      "racking_arm": true
+    },
+    "FV6": {
+      "type": "fermenter",
+      "large": false,
+      "racking_arm": false,
+      "note": "No racking arm. Lager or dark beer with very low hopping only. Never dry-hopped."
+    },
+    "FV7": {
+      "type": "fermenter",
+      "large": false,
+      "racking_arm": false,
+      "note": "No racking arm. Lager or dark beer with very low hopping only. Never dry-hopped."
+    },
+    "FV8": {
+      "type": "fermenter",
+      "large": true,
+      "racking_arm": true
+    },
+    "FV9": {
+      "type": "fermenter",
+      "large": true,
+      "racking_arm": true
+    },
+    "FV10": {
+      "type": "brite",
+      "large": false,
+      "racking_arm": true,
+      "note": "Dedicated brite. Also takes quick lemonade turnarounds (~1 week, unfermented). Not a general fermenter."
+    },
+    "FV11": {
+      "type": "fermenter",
+      "large": true,
+      "racking_arm": true,
+      "note": "Swing tank. Can act as an extra brite for high-volume beers such as Party Shirt."
+    },
+    "BBTA": {
+      "type": "brite"
+    },
+    "BBTB": {
+      "type": "brite"
+    }
+  },
+  "beer_attributes": {
+    "_comment": "needs_large = must go in a large tank. dry_hopped = must have a racking arm, so never FV6/FV7.",
+    "Party Shirt": {
+      "needs_large": true,
+      "dry_hopped": true
+    },
+    "Providore Pale": {
+      "needs_large": true,
+      "dry_hopped": true
+    },
+    "Golden Ratio": {
+      "needs_large": false,
+      "dry_hopped": true
+    },
+    "Nordic": {
+      "needs_large": false,
+      "dry_hopped": true
+    },
+    "Daybreak": {
+      "needs_large": false,
+      "dry_hopped": true,
+      "note": "Assumed dry-hopped. Confirm with Carla - if not, it frees a racking-arm tank."
+    },
+    "All I Want": {
+      "needs_large": false,
+      "dry_hopped": true
+    },
+    "Culture Shock": {
+      "needs_large": false,
+      "dry_hopped": false,
+      "note": "Rice lager - FV6/FV7 candidate"
+    },
+    "Make Your Move": {
+      "needs_large": false,
+      "dry_hopped": false,
+      "note": "Dark lager - FV6/FV7 candidate"
+    },
+    "Hoodie Weather": {
+      "needs_large": false,
+      "dry_hopped": false,
+      "note": "Oatmeal stout - FV6/FV7 candidate"
+    },
+    "Divide": {
+      "needs_large": false,
+      "dry_hopped": false,
+      "note": "Barrel-aged imperial stout - ideal FV6/FV7"
+    },
+    "Stein Swinger": {
+      "needs_large": false,
+      "dry_hopped": false,
+      "note": "Festbier - FV6/FV7 candidate"
+    },
+    "Lemon Haze": {
+      "needs_large": false,
+      "dry_hopped": false,
+      "note": "Not fermented. Route to FV10."
+    },
+    "sour": {
+      "needs_large": false,
+      "dry_hopped": false
+    },
+    "Findon": {
+      "needs_large": false,
+      "dry_hopped": false,
+      "note": "Helles lager - ideal FV6/FV7. Key has no apostrophe so it matches Findons/Findon's."
+    }
+  }
+}

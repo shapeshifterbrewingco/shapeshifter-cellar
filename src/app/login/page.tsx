@@ -1,7 +1,8 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { useState } from 'react'
+import { isStaffEmail } from '@/lib/auth-domain'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
@@ -9,6 +10,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('error') === 'not_staff') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError('Sign in with your @shapeshifterbrewing.com.au account.')
+    }
+  }, [])
   const supabase = createClient()
 
   async function signInWithGoogle() {
@@ -25,6 +33,10 @@ export default function LoginPage() {
   async function signInWithEmail(e: React.FormEvent) {
     e.preventDefault()
     if (!email) return
+    if (!isStaffEmail(email)) {
+      setError('Use your @shapeshifterbrewing.com.au email.')
+      return
+    }
     setLoading(true)
     setError(null)
     const { error } = await supabase.auth.signInWithOtp({

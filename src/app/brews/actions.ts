@@ -625,10 +625,12 @@ export async function updateBrewVolume(brew_id: string, volume_l: number) {
   revalidatePath('/')
 }
 
-export async function renameBrew(brew_id: string, beer_name: string): Promise<ActionResult> {
+export async function renameBrew(brew_id: string, beer_name: string, style?: string | null): Promise<ActionResult> {
   const name = beer_name.trim()
   if (!name) return fail('Give the beer a name.')
   if (name.length > 120) return fail('That name is too long.')
+  // undefined = leave the style alone; an empty box = clear it
+  const nextStyle = style === undefined ? undefined : (style ?? '').trim().slice(0, 80) || null
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -636,7 +638,7 @@ export async function renameBrew(brew_id: string, beer_name: string): Promise<Ac
 
   const { data, error } = await supabase
     .from('brews')
-    .update({ beer_name: name, updated_at: new Date().toISOString() })
+    .update({ beer_name: name, ...(nextStyle !== undefined ? { style: nextStyle } : {}), updated_at: new Date().toISOString() })
     .eq('id', brew_id)
     .select('id')
   if (error) return fail(`Not saved: ${error.message}`)

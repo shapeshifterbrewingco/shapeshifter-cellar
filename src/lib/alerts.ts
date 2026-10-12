@@ -21,6 +21,12 @@ const MOVING_C = 0.3
 const CHILL_WARMING_C = 1
 /** How far each utility vessel may sit from its set point */
 const UTILITY_OFF_BY_C: Record<string, number> = { HLT: 15, CLT: 5, Glycol: 5 }
+/**
+ * Vessels whose alarm is switched off. The glycol probe is out of its well and
+ * reading room air while the temporary chiller setup is in place (Oct 2026), so
+ * its number means nothing. Take 'Glycol' out of this list once the probe is back.
+ */
+const MUTED = new Set<string>(['Glycol'])
 const UTILITY_NAMES: Record<string, string> = { HLT: 'Hot liquor', CLT: 'Cold liquor', Glycol: 'Glycol chiller' }
 /** Frigid silent for this long */
 const FRIGID_DOWN_MINUTES = 15
@@ -69,6 +75,8 @@ export async function runAlerts(readings: FrigidReading[]): Promise<{ raised: nu
       const before = earlier.get(tank.id)
       const change = before != null ? temp - before : null
 
+      if (MUTED.has(tank.frigid_tank_name)) continue
+
       if (tank.is_utility) {
         const allowed = UTILITY_OFF_BY_C[tank.frigid_tank_name] ?? 5
         if (Math.abs(gap) >= allowed) {
@@ -112,6 +120,12 @@ export async function runAlerts(readings: FrigidReading[]): Promise<{ raised: nu
   const { data: rows, error } = await db.from('alert_state').select('key, first_seen_at, notified_at, message')
   if (error) return { skipped: error.message }
   const existing = new Map(((rows ?? []) as { key: string; first_seen_at: string; notified_at: string | null; message: string }[]).map((r) => [r.key, r]))
+
+  // The first time Slack is reachable, say so, so there is proof the channel is wired up
+  if (!existing.has('meta:connected')) {
+    const sent = await postSlack(`*Cellar is connected to this channel.* Temperature alarms and the activity log will post here. ${cellarLink()}`)
+    if (sent) await db.from('alert_state').insert({ key: 'meta:connected', message: 'connected', notified_at: new Date().toISOString() })
+  }
   const current = new Map(conditions.map((c) => [c.key, c]))
   let raised = 0, cleared = 0
 
@@ -133,7 +147,7 @@ export async function runAlerts(readings: FrigidReading[]): Promise<{ raised: nu
   }
 
   for (const [key, row] of existing) {
-    if (current.has(key)) continue
+    if (current.has(key) || key.startsWith('meta:')) continue
     // With Frigid silent nothing about the tanks is known, so a tank alarm is
     // neither confirmed nor cleared. It stays live until there is a reading.
     if (readings.length === 0 && key !== 'frigid:down') continue

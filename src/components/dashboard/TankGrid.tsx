@@ -118,7 +118,7 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
       ) : (
         <div className="grid grid-cols-1 gap-2.5 md:gap-3 md:[grid-template-columns:var(--tank-cols)]"
           style={{ '--tank-cols': GRID_COLS[cardSize] } as React.CSSProperties}>
-          {tanks.map(t => (
+          {tanks.filter(t => t.tank.type !== 'brite').map(t => (
             <TankCard
               key={t.tank.id}
               data={t}
@@ -129,6 +129,23 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
               cardSize={cardSize}
             />
           ))}
+          {/* The brites spend most of their time empty, so on desktop the two
+              stack as half-height cards in one cell and the cellar fits two rows.
+              On a phone the wrapper disappears and each is its own row. */}
+          <div className="contents md:flex md:flex-col md:gap-3">
+            {tanks.filter(t => t.tank.type === 'brite').map(t => (
+              <TankCard
+                key={t.tank.id}
+                data={t}
+                recipes={recipes}
+                currentUser={currentUser}
+                allTanks={tanks}
+                settings={settings}
+                cardSize={cardSize}
+                compact
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

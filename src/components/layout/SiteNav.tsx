@@ -140,17 +140,17 @@ export function SiteNav() {
       </aside>
 
       {/* ── Mobile top bar ───────────────────────────────────── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary flex items-center justify-between px-4 h-14">
-        <Logo size="sm" />
-        {/* Centred on the bar itself, whatever sits either side */}
-        <Wordmark className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48%] max-w-[200px]" />
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary flex items-center px-2 h-14">
+        {/* Menu on the left, where the drawer slides out from */}
         <button
           onClick={() => setOpen(true)}
-          className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className="h-11 w-11 flex items-center justify-center text-white/80 hover:text-white rounded-lg active:bg-white/10 transition-colors"
           aria-label="Open menu"
         >
           <Menu className="h-6 w-6" />
         </button>
+        {/* Centred on the bar itself, whatever sits either side */}
+        <Wordmark className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48%] max-w-[200px]" />
       </div>
 
       {/* ── Mobile drawer ────────────────────────────────────── */}

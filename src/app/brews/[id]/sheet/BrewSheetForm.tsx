@@ -327,6 +327,11 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
           </span>
         </div>
         {reading && <p className="text-xs text-gray-400 mt-2">This takes up to a minute. Keep this page open.</p>}
+        {!(data.fv.plato.trim() && data.fv.ph.trim()) && (
+          <p className="mt-3 rounded-xl bg-yeast/40 px-3 py-2 text-xs text-charcoal">
+            Brew day in progress. It saves as you type, so close this and come back any time. Gravity and pH under All in FV finish the day and start the ferment chart.
+          </p>
+        )}
       </header>
 
       {unchecked.length > 0 && (

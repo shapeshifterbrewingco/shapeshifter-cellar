@@ -58,6 +58,29 @@ export async function saveBrewSheet(input: {
   if (volume != null && volume > 0 && volume < 20000 && brew.stage === 'active_ferment' && !brew.deleted_at && Number(brew.volume_l) !== volume) {
     patch.volume_l = volume
   }
+  // OG and pH together are the brew's first reading: the start of its ferment
+  // chart. Written once both are in, and kept in step if either is corrected.
+  const ph = sheetNumber(data.fv.ph)
+  if (og != null && og > 0 && og < 40 && ph != null && ph > 0 && ph <= 14 && !brew.deleted_at) {
+    const { data: first } = await supabase
+      .from('gravity_readings').select('id, plato, ph').eq('brew_id', input.brew_id).eq('notes', 'Initial reading').maybeSingle()
+    if (!first) {
+      const { data: b } = await supabase.from('brews').select('tank_id').eq('id', input.brew_id).maybeSingle()
+      const { error: readingError } = await supabase.from('gravity_readings').insert({
+        brew_id: input.brew_id, tank_id: b?.tank_id, plato: og, ph,
+        temperature_c: sheetNumber(data.fv.temp_c), recorded_by: user.email ?? user.id, notes: 'Initial reading',
+      })
+      if (readingError) console.error('[saveBrewSheet] initial reading failed:', readingError.message)
+      else {
+        logActivity(`${who(user.email)} finished the brew day for *${esc(brew.beer_name)}*: OG ${og}°P, pH ${ph}${volume != null ? `, ${volume} L in tank` : ''}.`)
+        revalidatePath('/')
+      }
+    } else if (Number(first.plato) !== og || Number(first.ph) !== ph) {
+      await supabase.from('gravity_readings').update({ plato: og, ph }).eq('id', first.id)
+      revalidatePath('/')
+    }
+  }
+
   if (Object.keys(patch).length) {
     const { error: syncError } = await supabase.from('brews').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', input.brew_id)
     if (syncError) console.error('[saveBrewSheet] could not sync OG/volume to the brew:', syncError.message)

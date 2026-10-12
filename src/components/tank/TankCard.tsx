@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FlaskConical, BarChart2, MoreHorizontal, TestTube2, Package, ChevronRight, ChevronDown } from 'lucide-react'
+import { FlaskConical, BarChart2, MoreHorizontal, TestTube2, Package, ChevronRight, ChevronDown, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -212,8 +212,11 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   // The one thing most likely to happen next, by stage. Once fermentation is
   // signed off (VDK pass or on chill) there is nothing left to log: the beer moves.
   const doneFermenting = stage === 'vdk_pass' || stage === 'on_chill'
+  // Started, but OG not in yet: the brew day is still going, and the sheet is where it is recorded
+  const brewDayOpen = !!brew && stage === 'active_ferment' && brew.og_plato == null
   const nextStep: { label: string; run: () => void } =
-    onDiacetylRest ? { label: 'Log VDK', run: () => setShowVdkModal(true) }
+    brewDayOpen ? { label: 'Brew sheet', run: () => { if (brew) router.push(`/brews/${brew.id}/sheet`) } }
+    : onDiacetylRest ? { label: 'Log VDK', run: () => setShowVdkModal(true) }
     : doneFermenting && tank.type === 'brite' ? { label: 'Package', run: () => setShowPackageModal(true) }
     : doneFermenting ? { label: 'Transfer', run: () => setShowTransferModal(true) }
     : { label: 'Log reading', run: () => setShowLogModal(true) }
@@ -369,6 +372,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           </div>
         ))}
       </dl>
+      {brewDayOpen && (
+        <button type="button" onClick={(e) => { e.stopPropagation(); nextStep.run() }}
+          className="mt-3 w-full h-10 rounded-xl bg-yeast/60 text-charcoal text-sm font-semibold inline-flex items-center justify-center gap-1.5 active:bg-yeast">
+          <ClipboardList className="h-4 w-4" />Brew day in progress. Open brew sheet
+        </button>
+      )}
       {doneFermenting && (
         <button type="button" onClick={(e) => { e.stopPropagation(); nextStep.run() }}
           className="mt-3 w-full h-10 rounded-xl bg-primary/10 text-primary text-sm font-semibold inline-flex items-center justify-center gap-1.5 active:bg-primary/20">
@@ -725,8 +734,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <>
                         <Button size="sm" variant="outline"
                           className="flex-1 h-8 text-sm bg-water/30 border-water text-hops hover:bg-water/30 hover:border-water gap-1.5"
-                          onClick={() => setShowLogModal(true)}>
-                          <FlaskConical className="h-4 w-4" /> Log Reading
+                          onClick={nextStep.run}>
+                          {brewDayOpen ? <><ClipboardList className="h-4 w-4" /> Brew sheet</> : <><FlaskConical className="h-4 w-4" /> Log Reading</>}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-water bg-water/30 text-hops hover:bg-water/30 cursor-pointer flex-shrink-0">
@@ -1182,8 +1191,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 <>
                   <Button size="sm" variant="outline"
                     className="flex-1 h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
-                    onClick={() => setShowLogModal(true)}>
-                    <FlaskConical className="h-4 w-4" /> Log Reading
+                    onClick={nextStep.run}>
+                    {brewDayOpen ? <><ClipboardList className="h-4 w-4" /> Brew sheet</> : <><FlaskConical className="h-4 w-4" /> Log Reading</>}
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">

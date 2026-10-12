@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { X, Loader2 } from 'lucide-react'
 import { assignBrew } from '@/app/brews/actions'
 import type { Tank } from '@/types'
@@ -70,13 +71,10 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
     plannedRecipe?.brew_volume_l != null ? String(plannedRecipe.brew_volume_l)
       : defaultVolumeL != null ? String(defaultVolumeL) : ''
   )
-  const [ogPlato, setOgPlato] = useState('')
-  const [ph, setPh] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  const targetOg = recipes.find((r) => r.id === recipeId)?.target_og_plato ?? null
+  const router = useRouter()
 
   function handleRecipeChange(id: string) {
     setRecipeId(id)
@@ -92,9 +90,6 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
     e.preventDefault()
     if (!beerName.trim()) { setError('Beer name is required.'); return }
     if (!volumeL || isNaN(parseFloat(volumeL))) { setError('Enter a valid volume.'); return }
-    if (!(parseFloat(ogPlato) > 0)) { setError('Enter the measured OG.'); return }
-    const phValue = parseFloat(ph)
-    if (!(phValue > 0 && phValue <= 14)) { setError('Enter the measured pH.'); return }
     setError(null)
     startTransition(async () => {
       try {
@@ -105,12 +100,14 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
           style: style || null,
           brew_day: brewDay,
           volume_l: parseFloat(volumeL),
-          og_plato: parseFloat(ogPlato),
-          initial_ph: phValue,
+          og_plato: null,
+          initial_ph: null,
           notes,
         })
         if (!result.ok) { setError(result.message); return }
         onClose()
+        // Straight into the brew sheet: that is where the day gets recorded
+        if (result.id) router.push(`/brews/${result.id}/sheet`)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to assign brew.')
       }
@@ -121,7 +118,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">Start Brew — {tank.name}</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Start brew day, {tank.name}</h2>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-4 w-4" />
           </button>
@@ -179,7 +176,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
               />
             </div>
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Volume (L) <span className="text-red-400">*</span></label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Planned volume (L) <span className="text-red-400">*</span></label>
               <input
                 type="number" inputMode="decimal"
                 step="any"
@@ -192,36 +189,10 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
             </div>
           </div>
 
-          {/* OG + pH */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">OG (°Plato)</label>
-              <input
-                type="number" inputMode="decimal"
-                step="0.1"
-                min="0"
-                value={ogPlato}
-                onChange={(e) => setOgPlato(e.target.value)}
-                placeholder={targetOg != null ? `Target ${targetOg}` : 'Measured'}
-                required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Initial pH</label>
-              <input
-                type="number" inputMode="decimal"
-                step="0.1"
-                min="0"
-                max="14"
-                value={ph}
-                onChange={(e) => setPh(e.target.value)}
-                placeholder="Measured"
-                required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              />
-            </div>
-          </div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            This opens the brew sheet. Fill it in as the day goes; it saves as you type, so you can close it and come back.
+            OG, pH and the final volume go in at the end, under All in FV.
+          </p>
 
           {/* Notes */}
           <div>
@@ -249,7 +220,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
             >
               {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Assign to {tank.name}
+              Start brew day
             </button>
           </div>
         </form>

@@ -11,7 +11,7 @@ import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit 
 // Actions that move a brew return a result instead of throwing: Next strips
 // error messages in production, so a thrown error reaches the brewer as a
 // generic crash screen with no reason on it.
-export type ActionResult = { ok: true; note?: string } | { ok: false; message: string }
+export type ActionResult = { ok: true; note?: string; id?: string } | { ok: false; message: string }
 
 const fail = (message: string): ActionResult => ({ ok: false, message })
 
@@ -67,8 +67,8 @@ export async function assignBrew(data: {
 
   if (!data.beer_name.trim()) return fail('Give the brew a name.')
   if (!(data.volume_l > 0)) return fail('Volume must be more than zero.')
-  if (!(data.og_plato != null && data.og_plato > 0)) return fail('Enter the measured OG.')
-  if (!(data.initial_ph != null && data.initial_ph > 0 && data.initial_ph <= 14)) return fail('Enter the measured pH.')
+  // OG and pH are not known when a brew day starts. They are entered on the
+  // brew sheet under "All in FV", and the tank card says so until they are.
 
   const occupant = await brewInTank(supabase, data.tank_id)
   if (occupant) return fail(`That tank already holds ${occupant.beer_name}. Refresh the page.`)
@@ -117,10 +117,10 @@ export async function assignBrew(data: {
       .is('brew_id', null)
   }
 
-  logActivity(`${who(user.email)} started *${esc(data.beer_name.trim())}* in ${await tankName(supabase, data.tank_id)}: ${data.volume_l} L${data.og_plato != null ? `, OG ${data.og_plato}°P` : ''}.`)
+  logActivity(`${who(user.email)} started a brew day: *${esc(data.beer_name.trim())}* into ${await tankName(supabase, data.tank_id)}, ${data.volume_l} L planned${data.og_plato != null ? `, OG ${data.og_plato}°P` : ''}.`)
 
   revalidatePath('/')
-  return { ok: true }
+  return { ok: true, id: brew.id }
 }
 
 // ── Log reading ───────────────────────────────────────────────

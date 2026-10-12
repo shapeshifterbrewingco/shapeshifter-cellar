@@ -356,7 +356,14 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             <dt className="text-[11px] text-gray-400">{label}</dt>
             <dd className="text-[15px] font-semibold tabular-nums text-gray-900">
               {label === 'Temp'
-                ? <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c}>{value}</TempTap>
+                ? (
+                  <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c} className="text-left leading-tight">
+                    <span className="block">{value}</span>
+                    <span className="block text-[11px] font-normal text-gray-400 whitespace-nowrap">
+                      {set_point_c != null && set_point_c !== 200 ? `Set ${set_point_c.toFixed(1)}°` : 'No set point'}
+                    </span>
+                  </TempTap>
+                )
                 : value}
             </dd>
           </div>

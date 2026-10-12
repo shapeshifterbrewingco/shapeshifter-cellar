@@ -67,11 +67,13 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 )
 }
 
-export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
+export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, me }: {
   brew: BrewInfo
   initial: BrewSheetData
   initialUnchecked: string[]
   exists: boolean
+  /** OG is already on the tank: the brew day was finished (or the brew predates the sheet) */
+  finished: boolean
   me: string
 }) {
   const [data, setData] = useState(initial)
@@ -80,6 +82,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
   const [reading, setReading] = useState(false)
   const [found, setFound] = useState<SheetReading[] | null>(null)
   const [adding, setAdding] = useState(false)
+  const [done, setDone] = useState(finished)
+  const [finishing, setFinishing] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   // Latest values for the autosave, which runs outside render
@@ -327,6 +331,27 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
     setLine(listKey, index, { name: used, note: original })
   }
 
+  // The one deliberate step of the day: the All in FV figures go onto the tank
+  async function finishDay() {
+    const { volume_l, plato, ph } = latest.current.data.fv
+    const missing = [!volume_l.trim() && 'volume', !plato.trim() && 'gravity', !ph.trim() && 'pH'].filter(Boolean)
+    if (missing.length) { toast.error(`Enter ${missing.join(', ')} under All in FV first.`); return }
+    if (!window.confirm(`Finish the brew day for ${brew.beer_name}?\n\n${volume_l} L in ${brew.tank_name}\nGravity ${plato}°P\npH ${ph}\n\nYou can still correct these on the brew sheet afterwards.`)) return
+    setFinishing(true)
+    try {
+      const snap = latest.current
+      const res = await saveBrewSheet({ brew_id: brew.id, data: snap.data, unchecked: snap.unchecked, source: snap.source, finish: true })
+      if (!res.ok) { toast.error(res.message); return }
+      setDone(true)
+      setStatus('saved')
+      toast.success(`Brew day finished. ${brew.beer_name} is fermenting in ${brew.tank_name}.`)
+    } catch {
+      toast.error('Not finished. Check the connection and tap it again.')
+    } finally {
+      setFinishing(false)
+    }
+  }
+
   // Removing a line asks first, and can be undone for a few seconds after
   function removeLine(listKey: ListKey, index: number) {
     const line = data[listKey][index]
@@ -374,9 +399,9 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
           </span>
         </div>
         {reading && <p className="text-xs text-gray-400 mt-2">This takes up to a minute. Keep this page open.</p>}
-        {!(data.fv.plato.trim() && data.fv.ph.trim()) && (
+        {!done && (
           <p className="mt-3 rounded-xl bg-yeast/40 px-3 py-2 text-xs text-charcoal">
-            Brew day in progress. It saves as you type, so close this and come back any time. Gravity and pH under All in FV finish the day and start the ferment chart.
+            Brew day in progress. It saves as you type, so close this and come back any time. Nothing reaches the tank card until you tap Finish brew day under All in FV.
           </p>
         )}
       </header>
@@ -476,6 +501,19 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
           {field({ label: "pH", path: "fv.ph" })}
           {field({ label: "Temp °C", path: "fv.temp_c" })}
         </div>
+        {done ? (
+          <p className="mt-3 rounded-xl bg-water/30 px-3 py-2 text-xs text-hops">
+            Brew day finished. To correct volume, gravity or pH, change it here: the tank card and the first reading follow.
+          </p>
+        ) : (
+          <>
+            <button type="button" onClick={() => void finishDay()} disabled={finishing}
+              className="mt-3 w-full h-12 rounded-xl bg-malt text-white text-base font-semibold inline-flex items-center justify-center gap-2 active:opacity-90 disabled:opacity-60">
+              {finishing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}Finish brew day
+            </button>
+            <p className="mt-1.5 text-xs text-gray-400">Check the three numbers first. This sets the tank card and starts the ferment chart.</p>
+          </>
+        )}
       </Section>
 
       <Section title="Yeast">

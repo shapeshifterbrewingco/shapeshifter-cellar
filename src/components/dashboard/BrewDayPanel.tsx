@@ -68,9 +68,10 @@ export function BrewDayPanel({ days }: { days: OpenBrewDay[] }) {
                 {d.next.length > 0 && (
                   <p className="mt-2 text-sm text-gray-700"><span className="text-gray-400">Next </span>{d.next.join(', ')}</p>
                 )}
-                {d.missing.length > 0 && (
-                  <p className="mt-1 text-sm text-gray-700"><span className="text-gray-400">To finish the day </span>{d.missing.join(', ')} under All in FV</p>
-                )}
+                <p className="mt-1 text-sm text-gray-700">
+                  <span className="text-gray-400">To finish the day </span>
+                  {d.missing.length > 0 ? `${d.missing.join(', ')} under All in FV, then tap Finish brew day` : 'tap Finish brew day on the sheet'}
+                </p>
 
                 <Link href={`/brews/${d.id}/sheet`}
                   className="mt-3 w-full h-12 rounded-xl bg-malt text-white text-base font-semibold inline-flex items-center justify-center gap-2 active:opacity-90">

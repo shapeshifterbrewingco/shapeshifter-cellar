@@ -18,6 +18,8 @@ export async function saveBrewSheet(input: {
   data: BrewSheetData
   unchecked: string[]
   source?: 'app' | 'photo'
+  /** The brewer tapped Finish brew day: put the All in FV figures onto the tank */
+  finish?: boolean
 }): Promise<Result> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -53,6 +55,19 @@ export async function saveBrewSheet(input: {
   // first tank: after a transfer the card shows what arrived, not what was brewed.
   const og = sheetNumber(data.fv.plato)
   const volume = sheetNumber(data.fv.volume_l)
+
+  // Typing those figures does nothing to the tank on its own: autosave would
+  // send a half-typed gravity. They land when the brewer taps Finish brew day.
+  // After that, the sheet is the record, so a correction here corrects the tank.
+  const finished = brew.og_plato != null
+  if (input.finish) {
+    const phCheck = sheetNumber(data.fv.ph)
+    if (!(volume != null && volume > 0 && volume < 20000)) return fail('Enter the volume under All in FV.')
+    if (!(og != null && og > 0 && og < 40)) return fail('Enter the gravity under All in FV.')
+    if (!(phCheck != null && phCheck > 0 && phCheck <= 14)) return fail('Enter the pH under All in FV.')
+  } else if (!finished) {
+    return { ok: true }
+  }
   const patch: Record<string, unknown> = {}
   if (og != null && og > 0 && og < 40 && Number(brew.og_plato) !== og) patch.og_plato = og
   if (volume != null && volume > 0 && volume < 20000 && brew.stage === 'active_ferment' && !brew.deleted_at && Number(brew.volume_l) !== volume) {

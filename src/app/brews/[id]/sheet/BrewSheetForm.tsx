@@ -73,9 +73,9 @@ async function shrink(file: File, maxSide = 2200): Promise<string> {
   }
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Section({ title, hint, id, children }: { title: string; hint?: string; id?: string; children: React.ReactNode }) {
   return (
-  <section className={`${CARD} p-4 space-y-3`}>
+  <section id={id} className={`${CARD} p-4 space-y-3 scroll-mt-20`}>
     <div>
       <h2 className="text-base font-semibold text-gray-900">{title}</h2>
       {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
@@ -136,6 +136,21 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     saving.current = false
     setStatus('saved')
   }, [brew.id])
+
+  // Coming back to a sheet part way through: go to where the day is up to.
+  // That is the first line not yet ticked, or All in FV once every line is.
+  useEffect(() => {
+    if (finished) return
+    const lines = [...document.querySelectorAll<HTMLElement>('li[data-brewday]')]
+    if (!lines.some((el) => el.dataset.brewday === 'done')) return // not started: stay at the top
+    const next = lines.find((el) => el.dataset.brewday === 'todo')
+    const target = next ? next.closest('section') : document.getElementById('all-in-fv')
+    // After the first paint, so the page has its full height to scroll within
+    const t = setTimeout(() => target?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 150)
+    return () => clearTimeout(t)
+    // Once, when the sheet is opened
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Save a moment after the last change, and straight away if the app is put down
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -289,7 +304,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       </div>
       <ul className="space-y-1.5">
         {shown.map(({ l, i }) => (
-          <li key={i} className={`rounded-xl border px-2 py-1.5 ${unsure(`${listKey}.${i}`) ? UNSURE : l.done ? 'border-transparent bg-water/25' : 'border-gray-200 bg-white'}`}>
+          <li key={i} data-brewday={listKey !== 'dry_hops' || isDayZero(l) ? (l.done ? 'done' : 'todo') : undefined} className={`rounded-xl border px-2 py-1.5 ${unsure(`${listKey}.${i}`) ? UNSURE : l.done ? 'border-transparent bg-water/25' : 'border-gray-200 bg-white'}`}>
             {/* Name gets the whole row: on a phone, half a name is no name */}
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setLine(listKey, i, { done: !l.done })} aria-pressed={l.done} aria-label={`${l.name || 'Line'} done`}
@@ -520,7 +535,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         {list({ title: "Kettle hops", listKey: "kettle_hops", whenLabel: "Time", unit: "kg" })}
       </Section>
 
-      <Section title="All in FV" hint="Volume and gravity here set the tank card's volume and OG.">
+      <Section id="all-in-fv" title="All in FV" hint="Volume and gravity here set the tank card's volume and OG.">
         <div className="grid grid-cols-2 gap-3">
           {field({ label: "Volume (L)", path: "fv.volume_l" })}
           {field({ label: "Gravity °P", path: "fv.plato" })}

@@ -137,6 +137,43 @@ export async function logGravityReading(data: {
   revalidatePath('/')
 }
 
+/** The phone quick-log: a sample's gravity, pH and temperature in one tap. Time and user are stamped here. */
+export async function quickLogReading(data: {
+  brew_id: string
+  tank_id: string
+  plato: number | null
+  ph: number | null
+  temperature_c: number | null
+}): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+
+  const plato = num(data.plato), ph = num(data.ph), temp = num(data.temperature_c)
+  if (plato == null && ph == null && temp == null) return fail('Enter at least one reading.')
+  if (plato != null && (plato < -5 || plato > 40)) return fail(`Gravity of ${plato}°P does not look right.`)
+  if (ph != null && (ph < 0 || ph > 14)) return fail(`pH of ${ph} does not look right.`)
+  if (temp != null && (temp < -10 || temp > 110)) return fail(`Temperature of ${temp}°C does not look right.`)
+
+  // The tank on screen may have been emptied or refilled since the page loaded
+  const { data: brew } = await supabase
+    .from('brews').select('id').eq('id', data.brew_id).eq('tank_id', data.tank_id).is('deleted_at', null).maybeSingle()
+  if (!brew) return fail('That tank has changed since the page loaded. Refresh and try again.')
+
+  const { error } = await supabase.from('gravity_readings').insert({
+    brew_id: data.brew_id,
+    tank_id: data.tank_id,
+    plato, ph,
+    temperature_c: temp,
+    recorded_by: user.email ?? user.id,
+  })
+  if (error) return fail(`Not saved: ${error.message}`)
+
+  revalidatePath('/')
+  revalidatePath('/readings')
+  return { ok: true }
+}
+
 // ── Stage change ──────────────────────────────────────────────
 
 export async function updateBrewStage(brew_id: string, tank_id: string, stage: TankStage) {

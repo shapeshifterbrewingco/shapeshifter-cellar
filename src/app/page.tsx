@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { TankGrid } from '@/components/dashboard/TankGrid'
 import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
+import { QuickLog } from '@/components/dashboard/QuickLog'
 import { getDashboardData } from '@/lib/dashboard'
 import { getFrigidReadings, utilityReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
@@ -76,6 +77,7 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-background text-foreground">
       <div className="px-4 py-2">
         <AutoRefresh seconds={60} />
+        <QuickLog tanks={tanks} />
         <TankGrid
           tanks={tanks}
           recipes={(recipesResult.data ?? []) as RecipeOption[]}

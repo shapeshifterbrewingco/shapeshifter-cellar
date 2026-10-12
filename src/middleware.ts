@@ -2,6 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isStaffEmail } from '@/lib/auth-domain'
 
+const SESSION_COOKIE = {
+  path: '/',
+  sameSite: 'lax' as const,
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 30 * 24 * 60 * 60,
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -19,7 +26,8 @@ export async function middleware(request: NextRequest) {
           )
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            // Keep a deletion as a deletion; give everything else the 30 days
+            supabaseResponse.cookies.set(name, value, value ? { ...options, ...SESSION_COOKIE } : options)
           )
         },
       },
@@ -27,6 +35,17 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Stay signed in for 30 days from the last visit. The cookies are re-issued
+  // by the server on every request: Safari on iPhone cuts cookies written by
+  // page script to 7 days, but leaves server-set ones alone.
+  if (user && isStaffEmail(user.email)) {
+    const fresh = new Set(supabaseResponse.cookies.getAll().map((c) => c.name))
+    for (const c of request.cookies.getAll()) {
+      if (!c.name.startsWith('sb-') || !c.value || fresh.has(c.name)) continue
+      supabaseResponse.cookies.set(c.name, c.value, SESSION_COOKIE)
+    }
+  }
 
   const publicPaths = ['/login', '/auth/callback', '/api/frigid-poll']
   const isPublic = publicPaths.some((p) => request.nextUrl.pathname.startsWith(p))

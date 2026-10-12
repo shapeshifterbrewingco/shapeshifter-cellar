@@ -7,7 +7,7 @@ export default async function ReadingsPage() {
 
   const { data: rows, error } = await supabase
     .from('gravity_readings')
-    .select('id, recorded_at, plato, ph, recorded_by, notes, brews(beer_name, tanks(name))')
+    .select('id, recorded_at, plato, ph, temperature_c, recorded_by, notes, brews(beer_name, tanks(name))')
     .order('recorded_at', { ascending: false })
     .limit(500)
 
@@ -22,6 +22,7 @@ export default async function ReadingsPage() {
       recorded_at: r.recorded_at,
       plato: r.plato,
       ph: r.ph,
+      temperature_c: r.temperature_c,
       recorded_by: r.recorded_by,
       notes: r.notes,
       tank_name: tank?.name ?? '—',

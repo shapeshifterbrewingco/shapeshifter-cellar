@@ -12,6 +12,7 @@ export interface ReadingRow {
   recorded_at: string
   plato: number | null
   ph: number | null
+  temperature_c?: number | null
   recorded_by: string
   notes: string | null
   tank_name: string
@@ -35,7 +36,7 @@ export function ReadingsList({ readings: initial }: Props) {
   const [editState, setEditState] = useState<EditState | null>(null)
   const [, startTransition] = useTransition()
 
-  const gravityCount = readings.filter(r => r.plato != null || r.ph != null).length
+  const gravityCount = readings.filter(r => r.plato != null || r.ph != null || r.temperature_c != null).length
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -124,6 +125,7 @@ export function ReadingsList({ readings: initial }: Props) {
                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Beer</th>
                   <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Gravity</th>
                   <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">pH</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Temp</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">By</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Notes</th>
                   <th className="w-16 px-2 py-3" />
@@ -132,7 +134,7 @@ export function ReadingsList({ readings: initial }: Props) {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={9} className="px-5 py-10 text-center text-gray-400 text-sm">
                       No readings match &ldquo;{search}&rdquo;
                     </td>
                   </tr>
@@ -189,6 +191,10 @@ export function ReadingsList({ readings: initial }: Props) {
                             {r.ph != null ? r.ph : isStage ? '' : '—'}
                           </span>
                         )}
+                      </td>
+
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
+                        {r.temperature_c != null ? `${r.temperature_c}°C` : ''}
                       </td>
 
                       <td className="px-4 py-2.5 text-gray-400 text-xs max-w-[100px] truncate">{formatUserName(r.recorded_by)}</td>

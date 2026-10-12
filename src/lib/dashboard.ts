@@ -46,6 +46,7 @@ export async function getDashboardData(supabase: SupabaseClient, live: FrigidRea
       ? supabase
           .from('gravity_readings')
           .select('brew_id, plato, ph, recorded_at, recorded_by')
+          .or('plato.not.is.null,ph.not.is.null')
           .in('brew_id', brewIds)
           .order('recorded_at', { ascending: false })
       : none,

@@ -52,16 +52,18 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function Logo({ size = 'md' }: { size?: 'sm' | 'md' }) {
+// The wolf is the way home: tapping it goes to the Cellar from any page
+function Logo({ size = 'md', onNavigate }: { size?: 'sm' | 'md'; onNavigate?: () => void }) {
   return (
-    <div className="flex items-center justify-center">
+    <Link href="/" onClick={onNavigate} aria-label="Back to Cellar" className="flex items-center justify-center rounded-xl active:opacity-70">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/wolf.svg"
         alt="Shapeshifter Cellar"
         className={size === 'sm' ? 'h-[60px] w-[60px]' : 'h-24 w-24'}
         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
       />
-    </div>
+    </Link>
   )
 }
 
@@ -148,7 +150,7 @@ export function SiteNav() {
           />
           <aside className="md:hidden fixed top-0 left-0 bottom-0 w-64 bg-primary z-50 flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
-              <Logo />
+              <Logo onNavigate={() => setOpen(false)} />
               <button
                 onClick={() => setOpen(false)}
                 className="text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10"

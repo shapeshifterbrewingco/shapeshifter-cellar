@@ -11,9 +11,9 @@ import type { AdditionStatus } from '@/lib/brew-sheet'
 /** What still has to go into a beer, as a pill for its tank card. Null when it has no additions. */
 export function additionsLabel(a: AdditionStatus | null | undefined): { text: string; className: string } | null {
   if (!a) return null
-  if (a.todo === 0) return { text: 'All additions done', className: 'bg-water/40 text-hops border-water' }
+  if (a.todo === 0) return { text: 'Additions done', className: 'bg-water/40 text-hops border-water' }
   return {
-    text: `${a.hopsOrFruitToGo ? 'To be dry hopped' : 'Additions to go'} (${a.todo})`,
+    text: `${a.hopsOrFruitToGo ? 'Dry hop due' : 'Additions due'} · ${a.todo}`,
     className: 'bg-malt/20 text-malt-dark border-malt/40',
   }
 }

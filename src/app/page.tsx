@@ -2,7 +2,7 @@ import { after } from 'next/server'
 import { TankGrid } from '@/components/dashboard/TankGrid'
 import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
 import { QuickLog } from '@/components/dashboard/QuickLog'
-import { BrewDayPanel } from '@/components/dashboard/BrewDayPanel'
+import { BrewDayPanel, BrewDayBar } from '@/components/dashboard/BrewDayPanel'
 import type { OpenBrewDay } from '@/components/dashboard/BrewDayPanel'
 import { sanitiseSheet, sheetFromRecipe, sheetProgress, brewDayLines, bagsLabel } from '@/lib/brew-sheet'
 import { getDashboardData } from '@/lib/dashboard'
@@ -150,6 +150,7 @@ export default async function DashboardPage() {
           utilityTemps={utilityTemps}
           settings={settings}
           greeting={<Hello text={hello} name={firstName} special={isSpecial} />}
+          banner={<BrewDayBar days={brewDays} />}
         />
       </div>
     </main>

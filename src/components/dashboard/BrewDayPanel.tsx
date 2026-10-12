@@ -39,7 +39,7 @@ export function BrewDayPanel({ days }: { days: OpenBrewDay[] }) {
   if (days.length === 0) return null
 
   return (
-    <section className="bg-white rounded-2xl ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden mb-3 md:max-w-xl">
+    <section className="md:hidden bg-white rounded-2xl ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden mb-3">
       <button type="button" onClick={toggle} aria-expanded={open}
         className="w-full flex items-center justify-between gap-3 bg-malt text-white px-4 py-3.5 text-left active:opacity-90">
         <span className="min-w-0">
@@ -83,5 +83,33 @@ export function BrewDayPanel({ days }: { days: OpenBrewDay[] }) {
         </ul>
       )}
     </section>
+  )
+}
+
+/** The desktop version: one slim line per brew day, under the greeting, so the tanks stay where they are. */
+export function BrewDayBar({ days }: { days: OpenBrewDay[] }) {
+  if (days.length === 0) return null
+  return (
+    <div className="hidden md:block mb-3 space-y-2">
+      {days.map((d) => {
+        const pct = d.total > 0 ? Math.round((d.filled / d.total) * 100) : 0
+        return (
+          <Link key={d.id} href={`/brews/${d.id}/sheet`}
+            className="flex items-center gap-4 rounded-2xl bg-malt px-5 py-3 text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:opacity-95">
+            <span className="flex-shrink-0 text-sm font-semibold whitespace-nowrap">Brew day · {d.tank} · {d.beer}</span>
+            <span className="flex-shrink-0 flex items-center gap-2">
+              <span className="block h-1.5 w-28 rounded-full bg-white/30 overflow-hidden"><span className="block h-full rounded-full bg-white" style={{ width: `${pct}%` }} /></span>
+              <span className="text-xs text-white/85 tabular-nums whitespace-nowrap">{d.filled} of {d.total}</span>
+            </span>
+            <span className="flex-1 min-w-0 text-sm text-white/90 truncate">
+              {d.next.length > 0 ? `Next: ${d.next.join(', ')}` : d.missing.length > 0 ? `To finish: ${d.missing.join(', ')}` : 'Ready to finish'}
+            </span>
+            <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-semibold whitespace-nowrap">
+              <ClipboardList className="h-4 w-4" />Open brew sheet
+            </span>
+          </Link>
+        )
+      })}
+    </div>
   )
 }

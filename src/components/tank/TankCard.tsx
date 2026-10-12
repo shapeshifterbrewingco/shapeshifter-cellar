@@ -226,7 +226,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const additionsInfo = brew && !isEmpty && !inProduction(brew) ? additionsLabel(additions) : null
   const additionsPill = additionsInfo ? (
     <button type="button" onClick={(e) => { e.stopPropagation(); setShowAdditions(true) }}
-      className={`self-start rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${additionsInfo.className}`}>
+      className={`self-start max-w-full truncate rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${additionsInfo.className}`}>
       {additionsInfo.text}
     </button>
   ) : null

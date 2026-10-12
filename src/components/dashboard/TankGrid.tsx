@@ -27,9 +27,11 @@ interface TankGridProps {
   settings: AppSettings
   /** Shown as the page heading, e.g. "Good morning, James" */
   greeting?: React.ReactNode
+  /** Shown on desktop between the greeting and the tanks */
+  banner?: React.ReactNode
 }
 
-export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings, greeting }: TankGridProps) {
+export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings, greeting, banner }: TankGridProps) {
   const [view, setView] = useState<ViewMode>('medium')
   const [hydrated, setHydrated] = useState(false)
 
@@ -88,6 +90,7 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings, 
       </div>
 
       {/* Utility strip */}
+      {banner}
       {utilityTemps.length > 0 && <UtilityStrip readings={utilityTemps} />}
 
       {/* Tanks */}

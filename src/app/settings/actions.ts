@@ -25,3 +25,27 @@ export async function updateSettings(settings: Partial<AppSettings>) {
   if (error) throw error
   revalidatePath('/', 'layout')
 }
+
+// ── Personal preferences (per person, not brewery-wide) ──────────────────────
+
+export type WeekStart = 0 | 1 // 0 = Sunday, 1 = Monday
+
+export async function getWeekStart(): Promise<WeekStart> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return 1
+  const { data } = await supabase.from('profiles').select('week_starts_on').eq('id', user.id).maybeSingle()
+  return data?.week_starts_on === 0 ? 0 : 1
+}
+
+export async function setWeekStart(day: WeekStart): Promise<{ ok: boolean; message?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, message: 'You are signed out.' }
+  const { data, error } = await supabase
+    .from('profiles').update({ week_starts_on: day === 0 ? 0 : 1 }).eq('id', user.id).select('id')
+  if (error || !data?.length) return { ok: false, message: error?.message ?? 'Your profile could not be found.' }
+  revalidatePath('/planner')
+  revalidatePath('/settings')
+  return { ok: true }
+}

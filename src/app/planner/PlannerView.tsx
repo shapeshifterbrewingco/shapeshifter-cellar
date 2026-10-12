@@ -40,14 +40,24 @@ const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 const fromKey = (k: string) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d) }
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DOW_SUNDAY_FIRST = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const prettyDate = (k: string) => fromKey(k).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+const longDate = (k: string) => fromKey(k).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
 
-function gridFor(year: number, month: number) {
+/** Column headings and widths for a week starting on Sunday (0) or Monday (1). Weekends are narrower. */
+function weekLayout(weekStart: 0 | 1) {
+  const order = Array.from({ length: 7 }, (_, i) => (i + weekStart) % 7) // getDay() numbers, left to right
+  return {
+    labels: order.map((d) => DOW_SUNDAY_FIRST[d]),
+    columns: order.map((d) => (d === 0 || d === 6 ? 'minmax(0,0.55fr)' : 'minmax(0,1fr)')).join(' '),
+  }
+}
+
+function gridFor(year: number, month: number, weekStart: 0 | 1) {
   const first = new Date(year, month, 1)
-  const start = addDays(first, -((first.getDay() + 6) % 7)) // back to Monday
+  const start = addDays(first, -((first.getDay() - weekStart + 7) % 7))  // back to the first column's day
   const last = new Date(year, month + 1, 0)
-  const end = addDays(last, (7 - last.getDay()) % 7)        // forward to Sunday
+  const end = addDays(last, (6 - ((last.getDay() - weekStart + 7) % 7)))  // forward to the last column's day
   const days: Date[] = []
   for (let d = start; d <= end; d = addDays(d, 1)) days.push(d)
   return days
@@ -64,7 +74,7 @@ function eventStyle(title: string) {
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
 
-function Calendar({ refreshKey, onPick }: { refreshKey: number; onPick: (e: CalEvent) => void }) {
+function Calendar({ refreshKey, onPick, weekStart }: { refreshKey: number; onPick: (e: CalEvent) => void; weekStart: 0 | 1 }) {
   const today = useMemo(() => new Date(), [])
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() })
   const [events, setEvents] = useState<CalEvent[]>([])
@@ -72,7 +82,11 @@ function Calendar({ refreshKey, onPick }: { refreshKey: number; onPick: (e: CalE
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
 
-  const days = useMemo(() => gridFor(cursor.y, cursor.m), [cursor])
+  const days = useMemo(() => gridFor(cursor.y, cursor.m, weekStart), [cursor, weekStart])
+  const layout = useMemo(() => weekLayout(weekStart), [weekStart])
+  // The day whose events are open in full. On a phone the grid is too small to read.
+  const [openDay, setOpenDay] = useState<string | null>(null)
+  const isPhone = () => window.matchMedia('(max-width: 767px)').matches
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -111,23 +125,27 @@ function Calendar({ refreshKey, onPick }: { refreshKey: number; onPick: (e: CalE
         <button onClick={() => move(1)} className="p-1.5 rounded-lg hover:bg-gray-100" aria-label="Next month"><ChevronRight className="h-5 w-5" /></button>
       </div>
       {error && <p className="px-4 py-2 text-sm text-red-600 bg-red-50 border-b">Calendar could not load: {error}</p>}
-      <div className="grid grid-cols-[repeat(5,minmax(0,1fr))_minmax(0,0.55fr)_minmax(0,0.55fr)] border-b bg-gray-50 text-xs font-semibold text-gray-500">
-        {DOW.map((d) => <div key={d} className="px-2 py-1.5">{d}</div>)}
+      <div className="grid border-b bg-gray-50 text-xs font-semibold text-gray-500" style={{ gridTemplateColumns: layout.columns }}>
+        {layout.labels.map((d) => <div key={d} className="px-1.5 md:px-2 py-1.5 truncate">{d}</div>)}
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-[repeat(5,minmax(0,1fr))_minmax(0,0.55fr)_minmax(0,0.55fr)] auto-rows-[minmax(7rem,1fr)] bg-white">
+      <div className="flex-1 min-h-0 overflow-y-auto grid auto-rows-[minmax(7rem,1fr)] bg-white" style={{ gridTemplateColumns: layout.columns }}>
         {days.map((d) => {
           const k = key(d)
           const inMonth = d.getMonth() === cursor.m
           const isToday = k === key(today)
           const weekend = d.getDay() === 0 || d.getDay() === 6
           return (
-            <div key={k} className={`border-r border-b p-1 min-w-0 ${weekend ? 'bg-gray-50/70' : ''} ${inMonth ? '' : 'opacity-45'}`}>
-              <div className={`text-xs mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-primary text-white font-bold' : 'text-gray-500'}`}>{d.getDate()}</div>
+            <div key={k}
+              // On a phone the whole day is one tap target that opens the day in full
+              onClick={() => { if (isPhone()) setOpenDay(k) }}
+              className={`border-r border-b p-1 min-w-0 ${weekend ? 'bg-gray-50/70' : ''} ${inMonth ? '' : 'opacity-45'}`}>
+              <button type="button" onClick={(ev) => { ev.stopPropagation(); setOpenDay(k) }} aria-label={`Show everything on ${longDate(k)}`}
+                className={`text-xs mb-1 w-6 h-6 flex items-center justify-center rounded-full hover:ring-2 hover:ring-primary/30 ${isToday ? 'bg-primary text-white font-bold' : 'text-gray-500'}`}>{d.getDate()}</button>
               <div className="flex flex-col gap-0.5">
                 {(byDay.get(k) || []).map((e) => (
                   <button
                     key={e.id}
-                    onClick={() => onPick(e)}
+                    onClick={(ev) => { ev.stopPropagation(); if (isPhone()) setOpenDay(k); else onPick(e) }}
                     title={`${e.title}${e.description ? `\n\n${e.description}` : ''}\n\nClick to ask about it`}
                     className={`text-left text-[11px] leading-tight px-1.5 py-0.5 rounded border truncate hover:brightness-95 ${eventStyle(e.title)}`}
                   >
@@ -144,6 +162,61 @@ function Calendar({ refreshKey, onPick }: { refreshKey: number; onPick: (e: CalE
           <span key={l} className="flex items-center gap-1.5"><span className={`w-3 h-3 rounded border ${eventStyle(t)}`} />{l}</span>
         ))}
         <span className="ml-auto">Brewery Schedule, live from Google Calendar</span>
+      </div>
+
+      {openDay && (
+        <DaySheet
+          day={openDay}
+          events={byDay.get(openDay) || []}
+          onClose={() => setOpenDay(null)}
+          onMove={(n) => setOpenDay(key(addDays(fromKey(openDay), n)))}
+          onAsk={(e) => { setOpenDay(null); onPick(e) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── One day, in full ──────────────────────────────────────────────────────────
+
+function DaySheet({ day, events, onClose, onMove, onAsk }: {
+  day: string
+  events: CalEvent[]
+  onClose: () => void
+  onMove: (days: number) => void
+  onAsk: (e: CalEvent) => void
+}) {
+  const sorted = [...events].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.title.localeCompare(b.title))
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 md:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={longDate(day)}>
+      <div className="w-full md:max-w-md max-h-[88dvh] flex flex-col bg-white rounded-t-3xl md:rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <header className="flex items-center gap-1 px-3 py-3 border-b border-gray-100">
+          <button type="button" onClick={() => onMove(-1)} aria-label="Previous day" className="h-11 w-11 flex items-center justify-center rounded-full text-gray-500 active:bg-gray-100"><ChevronLeft className="h-5 w-5" /></button>
+          <div className="flex-1 text-center">
+            <h2 className="text-base font-semibold text-gray-900">{longDate(day)}</h2>
+            <p className="text-xs text-gray-400">{sorted.length === 0 ? 'Nothing booked' : `${sorted.length} thing${sorted.length === 1 ? '' : 's'} on`}</p>
+          </div>
+          <button type="button" onClick={() => onMove(1)} aria-label="Next day" className="h-11 w-11 flex items-center justify-center rounded-full text-gray-500 active:bg-gray-100"><ChevronRight className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} aria-label="Close" className="h-11 w-11 flex items-center justify-center rounded-full text-gray-500 active:bg-gray-100"><X className="h-5 w-5" /></button>
+        </header>
+
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          {sorted.length === 0 && <p className="py-8 text-center text-sm text-gray-400">Nothing on the Brewery Schedule for this day.</p>}
+          {sorted.map((e) => (
+            <article key={e.id} className={`rounded-xl border px-3.5 py-3 ${eventStyle(e.title)}`}>
+              <p className="text-[15px] font-semibold leading-snug break-words">{e.title}</p>
+              <p className="text-xs opacity-70 mt-0.5">
+                {e.time ?? 'All day'}
+                {e.endDate !== e.date && ` · ${prettyDate(e.date)} to ${prettyDate(e.endDate)}`}
+              </p>
+              {e.description && <p className="text-sm mt-2 whitespace-pre-wrap break-words opacity-90">{e.description}</p>}
+              <button type="button" onClick={() => onAsk(e)}
+                className="mt-2.5 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-white/70 text-sm font-medium ring-1 ring-black/10 active:bg-white">
+                <MessageSquare className="h-4 w-4" />Ask the planner about this
+              </button>
+            </article>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -382,7 +455,7 @@ function Chat({ email, draft, setDraft, onApplied }: { email: string; draft: str
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export function PlannerView({ email }: { email: string }) {
+export function PlannerView({ email, weekStart = 1 }: { email: string; weekStart?: 0 | 1 }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [draft, setDraft] = useState('')
   const [tab, setTab] = useState<'calendar' | 'chat'>('chat')
@@ -393,7 +466,7 @@ export function PlannerView({ email }: { email: string }) {
   }
 
   return (
-    <div className="h-[calc(100dvh-5rem)] md:h-dvh flex flex-col">
+    <div className="h-[calc(100dvh-3.5rem)] md:h-dvh flex flex-col">
       <div className="md:hidden flex border-b bg-white">
         {(['calendar', 'chat'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium ${tab === t ? 'text-primary border-b-2 border-primary' : 'text-gray-500'}`}>
@@ -403,7 +476,7 @@ export function PlannerView({ email }: { email: string }) {
       </div>
       <div className="flex-1 min-h-0 flex">
         <div className={`${tab === 'calendar' ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col border-r`}>
-          <Calendar refreshKey={refreshKey} onPick={pick} />
+          <Calendar refreshKey={refreshKey} onPick={pick} weekStart={weekStart} />
         </div>
         <div className={`${tab === 'chat' ? 'flex' : 'hidden'} md:flex w-full md:w-[420px] lg:w-[480px] flex-col`}>
           <Chat email={email} draft={draft} setDraft={setDraft} onApplied={() => setRefreshKey((k) => k + 1)} />

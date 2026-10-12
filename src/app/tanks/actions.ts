@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getFrigidReadings, FRIGID_OFF_SET_POINT } from '@/lib/frigid'
+import { logActivity, who } from '@/lib/slack'
 
 // [lowest, highest] set point allowed, by Frigid vessel name
 const LIMITS: Record<string, [number, number]> = {
@@ -38,6 +40,10 @@ export async function setTankTarget(tankId: string, targetTemp: number): Promise
   const apiUrl = process.env.FRIGID_API_URL
   if (!apiKey || !apiUrl) return { success: false, message: 'Frigid API not configured' }
 
+  // What it was before, for the activity log. Read before the change is sent.
+  const before = (await getFrigidReadings()).find((r) => r.name === tank.frigid_tank_name)?.setPoint
+  const previous = before != null && before !== FRIGID_OFF_SET_POINT ? before : null
+
   const body = { assetId: tank.frigid_asset_id, target: targetTemp, unitTemperature: 'C' }
   console.log('[setTankTarget] POST', `${apiUrl}/asset/target`, body)
 
@@ -69,6 +75,9 @@ export async function setTankTarget(tankId: string, targetTemp: number): Promise
     .eq('id', tankId)
   if (saveError) console.error('[setTankTarget] set point sent to Frigid but not saved:', saveError.message)
 
+  logActivity(`${who(user.email)} set ${tank.name} to ${targetTemp}°C${previous != null ? ` (was ${previous}°C)` : ''}.`)
+
   revalidatePath('/')
+  revalidatePath('/dashboard')
   return { success: true, message: `Setpoint updated to ${targetTemp}°C` }
 }

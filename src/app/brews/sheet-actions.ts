@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { sanitiseSheet, sheetNumber } from '@/lib/brew-sheet'
 import type { BrewSheetData, SheetReading } from '@/lib/brew-sheet'
+import { logActivity, who, esc } from '@/lib/slack'
 
 type Result = { ok: true } | { ok: false; message: string }
 const fail = (message: string): Result => ({ ok: false, message })
@@ -27,8 +28,9 @@ export async function saveBrewSheet(input: {
     .filter((p) => typeof p === 'string' && /^[a-z_.0-9]+$/.test(p)).slice(0, 200)
 
   const { data: brew } = await supabase
-    .from('brews').select('id, stage, og_plato, volume_l, deleted_at').eq('id', input.brew_id).maybeSingle()
+    .from('brews').select('id, beer_name, stage, og_plato, volume_l, deleted_at').eq('id', input.brew_id).maybeSingle()
   if (!brew) return fail('That brew no longer exists.')
+  const { data: already } = await supabase.from('brew_sheets').select('brew_id, source').eq('brew_id', input.brew_id).maybeSingle()
 
   const row: Record<string, unknown> = {
     brew_id: input.brew_id, data, unchecked,
@@ -37,6 +39,14 @@ export async function saveBrewSheet(input: {
   if (input.source) row.source = input.source
   const { error } = await supabase.from('brew_sheets').upsert(row, { onConflict: 'brew_id' })
   if (error) return fail(`Not saved: ${error.message}`)
+
+  // Autosave runs constantly, so the log only hears about the two moments that
+  // matter: a sheet being started, and one being read off a photo.
+  if (input.source === 'photo' && already?.source !== 'photo') {
+    logActivity(`${who(user.email)} read the paper brew sheet for *${esc(brew.beer_name)}* from a photo${unchecked.length ? `. ${unchecked.length} value${unchecked.length === 1 ? '' : 's'} still to check` : ''}.`)
+  } else if (!already) {
+    logActivity(`${who(user.email)} started the brew sheet for *${esc(brew.beer_name)}*.`)
+  }
 
   // "All in FV" is where the tank card's OG and starting volume come from, so
   // the two never disagree. Volume only follows while the beer is still in its

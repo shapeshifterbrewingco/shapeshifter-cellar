@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getFrigidReadings } from '@/lib/frigid'
+import { logActivity, who, esc } from '@/lib/slack'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
 
@@ -28,6 +29,11 @@ async function brewInTank(supabase: Db, tankId: string, exceptBrewId?: string) {
   if (exceptBrewId) q = q.neq('id', exceptBrewId)
   const { data } = await q.limit(1).maybeSingle()
   return data
+}
+
+async function tankName(supabase: Db, tankId: string): Promise<string> {
+  const { data } = await supabase.from('tanks').select('name').eq('id', tankId).maybeSingle()
+  return data?.name ?? 'a tank'
 }
 
 async function batchCodeTaken(supabase: Db, batchCode: string, exceptBrewId: string) {
@@ -107,6 +113,8 @@ export async function assignBrew(data: {
       .eq('scheduled_brew_id', packEvent.id)
       .is('brew_id', null)
   }
+
+  logActivity(`${who(user.email)} started *${esc(data.beer_name.trim())}* in ${await tankName(supabase, data.tank_id)}: ${data.volume_l} L${data.og_plato != null ? `, OG ${data.og_plato}°P` : ''}.`)
 
   revalidatePath('/')
   return { ok: true }
@@ -215,6 +223,9 @@ export async function updateBrewStage(brew_id: string, tank_id: string, stage: T
   })
   if (noteError) console.error('[updateBrewStage] stage note failed:', noteError.message)
 
+  const { data: moved } = await supabase.from('brews').select('beer_name').eq('id', brew_id).maybeSingle()
+  logActivity(`${who(user.email)} moved ${await tankName(supabase, tank_id)}${moved?.beer_name ? ` (${esc(moved.beer_name)})` : ''} to *${STAGE_LABELS[stage]}*.`)
+
   revalidatePath('/')
 }
 
@@ -318,6 +329,16 @@ export async function transferBrew(data: {
   })
   if (noteError) console.error('[transferBrew] transfer note failed:', noteError.message)
 
+  {
+    const [{ data: b }, from, to] = await Promise.all([
+      supabase.from('brews').select('beer_name').eq('id', data.brew_id).maybeSingle(),
+      tankName(supabase, data.source_tank_id),
+      tankName(supabase, data.dest_tank_id),
+    ])
+    const lost = data.volume_in_l - data.volume_out_l
+    logActivity(`${who(user.email)} transferred *${esc(b?.beer_name ?? 'a beer')}* from ${from} to ${to}: ${data.volume_out_l} L arrived${lost > 0 ? ` (${Math.round(lost)} L lost)` : ''}.`)
+  }
+
   revalidatePath('/')
   return { ok: true }
 }
@@ -399,6 +420,13 @@ export async function packageBrew(data: {
       updated_at: new Date().toISOString(),
     }).eq('id', data.brew_id)
     return fail(`Could not record the packaging run, so the brew is still in tank: ${runsError.message}`)
+  }
+
+  {
+    const { data: b } = await supabase.from('brews').select('beer_name').eq('id', data.brew_id).maybeSingle()
+    const total = packages.reduce((sum, p) => sum + p.volume_l, 0)
+    const parts = packages.map((p) => `${p.qty} x ${p.format}`).join(', ')
+    logActivity(`${who(user.email)} packaged *${esc(b?.beer_name ?? 'a beer')}* (batch ${esc(batchCode)}) from ${await tankName(supabase, data.tank_id)}: ${parts}. ${Math.round(total)} L in total.`)
   }
 
   // QC readings and stock distribution live on the packaging split. Only those
@@ -723,11 +751,16 @@ export async function getScheduledSplit(scheduled_brew_id: string): Promise<Pack
 
 export async function endBrew(brew_id: string, final_stage: 'transferred' | 'packaged' | 'cleaning') {
   const supabase = await createClient()
+  const [{ data: { user } }, { data: ending }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('brews').select('beer_name, tank_id').eq('id', brew_id).maybeSingle(),
+  ])
   const { error } = await supabase.from('brews').update({
     stage: final_stage,
     deleted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }).eq('id', brew_id)
   if (error) throw error
+  if (ending) logActivity(`${who(user?.email)} emptied ${await tankName(supabase, ending.tank_id)} (${esc(ending.beer_name)}) for cleaning.`)
   revalidatePath('/')
 }

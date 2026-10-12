@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getFrigidReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
+import { runAlerts } from '@/lib/alerts'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,11 +18,15 @@ export async function GET(request: Request) {
   }
 
   const readings = await getFrigidReadings()
+
+  // Alarms first, and before the early exit below: Frigid going quiet is itself an alarm
+  const alerts = await runAlerts(readings).catch((e) => ({ skipped: e instanceof Error ? e.message : 'alert check failed' }))
+
   if (readings.length === 0) {
-    return NextResponse.json({ error: 'Frigid returned no readings' }, { status: 502 })
+    return NextResponse.json({ error: 'Frigid returned no readings', alerts }, { status: 502 })
   }
 
   const result = await recordTemperatures(readings)
-  if (result.error) return NextResponse.json({ error: result.error }, { status: 500 })
-  return NextResponse.json({ inserted: result.inserted, at: new Date().toISOString() })
+  if (result.error) return NextResponse.json({ error: result.error, alerts }, { status: 500 })
+  return NextResponse.json({ inserted: result.inserted, alerts, at: new Date().toISOString() })
 }

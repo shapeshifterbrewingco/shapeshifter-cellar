@@ -795,36 +795,20 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     <>
       {detailSheet}
       {mobileRow}
-      <div className={`hidden md:flex flex-col rounded-2xl shadow-md overflow-hidden w-full ${
-        stage === 'active_ferment' ? 'bg-amber-50 border-2 border-amber-400 shadow-amber-100' :
-        stage === 'diacetyl_rest' ? 'bg-violet-50 border-2 border-violet-400 shadow-violet-100' :
-        stage === 'on_chill'      ? 'bg-sky-50 border-2 border-blue-600 shadow-blue-100' :
-        stage === 'vdk_pass'      ? 'bg-white border-2 border-orange-400' :
-        'bg-white border border-gray-200'
-      }`}>
+      <div className="hidden md:flex flex-col rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden w-full">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-3 pt-2 pb-1">
-          <span className="text-2xl font-black text-gray-900 tracking-tight leading-none">{tank.name}</span>
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <span className="text-lg font-semibold text-gray-900 tracking-tight leading-none">{tank.name}</span>
           <div className="flex items-center gap-2">
             {brew?.batch_code && (
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-full tabular-nums tracking-wide ${
-                stage === 'active_ferment' ? 'bg-amber-100 text-amber-700' :
-                stage === 'diacetyl_rest' ? 'bg-violet-100 text-violet-700' :
-                stage === 'on_chill'      ? 'bg-sky-100 text-sky-700' :
-                'bg-gray-100 text-gray-500'
-              }`}>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full tabular-nums bg-gray-100 text-gray-600">
                 {brew.batch_code}
               </span>
             )}
             {days_in_tank !== null && !isEmpty && (
-              <span title="Days in tank" className={`text-sm font-bold px-3 py-1 rounded-full tabular-nums ${
-                stage === 'active_ferment' ? 'bg-amber-100 text-amber-700' :
-                stage === 'diacetyl_rest' ? 'bg-violet-100 text-violet-700' :
-                stage === 'on_chill'      ? 'bg-sky-100 text-sky-700' :
-                'bg-gray-100 text-gray-600'
-              }`}>
-                {days_in_tank}d
+              <span title="Days in tank" className="text-xs font-medium tabular-nums text-gray-500">
+                Day {days_in_tank}
               </span>
             )}
           </div>
@@ -852,7 +836,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               {next_scheduled_brew ? (
                 <div>
                   <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide leading-none mb-0.5">Next brew</p>
-                  <p className="text-sm font-bold text-gray-800 leading-tight">
+                  <p className="text-sm font-semibold text-gray-800 leading-tight">
                     {next_scheduled_brew.recipe?.name ?? next_scheduled_brew.recipe_name ?? 'Untitled'}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -891,7 +875,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             <div className="flex flex-col justify-center flex-1 min-w-0 pl-3 gap-1.5">
               {/* Beer name + style */}
               <div className="min-w-0">
-                <p className="text-base font-black text-gray-900 leading-tight">{brew.beer_name}</p>
+                <p className="text-[15px] font-semibold text-gray-900 leading-tight">{brew.beer_name}</p>
                 {brew.style && <p className="text-xs text-gray-500 mt-0.5 leading-tight">{brew.style}</p>}
               </div>
 
@@ -921,16 +905,16 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 stage === 'active_ferment' ? (
                   <div className="flex flex-col gap-0.5 leading-tight">
                     <div className="flex items-baseline gap-1.5">
-                      {showGravity && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.plato}°P</span>}
-                      {showPh && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.ph} pH</span>}
+                      {showGravity && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.plato}°P</span>}
+                      {showPh && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.ph} pH</span>}
                     </div>
-                    {abv != null && <span className="text-sm font-bold text-indigo-600 tabular-nums">{abv.toFixed(1)}% ABV</span>}
+                    {abv != null && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{abv.toFixed(1)}% ABV</span>}
                   </div>
                 ) : (
                   <div className="flex items-baseline gap-1.5 flex-wrap leading-tight">
-                    {showGravity && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.plato}°P</span>}
-                    {abv != null && <span className="text-sm font-bold text-indigo-600 tabular-nums">{abv.toFixed(1)}% ABV</span>}
-                    {showPh && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.ph} pH</span>}
+                    {showGravity && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.plato}°P</span>}
+                    {abv != null && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{abv.toFixed(1)}% ABV</span>}
+                    {showPh && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.ph} pH</span>}
                   </div>
                 )
               )}
@@ -948,12 +932,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         )}
 
         {/* Actions */}
-        <div className={`border-t px-3 py-1.5 ${
-          stage === 'active_ferment' ? 'border-amber-200 bg-amber-100/40' :
-          stage === 'diacetyl_rest' ? 'border-violet-200 bg-violet-100/40' :
-          stage === 'on_chill'      ? 'border-blue-200 bg-sky-100/40' :
-          'border-gray-100'
-        }`}>
+        <div className="mt-auto border-t border-gray-100 px-3 py-2">
           {isEmpty ? (
             <Button size="sm" className="w-full h-8 text-sm" onClick={() => setShowAssignModal(true)}>
               Start Brew
@@ -963,12 +942,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               {stage === 'diacetyl_rest' ? (
                 <>
                   <Button size="sm" variant="outline"
-                    className="flex-1 h-8 text-sm bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-300 gap-1.5"
+                    className="flex-1 h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
                     onClick={() => setShowVdkModal(true)}>
                     <TestTube2 className="h-4 w-4" /> VDK Test
                   </Button>
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer flex-shrink-0">
+                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">
                       <MoreHorizontal className="h-5 w-5" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="text-sm">
@@ -996,12 +975,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               ) : stage === 'vdk_pass' ? (
                 <>
                   <Button size="sm" variant="outline"
-                    className="flex-1 h-8 text-sm bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 hover:border-orange-300 gap-1.5"
+                    className="flex-1 h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
                     onClick={() => handleStageChange('on_chill')}>
                     → Move to Chill
                   </Button>
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 cursor-pointer flex-shrink-0">
+                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">
                       <MoreHorizontal className="h-5 w-5" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="text-sm">
@@ -1025,14 +1004,14 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               ) : stage === 'on_chill' ? (
                 <>
                   <Button size="sm" variant="outline"
-                    className="flex-1 h-8 text-sm bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100 hover:border-sky-300 gap-1.5"
+                    className="flex-1 h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
                     onClick={() => tank.type === 'fermenter' ? setShowTransferModal(true) : setShowPackageModal(true)}>
                     {tank.type === 'fermenter'
                       ? <><ChevronRight className="h-4 w-4" /> Transfer</>
                       : <><Package className="h-4 w-4" /> Package / Keg</>}
                   </Button>
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 cursor-pointer flex-shrink-0">
+                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">
                       <MoreHorizontal className="h-5 w-5" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="text-sm">
@@ -1057,12 +1036,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 /* active_ferment */
                 <>
                   <Button size="sm" variant="outline"
-                    className="flex-1 h-8 text-sm bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 hover:border-teal-300 gap-1.5"
+                    className="flex-1 h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
                     onClick={() => setShowLogModal(true)}>
                     <FlaskConical className="h-4 w-4" /> Log Reading
                   </Button>
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 cursor-pointer flex-shrink-0">
+                    <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">
                       <MoreHorizontal className="h-5 w-5" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="text-sm">
@@ -1098,16 +1077,11 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
         {/* Setpoint control — only shown for tanks with a Frigid asset ID */}
         {tank.frigid_asset_id && (
-          <div className={`border-t px-3 py-1.5 flex items-center gap-2 ${
-            stage === 'active_ferment' ? 'border-amber-200 bg-amber-50/60' :
-            stage === 'diacetyl_rest' ? 'border-violet-200 bg-violet-50/60' :
-            stage === 'on_chill'      ? 'border-sky-200 bg-sky-50/60' :
-            'border-gray-100 bg-gray-50/50'
-          }`}>
+          <div className="border-t border-gray-100 px-4 py-1.5 flex items-center gap-2">
             {!showSetpoint ? (
               <>
                 <span className="text-xs text-gray-500 tabular-nums">
-                  <span className="font-bold">Set Point:</span> {set_point_c != null && set_point_c !== 200 ? `${set_point_c.toFixed(1)}°C` : '—'}
+                  <span className="text-gray-400">Set point</span> {set_point_c != null && set_point_c !== 200 ? `${set_point_c.toFixed(1)}°C` : '—'}
                 </span>
                 <button
                   type="button"

@@ -73,14 +73,14 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
   const field = 'w-full h-14 rounded-xl border border-gray-200 bg-white px-3 text-center text-xl font-semibold tabular-nums text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary'
 
   return (
-    <form onSubmit={save} className="md:hidden bg-white rounded-2xl ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 py-3.5 mb-3">
+    <form onSubmit={save} className="md:hidden bg-white rounded-2xl ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden mb-3">
       <button type="button" onClick={toggle} aria-expanded={open}
-        className="w-full flex items-center justify-between -my-1 py-1 text-left">
-        <span className="text-base font-bold text-gray-900">Quick log</span>
-        <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        className="w-full flex items-center justify-between bg-primary text-white px-4 py-3.5 text-left active:opacity-90">
+        <span className="text-base font-semibold">Quick log</span>
+        <ChevronDown className={`h-5 w-5 text-white/80 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {open && <>
+      {open && <div className="px-4 pb-4 pt-1">
       <div className="grid grid-cols-3 gap-2 mt-3">
         {live.map((t) => {
           const on = t.tank.id === tankId
@@ -129,7 +129,7 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
         {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
         {selected ? `Save ${selected.tank.name}` : 'Save'}
       </button>
-      </>}
+      </div>}
     </form>
   )
 }

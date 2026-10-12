@@ -53,32 +53,19 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
   return (
     <div>
       {/* Toolbar. Phones get one fixed layout, so no legend or view switch there. */}
-      <div className="hidden md:flex items-center justify-between mb-3">
-        {/* Stage legend */}
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: 'Fermenting',    colour: 'bg-amber-400' },
-            { label: 'Diacetyl Rest', colour: 'bg-violet-400' },
-            { label: 'VDK Pass',      colour: 'bg-orange-400' },
-            { label: 'On Chill',      colour: 'bg-blue-500' },
-          ].map(({ label, colour }) => (
-            <span key={label} className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
-              <span className={`w-2 h-2 rounded-full ${colour}`} />
-              {label}
-            </span>
-          ))}
-        </div>
+      <div className="hidden md:flex items-center justify-between mb-4 mt-2">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Cellar</h1>
 
         {/* View toggle */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-xs text-gray-400 font-medium hidden sm:block">View:</span>
-          <div className="flex items-center rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+          <div className="flex items-center rounded-full ring-1 ring-black/5 overflow-hidden bg-white p-0.5 gap-0.5">
             {(['small', 'medium', 'large'] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => handleView(v)}
                 title={v === 'small' ? 'Small cards' : v === 'medium' ? 'Medium cards' : 'Large cards'}
-                className={`px-3 py-1.5 text-xs font-bold transition-colors border-r border-gray-200 ${
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                   hydrated && view === v ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'
                 }`}
               >
@@ -88,7 +75,7 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
             <button
               onClick={() => handleView('list')}
               title="List view"
-              className={`px-3 py-1.5 flex items-center transition-colors ${
+              className={`px-3 py-1 flex items-center rounded-full transition-colors ${
                 hydrated && view === 'list' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
@@ -129,7 +116,7 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2.5 md:gap-2 md:[grid-template-columns:var(--tank-cols)]"
+        <div className="grid grid-cols-1 gap-2.5 md:gap-3 md:[grid-template-columns:var(--tank-cols)]"
           style={{ '--tank-cols': GRID_COLS[cardSize] } as React.CSSProperties}>
           {tanks.map(t => (
             <TankCard

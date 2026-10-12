@@ -11,10 +11,11 @@ const TEMP_COLOURS: Record<string, string> = {
   Glycol: 'text-violet-600',
 }
 
+// One quiet line colour: the number beside it is what matters
 const LINE_COLOURS: Record<string, string> = {
-  HLT:    '#ea580c',
-  CLT:    '#2563eb',
-  Glycol: '#7c3aed',
+  HLT:    '#64748b',
+  CLT:    '#64748b',
+  Glycol: '#64748b',
 }
 
 const SUBTITLES: Record<string, string> = {
@@ -62,7 +63,7 @@ function MiniSparkline({ history, colour }: { history: FrigidReading['history'];
   area += ` L ${lastX} ${h} Z`
 
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block max-w-[200px]">
       <defs>
         <linearGradient id={`mg-${colour.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={colour} stopOpacity={0.2} />
@@ -172,7 +173,6 @@ function ExpandedModal({ reading, onClose }: { reading: FrigidReading; onClose: 
 // ── Individual card ────────────────────────────────────────────────────────────
 
 function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }) {
-  const tempColour = TEMP_COLOURS[r.name] ?? 'text-gray-700'
   const lineColour = LINE_COLOURS[r.name] ?? '#6b7280'
   const hasHistory = (r.history?.length ?? 0) > 0
 
@@ -211,7 +211,7 @@ function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }
   const spDisplay = r.setPoint != null && r.setPoint !== 200 ? `${r.setPoint.toFixed(1)}°C` : '—'
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden">
       <div className="px-4 py-3 flex items-center gap-4">
 
         {/* Clickable: name + temp + sparkline */}
@@ -220,14 +220,14 @@ function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }
           className={`flex items-center gap-4 flex-1 min-w-0 ${hasHistory ? 'cursor-pointer hover:opacity-80' : 'cursor-default'} transition-opacity`}
         >
           <div className="flex-shrink-0 min-w-[80px]">
-            <p className="text-xs text-gray-500 font-bold">{SUBTITLES[r.name] ?? r.name}</p>
+            <p className="text-xs text-gray-500">{SUBTITLES[r.name] ?? r.name}</p>
             <div className="mt-0.5">
               {r.temperature != null
-                ? <span className={`text-xl font-black tabular-nums ${tempColour}`}>{r.temperature.toFixed(1)}°C</span>
-                : <span className="text-xl font-black tabular-nums text-gray-300">—°C</span>}
+                ? <span className={`text-xl font-semibold tabular-nums text-gray-900`}>{r.temperature.toFixed(1)}°C</span>
+                : <span className="text-xl font-semibold tabular-nums text-gray-300">—°C</span>}
             </div>
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
             <MiniSparkline history={r.history ?? []} colour={lineColour} />
           </div>
         </div>
@@ -235,7 +235,7 @@ function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }
         {/* Setpoint column — right-justified, not part of the clickable area */}
         {r.tankId && (
           <div className="flex-shrink-0 text-right">
-            <p className="text-xs text-gray-500 font-bold">Set Point</p>
+            <p className="text-xs text-gray-500">Set point</p>
             <div className="flex items-center justify-end gap-1 mt-0.5">
               {editing ? (
                 <div className="flex items-center gap-1">
@@ -249,7 +249,7 @@ function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }
                       if (e.key === 'Escape') setEditing(false)
                     }}
                     autoFocus
-                    className="w-20 text-xl font-black tabular-nums text-right border-b-2 border-primary bg-transparent focus:outline-none"
+                    className="w-20 text-xl font-semibold tabular-nums text-right border-b-2 border-primary bg-transparent focus:outline-none"
                   />
                   {saving ? (
                     <span className="text-xs text-gray-400">…</span>
@@ -264,7 +264,7 @@ function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }
                 </div>
               ) : (
                 <>
-                  <span className={`text-xl font-black tabular-nums ${tempColour}`}>{spDisplay}</span>
+                  <span className={`text-xl font-semibold tabular-nums text-gray-900`}>{spDisplay}</span>
                   <button type="button" onClick={handleEditOpen}
                     className="text-gray-300 hover:text-gray-500 transition-colors ml-1">
                     <Pencil className="h-3.5 w-3.5" />

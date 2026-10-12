@@ -157,7 +157,7 @@ function BriteTank({ fillColour, isDark, empty, stage, volume_l, temperature, wi
           <path d={BBT_INTERIOR} />
         </clipPath>
       </defs>
-      <path d={BBT_DARK} fill="#030303" />
+      <path d={BBT_DARK} fill="#94a3b8" />
       <path d={BBT_INTERIOR} fill={fillColour} opacity={empty ? 1 : 0.85} />
       {showAnim && (
         <g clipPath={`url(#${clipId})`}>
@@ -167,8 +167,8 @@ function BriteTank({ fillColour, isDark, empty, stage, volume_l, temperature, wi
       <path d={BBT_CAP} fill="white" />
       <path d={BBT_LEG_R} fill="white" />
       <path d={BBT_LEG_L} fill="white" />
-      {!empty && hasVol  && <text x={200} y={volY}  textAnchor="middle" dominantBaseline="central" fontSize={88} fontWeight="900" fill={tc}>{volume_l}L</text>}
-      {hasTemp && <text x={200} y={tempY} textAnchor="middle" dominantBaseline="central" fontSize={76} fontWeight="800" fill={empty ? '#9ca3af' : tc}>{temperature!.toFixed(1)}°C</text>}
+      {!empty && hasVol  && <text x={200} y={volY}  textAnchor="middle" dominantBaseline="central" fontSize={88} fontWeight="700" fill={tc}>{volume_l}L</text>}
+      {hasTemp && <text x={200} y={tempY} textAnchor="middle" dominantBaseline="central" fontSize={76} fontWeight="600" fill={empty ? '#9ca3af' : tc}>{temperature!.toFixed(1)}°C</text>}
     </svg>
   )
 }
@@ -189,7 +189,7 @@ function FermenterTank({ fillColour, isDark, empty, stage, volume_l, temperature
           <path d={FV_INTERIOR} />
         </clipPath>
       </defs>
-      <path d={FV_DARK} fill="#050505" />
+      <path d={FV_DARK} fill="#94a3b8" />
       <path d={FV_INTERIOR} fill={fillColour} opacity={empty ? 1 : 0.85} />
       {showAnim && (
         <g clipPath={`url(#${clipId})`}>
@@ -199,8 +199,8 @@ function FermenterTank({ fillColour, isDark, empty, stage, volume_l, temperature
       <path d={FV_CONNECTOR} fill="white" />
       <path d={FV_CAP} fill="white" />
       <path d={FV_CROSSBAR} fill="white" />
-      {!empty && hasVol  && <text x={231} y={volY}  textAnchor="middle" dominantBaseline="central" fontSize={88} fontWeight="900" fill={tc}>{volume_l}L</text>}
-      {hasTemp && <text x={231} y={tempY} textAnchor="middle" dominantBaseline="central" fontSize={76} fontWeight="800" fill={empty ? '#9ca3af' : tc}>{temperature!.toFixed(1)}°C</text>}
+      {!empty && hasVol  && <text x={231} y={volY}  textAnchor="middle" dominantBaseline="central" fontSize={88} fontWeight="700" fill={tc}>{volume_l}L</text>}
+      {hasTemp && <text x={231} y={tempY} textAnchor="middle" dominantBaseline="central" fontSize={76} fontWeight="600" fill={empty ? '#9ca3af' : tc}>{temperature!.toFixed(1)}°C</text>}
     </svg>
   )
 }

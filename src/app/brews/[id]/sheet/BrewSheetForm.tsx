@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { importSheetReadings } from '@/app/brews/sheet-actions'
+import { setTankTarget } from '@/app/tanks/actions'
+import { useRouter } from 'next/navigation'
 import { sheetProgress, bagsLabel, isDayZero } from '@/lib/brew-sheet'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
@@ -102,6 +104,9 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   const [adding, setAdding] = useState(false)
   const [done, setDone] = useState(finished)
   const [finishing, setFinishing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [setTemp, setSetTemp] = useState('')
+  const router = useRouter()
   const fileInput = useRef<HTMLInputElement>(null)
 
   // Latest values for the autosave, which runs outside render
@@ -373,19 +378,40 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   }
 
   // The one deliberate step of the day: the All in FV figures go onto the tank
-  async function finishDay() {
+  // Step one: check the numbers are there, then ask what the tank should be set to
+  function askToFinish() {
     const { volume_l, plato, ph } = latest.current.data.fv
     const missing = [!volume_l.trim() && 'volume', !plato.trim() && 'gravity', !ph.trim() && 'pH'].filter(Boolean)
     if (missing.length) { toast.error(`Enter ${missing.join(', ')} under All in FV first.`); return }
-    if (!window.confirm(`Finish the brew day for ${brew.beer_name}?\n\n${volume_l} L in ${brew.tank_name}\nGravity ${plato}°P\npH ${ph}\n\nYou can still correct these on the brew sheet afterwards.`)) return
+    setSetTemp(latest.current.data.yeast.set_temp_c.trim())
+    setConfirming(true)
+  }
+
+  // Step two, the one deliberate act of the day: the All in FV figures go onto
+  // the tank, the tank gets its set point, and it is back to the cellar.
+  async function finishDay() {
+    const temp = Number(setTemp)
+    if (!setTemp.trim() || !Number.isFinite(temp)) { toast.error(`Enter the temperature to set ${brew.tank_name} to.`); return }
     setFinishing(true)
     try {
       const snap = latest.current
-      const res = await postSheet({ brew_id: brew.id, data: snap.data, unchecked: snap.unchecked, source: snap.source, finish: true })
+      // The set temperature is part of the record, and so is who set it
+      const sheet: BrewSheetData = {
+        ...snap.data,
+        yeast: { ...snap.data.yeast, set_temp_c: setTemp.trim() },
+        signoffs: { ...snap.data.signoffs, frigid_set: snap.data.signoffs.frigid_set || me || 'Yes' },
+      }
+      const res = await postSheet({ brew_id: brew.id, data: sheet, unchecked: snap.unchecked, source: snap.source, finish: true })
       if (!res.ok) { toast.error(res.message); return }
+      update(sheet)
       setDone(true)
       setStatus('saved')
-      toast.success(`Brew day finished. ${brew.beer_name} is fermenting in ${brew.tank_name}.`)
+
+      const set = await setTankTarget(brew.tank_id, temp).catch(() => ({ success: false, message: 'Frigid could not be reached.' }))
+      if (set.success) toast.success(`Brew day finished. ${brew.beer_name} is in ${brew.tank_name}, set to ${temp}°C.`)
+      else toast.warning(`Brew day finished, but ${brew.tank_name} was not set to ${temp}°C: ${set.message} Set it from the tank card or at the panel.`, { duration: 15000 })
+      setConfirming(false)
+      router.push('/')
     } catch {
       toast.error('Not finished. Check the connection and tap it again.')
     } finally {
@@ -420,6 +446,35 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
 
   return (
     <div className="space-y-3 pb-10">
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-24" onClick={() => !finishing && setConfirming(false)}>
+          <div role="dialog" aria-modal="true" aria-label="Finish brew day" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-gray-900">Finish brew day</h2>
+            <p className="text-sm text-gray-500">{brew.beer_name} in {brew.tank_name}</p>
+            <dl className="grid grid-cols-3 gap-2 mt-4">
+              {([['Volume', `${data.fv.volume_l} L`], ['Gravity', `${data.fv.plato}°P`], ['pH', data.fv.ph]] as [string, string][]).map(([label, value]) => (
+                <div key={label} className="rounded-xl bg-background px-3 py-2">
+                  <dt className="text-[11px] text-gray-400">{label}</dt>
+                  <dd className="text-base font-semibold tabular-nums text-gray-900">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <label className="block mt-4">
+              <span className="block text-sm font-medium text-gray-900 mb-1">Set {brew.tank_name} to (°C)</span>
+              <input type="text" inputMode="decimal" value={setTemp} onChange={(e) => setSetTemp(e.target.value.replace(/[^0-9.\-]/g, ''))} placeholder="e.g. 19"
+                className="w-full h-14 rounded-xl border border-gray-200 bg-white px-3 text-center text-xl font-semibold tabular-nums text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <span className="block text-xs text-gray-400 mt-1">This is sent to Frigid when you finish.</span>
+            </label>
+            <div className="flex gap-2 mt-5">
+              <button type="button" onClick={() => setConfirming(false)} disabled={finishing} className="flex-1 h-12 rounded-xl ring-1 ring-black/10 text-sm font-medium text-gray-700">Back</button>
+              <button type="button" onClick={() => void finishDay()} disabled={finishing}
+                className="flex-1 h-12 rounded-xl bg-malt text-white text-base font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
+                {finishing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}Finish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className={`${CARD} p-4`}>
         <p className="text-[11px] font-semibold tracking-wide text-gray-400">
@@ -548,7 +603,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           </p>
         ) : (
           <>
-            <button type="button" onClick={() => void finishDay()} disabled={finishing}
+            <button type="button" onClick={askToFinish} disabled={finishing}
               className="mt-3 w-full h-12 rounded-xl bg-malt text-white text-base font-semibold inline-flex items-center justify-center gap-2 active:opacity-90 disabled:opacity-60">
               {finishing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}Finish brew day
             </button>

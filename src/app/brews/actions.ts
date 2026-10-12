@@ -613,6 +613,14 @@ export async function logVdkReading(data: {
     notes: data.notes.trim() || null,
   })
   if (error) throw error
+
+  // A pass is the stage change. Nobody should have to say it twice.
+  if (data.result === 'pass') {
+    const { data: brew } = await supabase.from('brews').select('stage').eq('id', data.brew_id).maybeSingle()
+    if (brew?.stage === 'diacetyl_rest' || brew?.stage === 'active_ferment') {
+      await updateBrewStage(data.brew_id, data.tank_id, 'vdk_pass')
+    }
+  }
   revalidatePath('/')
 }
 

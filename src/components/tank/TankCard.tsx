@@ -208,6 +208,15 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       blocked: (t.stage === 'on_chill' || t.stage === 'vdk_pass') && !vdkPassed ? 'VDK required' : undefined,
     }))
 
+  // The one thing most likely to happen next, by stage. Once fermentation is
+  // signed off (VDK pass or on chill) there is nothing left to log: the beer moves.
+  const doneFermenting = stage === 'vdk_pass' || stage === 'on_chill'
+  const nextStep: { label: string; run: () => void } =
+    onDiacetylRest ? { label: 'Log VDK', run: () => setShowVdkModal(true) }
+    : doneFermenting && tank.type === 'brite' ? { label: 'Package', run: () => setShowPackageModal(true) }
+    : doneFermenting ? { label: 'Transfer', run: () => setShowTransferModal(true) }
+    : { label: 'Log reading', run: () => setShowLogModal(true) }
+
   const sheetMore: SheetAction[] = [
     { label: 'Brew sheet', onSelect: openBrewSheet },
     onDiacetylRest
@@ -227,8 +236,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       data={data}
       stages={sheetStages}
       more={sheetMore}
-      logLabel={onDiacetylRest ? 'Log VDK' : 'Log reading'}
-      onLog={() => (onDiacetylRest ? setShowVdkModal(true) : setShowLogModal(true))}
+      logLabel={nextStep.label}
+      onLog={nextStep.run}
       onStage={handleStageChange}
       onClose={() => setShowDetail(false)}
     />
@@ -342,6 +351,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           </div>
         ))}
       </dl>
+      {doneFermenting && (
+        <button type="button" onClick={(e) => { e.stopPropagation(); nextStep.run() }}
+          className="mt-3 w-full h-10 rounded-xl bg-primary/10 text-primary text-sm font-semibold inline-flex items-center justify-center gap-1.5 active:bg-primary/20">
+          {tank.type === 'brite' ? <Package className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}{nextStep.label}
+        </button>
+      )}
     </div>
   )
 
@@ -391,8 +406,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             <>
               <Button size="sm" variant="outline"
                 className="h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
-                onClick={() => (stage === 'on_chill' && tank.type === 'brite' ? setShowPackageModal(true) : onDiacetylRest ? setShowVdkModal(true) : setShowLogModal(true))}>
-                {stage === 'on_chill' && tank.type === 'brite' ? 'Package' : onDiacetylRest ? 'Log VDK' : 'Log Reading'}
+                onClick={nextStep.run}>
+                {nextStep.label}
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">

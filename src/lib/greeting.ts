@@ -5,20 +5,28 @@ const TZ = 'Australia/Adelaide'
 
 function breweryClock(now: Date) {
   const p = Object.fromEntries(
-    new Intl.DateTimeFormat('en-AU', { timeZone: TZ, weekday: 'long', hour: 'numeric', hourCycle: 'h23', month: '2-digit', day: '2-digit' })
+    new Intl.DateTimeFormat('en-AU', { timeZone: TZ, weekday: 'long', hour: 'numeric', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit' })
       .formatToParts(now).map((x) => [x.type, x.value]),
   )
-  return { day: p.weekday as string, hour: Number(p.hour), monthDay: `${p.month}-${p.day}` }
+  return { day: p.weekday as string, hour: Number(p.hour), monthDay: `${p.month}-${p.day}`, year: Number(p.year) }
 }
+
+// Days with their own line. `on` is MM-DD. Add `year` for a one-off and
+// `only` to show it to one person (first name, lower case). {name} is filled in.
+const SPECIAL_DAYS: { on: string; line: string; year?: number; only?: string }[] = [
+  { on: '11-19', year: 2026, only: 'zac', line: 'Happy GTA VI release day{name}' },
+  { on: '12-21', line: 'Happy Gravy Day{name}' },
+  { on: '12-25', line: 'Merry Christmas{name}' },
+]
 
 /** The days that get their own line all day. Null on an ordinary day. */
 export function specialGreeting(name: string, opts: { birthday?: string | null; now?: Date } = {}): string | null {
-  const { monthDay } = breweryClock(opts.now ?? new Date())
+  const { monthDay, year } = breweryClock(opts.now ?? new Date())
   const to = name ? `, ${name}` : ''
   if (opts.birthday && opts.birthday === monthDay) return `Happy birthday${to}`
-  if (monthDay === '12-21') return `Happy Gravy Day${to}`
-  if (monthDay === '12-25') return `Merry Christmas${to}`
-  return null
+  const who = name.toLowerCase()
+  const hit = SPECIAL_DAYS.find((d) => d.on === monthDay && (d.year == null || d.year === year) && (d.only == null || d.only === who))
+  return hit ? hit.line.replace('{name}', to) : null
 }
 
 // Shown at random, roughly one app open in six. {name} is dropped cleanly when unknown.

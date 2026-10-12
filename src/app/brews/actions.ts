@@ -579,6 +579,29 @@ export async function updateBrewVolume(brew_id: string, volume_l: number) {
   revalidatePath('/')
 }
 
+export async function renameBrew(brew_id: string, beer_name: string): Promise<ActionResult> {
+  const name = beer_name.trim()
+  if (!name) return fail('Give the beer a name.')
+  if (name.length > 120) return fail('That name is too long.')
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+
+  const { data, error } = await supabase
+    .from('brews')
+    .update({ beer_name: name, updated_at: new Date().toISOString() })
+    .eq('id', brew_id)
+    .select('id')
+  if (error) return fail(`Not saved: ${error.message}`)
+  if (!data?.length) return fail('That brew could not be renamed. Refresh the page and try again.')
+
+  revalidatePath('/')
+  revalidatePath('/history')
+  revalidatePath('/readings')
+  return { ok: true }
+}
+
 export async function updateBatchCode(brew_id: string, batch_code: string) {
   const supabase = await createClient()
   const { error } = await supabase

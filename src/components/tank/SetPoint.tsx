@@ -59,6 +59,11 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
     setError(null)
   }
 
+  const flipSign = () => {
+    setValue((v) => (/^[-−]/.test(v.trim()) ? v.trim().slice(1) : `-${v.trim()}`))
+    setError(null)
+  }
+
   function send() {
     if (!valid || isPending) return
     setError(null)
@@ -95,17 +100,21 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
             <Minus className="h-5 w-5" />
           </button>
           <div className="relative flex-1">
-            {/* Plain text field: the phone number pad has no minus key, and chill set points are negative */}
+            {/* The phone number pad has no minus key, and chill set points are
+                negative, so the sign has its own button inside the field. */}
+            <button type="button" onClick={flipSign} aria-label="Switch between above and below zero"
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 h-11 w-10 rounded-lg bg-black/[0.05] text-lg font-semibold text-gray-700 active:bg-black/10">
+              ±
+            </button>
             <input
               value={value}
-              onChange={(e) => { setValue(e.target.value); setError(null) }}
+              onChange={(e) => { setValue(e.target.value.replace(/[^0-9.,\-−]/g, '')); setError(null) }}
               onKeyDown={(e) => { if (e.key === 'Enter') send(); if (e.key === 'Escape') onClose() }}
-              inputMode="text"
+              inputMode="decimal"
               autoComplete="off"
               autoFocus
-              placeholder="°C"
               aria-label="New set point in degrees Celsius"
-              className="w-full h-14 rounded-xl border border-gray-200 pl-3 pr-9 text-center text-2xl font-semibold tabular-nums text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              className="w-full h-14 rounded-xl border border-gray-200 pl-12 pr-9 text-center text-2xl font-semibold tabular-nums text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">°C</span>
           </div>

@@ -25,22 +25,22 @@ export function specialGreeting(name: string, opts: { birthday?: string | null; 
 const EGGS = [
   'Hey big dog',
   'How good are lagers{name}',
-  'Clean as you go{name}',
-  'Is it a hazy? It is probably a hazy',
-  'Trust the process{name}. And the hydrometer',
-  'Did you check the clamps{name}?',
+  'Trust the process{name}. And the Anton Paar',
   'Another day, another dry hop',
-  'Hops in, worries out{name}',
-  'Nobody ever regretted a second sanitise{name}',
-  'The yeast are doing all the work again{name}',
   'Smells like brew day{name}',
-  'You are doing great{name}. The tanks said so',
+  'You are doing great{name}. Untappd said so',
 ]
+
+// Ones written for one person. They join the pool only for that name.
+const PERSONAL_EGGS: Record<string, string[]> = {
+  carla: ['Girls just wanna mash tun, Carla'],
+}
 
 /** An easter egg greeting, or null most of the time. */
 export function easterEgg(name: string, chance = 1 / 6): string | null {
   if (Math.random() >= chance) return null
-  const pick = EGGS[Math.floor(Math.random() * EGGS.length)]
+  const pool = [...EGGS, ...(PERSONAL_EGGS[name.toLowerCase()] ?? [])]
+  const pick = pool[Math.floor(Math.random() * pool.length)]
   return pick.replace('{name}', name ? `, ${name}` : '')
 }
 

@@ -120,7 +120,7 @@ export default async function DashboardPage() {
         total: progress.total,
         missing: [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.plato.trim() && 'gravity', !sheet.fv.ph.trim() && 'pH'].filter((x): x is string => !!x),
         next: BREW_DAY_LISTS.flatMap((k) => sheet[k].map((l) => ({ l, malt: k === 'malt' }))).filter(({ l }) => !l.done).slice(0, 3)
-          .map(({ l, malt }) => [l.name, (malt && bagsLabel(l.amount, l.unit)) || [l.amount, l.unit].filter(Boolean).join(' ')].filter(Boolean).join(' ')),
+          .map(({ l, malt }) => [l.name, (malt && bagsLabel(l.amount, l.unit, l.name)) || [l.amount, l.unit].filter(Boolean).join(' ')].filter(Boolean).join(' ')),
       }
     })
   }

@@ -279,8 +279,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
               </button>
             </div>
             <div className="flex items-center gap-2 pl-11 pr-1 mt-0.5">
-              {listKey === 'malt' && bagsLabel(l.amount, l.unit) && (
-                <span className="text-base font-semibold tabular-nums text-gray-900 whitespace-nowrap">{bagsLabel(l.amount, l.unit)}</span>
+              {listKey === 'malt' && bagsLabel(l.amount, l.unit, l.name) && (
+                <span className="text-base font-semibold tabular-nums text-gray-900 whitespace-nowrap">{bagsLabel(l.amount, l.unit, l.name)}</span>
               )}
               <input value={l.amount} onChange={(e) => setLine(listKey, i, { amount: e.target.value })} inputMode="decimal" placeholder="0" aria-label="Amount"
                 className="w-16 h-9 rounded-lg bg-black/[0.04] px-1.5 text-right text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />

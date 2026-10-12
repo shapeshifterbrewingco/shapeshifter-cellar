@@ -52,13 +52,20 @@ export type ListKey = (typeof LIST_KEYS)[number]
 /** The lists that are worked through on brew day itself */
 export const BREW_DAY_LISTS = ['malt', 'mash_additions', 'kettle_additions', 'kettle_hops'] as const
 
-/** Malt comes in 25 kg bags. "200" kg -> "8 bags". Empty when the amount is not a weight in kg. */
-export function bagsLabel(amount: string, unit: string): string {
+// Maltsters that pack in 12.5 kg bags, not the usual 25 kg. Matched on the malt's name.
+const SMALL_BAG_BRANDS = ['voyager']
+
+/**
+ * Malt in bags. "200" kg -> "8 bags". Voyager packs in 12.5 kg bags, so its
+ * malts count in "small bags". Empty when the amount is not a weight in kg.
+ */
+export function bagsLabel(amount: string, unit: string, name = ''): string {
   const kg = Number(amount)
   if (!amount.trim() || !Number.isFinite(kg) || kg <= 0 || (unit.trim() && unit.trim().toLowerCase() !== 'kg')) return ''
-  const bags = kg / 25
+  const small = SMALL_BAG_BRANDS.some((b) => name.toLowerCase().includes(b))
+  const bags = kg / (small ? 12.5 : 25)
   const text = Number.isInteger(bags) ? String(bags) : bags === 0.5 ? '½' : String(Math.round(bags * 100) / 100)
-  return `${text} bag${bags > 1 ? 's' : ''}`
+  return `${text} ${small ? 'small ' : ''}bag${bags > 1 ? 's' : ''}`
 }
 
 const emptyRunnings = (): Runnings => ({ time: '', plato: '', ph: '' })

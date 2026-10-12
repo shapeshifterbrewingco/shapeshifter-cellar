@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { sanitiseSheet, sheetFromRecipe } from '@/lib/brew-sheet'
+import { sanitiseSheet, sheetFromRecipe, withRecipeDefaults } from '@/lib/brew-sheet'
 import { formatUserName } from '@/lib/utils'
 import { BrewSheetForm } from './BrewSheetForm'
 
@@ -35,6 +35,14 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
           .order('sort_order')
       : { data: [] }
     initial = sheetFromRecipe(lines ?? [])
+  }
+  // Boil time, mash target and yeast temperatures start from the recipe. Only
+  // while the brew is in tank: a finished batch's sheet is left as it was written.
+  if (!brew.deleted_at) {
+    const { data: recipe } = brew.recipe_id
+      ? await supabase.from('recipes').select('boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle()
+      : { data: null }
+    initial = withRecipeDefaults(initial, recipe)
   }
 
   const tank = Array.isArray(brew.tanks) ? brew.tanks[0] : brew.tanks

@@ -134,6 +134,35 @@ export function sheetNumber(v: string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/** "Day 0", "day 0", "0": goes in on brew day itself, even though it sits with the cellar additions */
+export const isDayZero = (l: SheetLine) => /^(day\s*)?0$/i.test(l.when.trim())
+
+/** Every line worked through on brew day, in sheet order: the brew-day lists plus any Day 0 additions. */
+export function brewDayLines(s: BrewSheetData): { line: SheetLine; malt: boolean }[] {
+  return [
+    ...BREW_DAY_LISTS.flatMap((k) => s[k].map((line) => ({ line, malt: k === 'malt' }))),
+    ...s.dry_hops.filter(isDayZero).map((line) => ({ line, malt: false })),
+  ]
+}
+
+/**
+ * Fill the boxes that are nearly always the same, from the recipe where it
+ * says and from habit where it does not (a 60 minute boil). Only empty boxes
+ * are touched, so anything the brewer typed stays as typed.
+ */
+export function withRecipeDefaults(
+  s: BrewSheetData,
+  recipe: { boil_duration_min?: number | null; mash_temp_c?: number | null; pitch_temp_c?: number | null; ferment_temp_c?: number | null } | null,
+): BrewSheetData {
+  const or = (current: string, value: number | null | undefined, fallback = '') => current.trim() || (value != null ? String(Number(value)) : fallback)
+  return {
+    ...s,
+    mash: { ...s.mash, target_temp_c: or(s.mash.target_temp_c, recipe?.mash_temp_c) },
+    kettle: { ...s.kettle, boil_minutes: or(s.kettle.boil_minutes, recipe?.boil_duration_min, '60') },
+    yeast: { ...s.yeast, pitch_temp_c: or(s.yeast.pitch_temp_c, recipe?.pitch_temp_c), set_temp_c: or(s.yeast.set_temp_c, recipe?.ferment_temp_c) },
+  }
+}
+
 interface RecipeLine {
   name: string
   addition_stage: string
@@ -178,8 +207,9 @@ export function sheetProgress(s: BrewSheetData): { filled: number; total: number
     s.kettle.volume_l, s.kettle.post_boil_plato, s.fv.volume_l, s.fv.plato, s.fv.ph,
     s.yeast.strain, s.yeast.lot, s.signoffs.aldc, s.signoffs.frigid_set,
   ]
-  // Dry hops and cellar additions go in days later, so they never count against the brew day
-  const lines = BREW_DAY_LISTS.flatMap((k) => s[k])
+  // Dry hops and cellar additions go in days later, so they never count against
+  // the brew day. Day 0 additions do: they go in before the day is done.
+  const lines = brewDayLines(s).map((x) => x.line)
   return {
     filled: scalars.filter((v) => v.trim()).length + lines.filter((l) => l.done).length,
     total: scalars.length + lines.length,

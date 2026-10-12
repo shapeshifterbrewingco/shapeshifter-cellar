@@ -4,16 +4,22 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { importSheetReadings } from '@/app/brews/sheet-actions'
-import { sheetProgress, bagsLabel } from '@/lib/brew-sheet'
+import { sheetProgress, bagsLabel, isDayZero } from '@/lib/brew-sheet'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
 type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean }
 
 /** Save through a plain request, so the page is never re-rendered under the brewer's thumbs. */
 async function postSheet(input: SaveInput): Promise<{ ok: true } | { ok: false; message: string }> {
-  const res = await fetch('/api/brew-sheet', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), keepalive: true,
-  })
+  const send = () => fetch('/api/brew-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
+  let res: Response
+  try {
+    res = await send()
+  } catch {
+    // A dropped request on brewery wifi is common and usually fine a moment later
+    await new Promise((r) => setTimeout(r, 1500))
+    res = await send()
+  }
   // Signed out: the login page comes back instead of an answer
   if (!(res.headers.get('content-type') ?? '').includes('json')) return { ok: false, message: 'You are signed out. Sign in again and your changes will save.' }
   return res.json()
@@ -266,16 +272,23 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     confirm(`${key}.${i}`)
   }
 
-  const list = ({ title, listKey, whenLabel, unit }: { title: string; listKey: ListKey; whenLabel: string; unit: string }) => (
+  const list = ({ title, listKey, whenLabel, unit, only, newWhen = '' }: {
+    title: string; listKey: ListKey; whenLabel: string; unit: string
+    /** Show just the lines that pass. Indexes still point into the whole list. */
+    only?: (l: SheetLine) => boolean
+    newWhen?: string
+  }) => {
+    const shown = data[listKey].map((l, i) => ({ l, i })).filter(({ l }) => !only || only(l))
+    return (
     <div>
       <div className="flex items-baseline justify-between mb-1.5">
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        {data[listKey].length > 0 && (
-          <span className="text-xs text-gray-400 tabular-nums">{data[listKey].filter((l) => l.done).length} of {data[listKey].length} done</span>
+        {shown.length > 0 && (
+          <span className="text-xs text-gray-400 tabular-nums">{shown.filter(({ l }) => l.done).length} of {shown.length} done</span>
         )}
       </div>
       <ul className="space-y-1.5">
-        {data[listKey].map((l, i) => (
+        {shown.map(({ l, i }) => (
           <li key={i} className={`rounded-xl border px-2 py-1.5 ${unsure(`${listKey}.${i}`) ? UNSURE : l.done ? 'border-transparent bg-water/25' : 'border-gray-200 bg-white'}`}>
             {/* Name gets the whole row: on a phone, half a name is no name */}
             <div className="flex items-center gap-2">
@@ -311,12 +324,13 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         ))}
       </ul>
       <button type="button"
-        onClick={() => update({ ...data, [listKey]: [...data[listKey], { name: '', amount: '', unit, when: '', done: false, note: '' }] })}
+        onClick={() => update({ ...data, [listKey]: [...data[listKey], { name: '', amount: '', unit, when: newWhen, done: false, note: '' }] })}
         className="mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-primary h-9 px-1">
         <Plus className="h-4 w-4" />Add a line
       </button>
     </div>
   )
+  }
 
   const signOff = ({ label, k }: { label: string; k: 'aldc' | 'frigid_set' }) => {
     const by = data.signoffs[k]
@@ -539,8 +553,12 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         </div>
       </Section>
 
+      <Section title="Day 0 additions" hint="These go in today, before the brew day is finished.">
+        {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "g", only: isDayZero, newWhen: "Day 0" })}
+      </Section>
+
       <Section title="After brew day: dry hop and cellar additions" hint="These go in over the following days. They are not needed to finish the brew day.">
-        {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "kg" })}
+        {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "kg", only: (l) => !isDayZero(l) })}
       </Section>
 
       <Section title="Sign off">

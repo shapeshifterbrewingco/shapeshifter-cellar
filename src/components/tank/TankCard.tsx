@@ -56,6 +56,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const isEmpty = !brew || brew.stage === 'empty'
   const stage = brew?.stage ?? 'empty'
   const vdkPassed = stage === 'vdk_pass' || latest_vdk?.result === 'pass'
+  // On diacetyl rest the daily test is VDK, so that is what the main button logs
+  const onDiacetylRest = stage === 'diacetyl_rest'
 
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showLogModal, setShowLogModal] = useState(false)
@@ -208,7 +210,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
   const sheetMore: SheetAction[] = [
     { label: 'Brew sheet', onSelect: openBrewSheet },
-    { label: 'Log VDK result', onSelect: () => setShowVdkModal(true) },
+    onDiacetylRest
+      ? { label: 'Log gravity or pH', onSelect: () => setShowLogModal(true) }
+      : { label: 'Log VDK result', onSelect: () => setShowVdkModal(true) },
     { label: 'Packaging plan', onSelect: () => setShowSplitModal(true) },
     { label: 'Rename beer or style', onSelect: () => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setShowRename(true) } },
     { label: 'Edit batch code', onSelect: () => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) } },
@@ -223,7 +227,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       data={data}
       stages={sheetStages}
       more={sheetMore}
-      onLog={() => setShowLogModal(true)}
+      logLabel={onDiacetylRest ? 'Log VDK' : 'Log reading'}
+      onLog={() => (onDiacetylRest ? setShowVdkModal(true) : setShowLogModal(true))}
       onStage={handleStageChange}
       onClose={() => setShowDetail(false)}
     />
@@ -381,8 +386,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             <>
               <Button size="sm" variant="outline"
                 className="h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
-                onClick={() => (stage === 'on_chill' && tank.type === 'brite' ? setShowPackageModal(true) : setShowLogModal(true))}>
-                {stage === 'on_chill' && tank.type === 'brite' ? 'Package' : 'Log Reading'}
+                onClick={() => (stage === 'on_chill' && tank.type === 'brite' ? setShowPackageModal(true) : onDiacetylRest ? setShowVdkModal(true) : setShowLogModal(true))}>
+                {stage === 'on_chill' && tank.type === 'brite' ? 'Package' : onDiacetylRest ? 'Log VDK' : 'Log Reading'}
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">
@@ -573,13 +578,15 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                         <Button size="sm" variant="outline"
                           className="flex-1 h-8 text-sm bg-yeast/30 border-yeast text-charcoal hover:bg-yeast/30 hover:border-yeast gap-1.5"
                           onClick={() => setShowVdkModal(true)}>
-                          <TestTube2 className="h-4 w-4" /> VDK Test
+                          <TestTube2 className="h-4 w-4" /> Log VDK
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-yeast bg-yeast/30 text-charcoal hover:bg-yeast/30 cursor-pointer flex-shrink-0">
                             <MoreHorizontal className="h-5 w-5" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-sm">
+                            <DropdownMenuItem onClick={() => setShowLogModal(true)}>Log gravity or pH…</DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {STAGE_TRANSITIONS.filter(t => t.stage !== stage).map(t => {
                               const vdkBlocked = (t.stage === 'on_chill' || t.stage === 'vdk_pass') && !vdkPassed
                               return (
@@ -1025,13 +1032,15 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                   <Button size="sm" variant="outline"
                     className="flex-1 h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
                     onClick={() => setShowVdkModal(true)}>
-                    <TestTube2 className="h-4 w-4" /> VDK Test
+                    <TestTube2 className="h-4 w-4" /> Log VDK
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">
                       <MoreHorizontal className="h-5 w-5" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="text-sm">
+                      <DropdownMenuItem onClick={() => setShowLogModal(true)}>Log gravity or pH…</DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       {STAGE_TRANSITIONS.filter(t => t.stage !== stage).map(t => {
                         const vdkBlocked = (t.stage === 'on_chill' || t.stage === 'vdk_pass') && !vdkPassed
                         return (

@@ -28,11 +28,13 @@ export interface StageOption {
  * is tapped. It only shows and routes: every action here opens the same dialog
  * the card's own menu does, so there is one code path per action.
  */
-export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }: {
+export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log reading', onStage, onClose }: {
   data: TankDashboardData
   stages: StageOption[]
   more: SheetAction[]
   onLog: () => void
+  /** What the main button says. It logs VDK for a tank on diacetyl rest. */
+  logLabel?: string
   onStage: (stage: TankStage) => void
   onClose: () => void
 }) {
@@ -173,7 +175,7 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <button type="button" onClick={pick(onLog)}
           className="h-14 rounded-xl bg-primary text-white text-base font-semibold inline-flex items-center justify-center gap-2">
-          <FlaskConical className="h-5 w-5" />Log reading
+          <FlaskConical className="h-5 w-5" />{logLabel}
         </button>
         <button type="button" onClick={() => setPanel(panel === 'stage' ? null : 'stage')} aria-expanded={panel === 'stage'}
           className="h-14 rounded-xl border border-gray-300 text-gray-800 text-sm font-semibold inline-flex items-center justify-center gap-1.5">

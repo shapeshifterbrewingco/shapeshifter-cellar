@@ -429,7 +429,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
                                   <div key={p.id} className="flex items-center gap-1">
                                     <span className="text-gray-400">$</span>
                                     <input
-                                      type="number"
+                                      type="number" inputMode="decimal"
                                       step="0.01"
                                       min="0"
                                       value={ep.priceInput}

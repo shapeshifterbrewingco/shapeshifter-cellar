@@ -193,7 +193,7 @@ export function FixLine({ line, onFixed }: { line: CostLine; onFixed: () => void
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-gray-400">$</span>
             <input
-              type="number" step="0.0001" min="0" value={price}
+              type="number" inputMode="decimal" step="0.0001" min="0" value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0.00"
               className="w-20 border border-gray-200 rounded px-2 py-1.5 text-xs tabular-nums bg-white"
@@ -242,7 +242,7 @@ export function FixLine({ line, onFixed }: { line: CostLine; onFixed: () => void
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
             <input
-              type="number" step="0.01" min="0" value={qty}
+              type="number" inputMode="decimal" step="0.01" min="0" value={qty}
               onChange={(e) => setQty(e.target.value)}
               placeholder="qty"
               className="w-20 border border-gray-200 rounded px-2 py-1.5 text-xs tabular-nums bg-white"
@@ -304,7 +304,7 @@ export function FixMaterial({ materialId, name, detail, onFixed }: {
       <span className="text-[11px] text-gray-400">{detail}</span>
       <span className="text-xs text-gray-400">$</span>
       <input
-        type="number" step="0.0001" min="0" value={price} autoFocus
+        type="number" inputMode="decimal" step="0.0001" min="0" value={price} autoFocus
         onChange={(e) => setPrice(e.target.value)}
         placeholder="each"
         className="w-20 border border-gray-200 rounded px-2 py-1 text-xs tabular-nums bg-white"

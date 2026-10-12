@@ -130,7 +130,7 @@ export function EditBrewModal({ item, onClose }: Props) {
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Volume (L)</label>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 value={volumeL}
                 onChange={e => setVolumeL(e.target.value)}
                 step="1"
@@ -143,7 +143,7 @@ export function EditBrewModal({ item, onClose }: Props) {
             <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-500 mb-1.5">OG (°Plato)</label>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 value={ogPlato}
                 onChange={e => setOgPlato(e.target.value)}
                 step="0.1"
@@ -178,7 +178,7 @@ export function EditBrewModal({ item, onClose }: Props) {
                       <span className="flex-1 text-gray-600">{fmt?.label ?? p.format}</span>
                       <span className="text-gray-400">×</span>
                       <input
-                        type="number"
+                        type="number" inputMode="decimal"
                         value={runEdits[p.id]}
                         onChange={e => setRunEdits(prev => ({ ...prev, [p.id]: e.target.value }))}
                         min="1"

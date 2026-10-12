@@ -156,3 +156,16 @@
 
 /* Nothing in this app is meant to scroll sideways as a whole page */
 html, body { overflow-x: clip; }
+
+/* iPhone gives date and time fields a built-in minimum width and its own
+   chrome, which pushes them out of a two-column form and over the field beside
+   them. Strip that so they size like any other input. */
+input[type="date"], input[type="time"], input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 2.5rem;
+  text-align: left;
+}
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }

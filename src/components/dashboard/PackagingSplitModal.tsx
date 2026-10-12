@@ -202,7 +202,7 @@ export function PackagingSplitModal({
                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wide block mb-1.5">ABV %</label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="number" step="0.1" min="0" max="100" value={abv}
+                      type="number" inputMode="decimal" step="0.1" min="0" max="100" value={abv}
                       onChange={e => setAbv(e.target.value)}
                       placeholder="e.g. 5.2"
                       className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-lg font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -259,7 +259,7 @@ export function PackagingSplitModal({
                         <button type="button" onClick={() => adjust(format, -1)}
                           className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 text-lg leading-none font-medium">−</button>
                         <input
-                          type="number" min={0} value={count}
+                          type="number" inputMode="decimal" min={0} value={count}
                           onChange={e => setFormat(format, parseInt(e.target.value) || 0)}
                           className="w-12 h-9 text-center text-sm font-semibold focus:outline-none border-x border-gray-200"
                         />
@@ -534,7 +534,7 @@ function InventoryField({
   return (
     <div className="flex items-center gap-2">
       <input
-        type="number" min="0" value={value} onChange={e => onChange(e.target.value)}
+        type="number" inputMode="decimal" min="0" value={value} onChange={e => onChange(e.target.value)}
         className={`w-20 border rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 ${
           ok ? 'border-emerald-200 focus:ring-emerald-200' : 'border-gray-200 focus:ring-primary/30'
         }`}
@@ -565,7 +565,7 @@ function InventoryRow({
       <div className="flex items-center gap-2">
         <span className="text-xs text-gray-400">On site:</span>
         <input
-          type="number" min="0" value={value} onChange={e => onChange(e.target.value)}
+          type="number" inputMode="decimal" min="0" value={value} onChange={e => onChange(e.target.value)}
           className={`w-20 border rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 ${
             ok && onSiteNum > 0 ? 'border-emerald-200 focus:ring-emerald-200' : 'border-gray-200 focus:ring-primary/30'
           }`}

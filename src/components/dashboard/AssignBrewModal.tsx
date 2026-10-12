@@ -158,7 +158,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
 
           {/* Brew day + Volume */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-medium text-gray-600 mb-1">Brew day</label>
               <input
                 type="date"
@@ -167,10 +167,10 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-medium text-gray-600 mb-1">Volume (L) <span className="text-red-400">*</span></label>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 step="any"
                 min="0"
                 value={volumeL}
@@ -186,7 +186,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">OG (°Plato)</label>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 step="0.1"
                 min="0"
                 value={ogPlato}
@@ -198,7 +198,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Initial pH</label>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 step="0.1"
                 min="0"
                 max="14"

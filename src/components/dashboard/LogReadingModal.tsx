@@ -59,7 +59,7 @@ export function LogReadingModal({ brew, tank, currentUser, onClose }: Props) {
               <label className="block text-xs font-medium text-gray-600 mb-1">Gravity (°Plato)</label>
               <input
                 autoFocus
-                type="number"
+                type="number" inputMode="decimal"
                 step="0.1"
                 min="0"
                 max="30"
@@ -72,7 +72,7 @@ export function LogReadingModal({ brew, tank, currentUser, onClose }: Props) {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">pH</label>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 step="0.1"
                 min="0"
                 max="14"

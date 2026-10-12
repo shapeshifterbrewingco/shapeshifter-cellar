@@ -214,7 +214,7 @@ function MaterialRowEditor({ m, busy, start, refresh }: {
         <div className="flex items-center justify-end gap-0.5">
           <span className="text-xs text-gray-400">$</span>
           <input
-            type="number" step="0.0001" min="0" value={price}
+            type="number" inputMode="decimal" step="0.0001" min="0" value={price}
             onChange={(e) => setPrice(e.target.value)} onBlur={commit}
             placeholder="—"
             className={`w-16 text-right tabular-nums border rounded px-1.5 py-1 text-sm ${
@@ -226,7 +226,7 @@ function MaterialRowEditor({ m, busy, start, refresh }: {
       {FORMAT_ORDER.map((f) => (
         <td key={f} className="py-1.5">
           <input
-            type="number" min="0" step="1" defaultValue={usageFor(f) || ''}
+            type="number" inputMode="decimal" min="0" step="1" defaultValue={usageFor(f) || ''}
             onBlur={(e) => commitUsage(f, e.target.value)}
             placeholder="0"
             disabled={busy}
@@ -270,7 +270,7 @@ function NewMaterial({ onDone }: { onDone: () => void }) {
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Price</label>
-        <input type="number" step="0.0001" value={price} onChange={(e) => setPrice(e.target.value)}
+        <input type="number" inputMode="decimal" step="0.0001" value={price} onChange={(e) => setPrice(e.target.value)}
           className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm tabular-nums" />
       </div>
       <button
@@ -366,7 +366,7 @@ function AddAdditive({ clarity, ingredients, onDone }: {
         {ingredients.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
       </select>
       <input
-        type="number" step="0.01" value={qty} onChange={(e) => setQty(e.target.value)}
+        type="number" inputMode="decimal" step="0.01" value={qty} onChange={(e) => setQty(e.target.value)}
         placeholder="qty"
         className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs tabular-nums"
       />
@@ -413,7 +413,7 @@ function Num({ label, value, onChange, step = '1' }: {
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       <input
-        type="number" step={step} min="0" value={value}
+        type="number" inputMode="decimal" step={step} min="0" value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm tabular-nums"
       />

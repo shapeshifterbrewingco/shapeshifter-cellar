@@ -342,7 +342,7 @@ export function RecipeForm({ recipe, styles, ingredients }: RecipeFormProps) {
                           </td>
                           <td className="px-2 py-1.5">
                             <input
-                              type="number"
+                              type="number" inputMode="decimal"
                               value={ing.quantity}
                               onChange={(e) => updateIngredient(ing._key, 'quantity', e.target.value)}
                               placeholder="0"
@@ -362,7 +362,7 @@ export function RecipeForm({ recipe, styles, ingredients }: RecipeFormProps) {
                           {showTime(stage) && (
                             <td className="px-2 py-1.5">
                               <input
-                                type="number"
+                                type="number" inputMode="decimal"
                                 value={ing.time_minutes}
                                 onChange={(e) => updateIngredient(ing._key, 'time_minutes', e.target.value)}
                                 placeholder="60"
@@ -433,7 +433,7 @@ function Field({ label, value, onChange, step = '0.01' }: {
     <div>
       <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
       <input
-        type="number"
+        type="number" inputMode="decimal"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         step={step}

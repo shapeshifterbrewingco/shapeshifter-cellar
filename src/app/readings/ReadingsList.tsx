@@ -159,7 +159,7 @@ export function ReadingsList({ readings: initial }: Props) {
                       <td className="px-4 py-2.5 text-right tabular-nums">
                         {isEditing ? (
                           <input
-                            type="number"
+                            type="number" inputMode="decimal"
                             step="0.1"
                             value={editState!.plato}
                             onChange={e => setEditState(s => s ? { ...s, plato: e.target.value } : s)}
@@ -177,7 +177,7 @@ export function ReadingsList({ readings: initial }: Props) {
                       <td className="px-4 py-2.5 text-right tabular-nums">
                         {isEditing ? (
                           <input
-                            type="number"
+                            type="number" inputMode="decimal"
                             step="0.01"
                             min="0"
                             max="14"

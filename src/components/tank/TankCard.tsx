@@ -752,7 +752,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-4">
               <h2 className="text-sm font-semibold text-gray-900">Edit volume</h2>
               <div className="flex items-center gap-2">
-                <input type="number" step="1" min="0" value={volumeInput}
+                <input type="number" inputMode="decimal" step="1" min="0" value={volumeInput}
                   onChange={e => setVolumeInput(e.target.value)} autoFocus
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 <span className="text-sm text-gray-500 font-medium flex-shrink-0">L</span>
@@ -1263,7 +1263,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             <h2 className="text-sm font-semibold text-gray-900">Edit volume</h2>
             <div className="flex items-center gap-2">
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 step="1"
                 min="0"
                 value={volumeInput}

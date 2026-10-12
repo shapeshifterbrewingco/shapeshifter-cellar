@@ -172,7 +172,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
                 <span className="text-gray-400 font-normal ml-1">— was {brew.volume_l} L</span>
               </label>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 value={volumeOut}
                 onChange={e => setVolumeOut(e.target.value)}
                 step="1"

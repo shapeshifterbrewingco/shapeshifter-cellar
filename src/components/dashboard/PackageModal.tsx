@@ -50,12 +50,12 @@ function StockRow({ label, kegs, cartons, onKegs, onCartons }: {
     <div className="flex items-center gap-2">
       <span className="text-xs text-gray-600 w-28 flex-shrink-0">{label}</span>
       <div className="flex-1">
-        <input type="number" min="0" step="1" value={kegs} onChange={e => onKegs(e.target.value)}
+        <input type="number" inputMode="decimal" min="0" step="1" value={kegs} onChange={e => onKegs(e.target.value)}
           placeholder="0"
           className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
       </div>
       <div className="flex-1">
-        <input type="number" min="0" step="1" value={cartons} onChange={e => onCartons(e.target.value)}
+        <input type="number" inputMode="decimal" min="0" step="1" value={cartons} onChange={e => onCartons(e.target.value)}
           placeholder="0"
           className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
       </div>
@@ -207,7 +207,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                   <div key={f.format} className="flex items-center gap-3">
                     <label className="text-sm text-gray-700 w-36 flex-shrink-0">{f.label}</label>
                     <input
-                      type="number"
+                      type="number" inputMode="decimal"
                       value={qtys[f.format]}
                       onChange={e => setQtys(prev => ({ ...prev, [f.format]: e.target.value }))}
                       min="0"

@@ -269,7 +269,7 @@ export function IngredientMatchStep({ items, allIngredients, onProceed, onBack }
                       <div>
                         <label className="block text-[10px] text-gray-400 mb-0.5">Price / unit</label>
                         <input
-                          type="number"
+                          type="number" inputMode="decimal"
                           value={row.newPrice}
                           onChange={e => update(row.key, { newPrice: e.target.value })}
                           placeholder="0.00"

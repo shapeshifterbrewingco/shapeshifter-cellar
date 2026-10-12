@@ -25,7 +25,8 @@ const parse = (s: string) => {
 const VDK_ORDER: VdkResult[] = ['high', 'medium', 'low', 'pass']
 
 export function QuickLog({ tanks, currentUser }: { tanks: TankDashboardData[]; currentUser: string }) {
-  const live = tanks.filter((t) => t.brew && t.brew.stage !== 'empty')
+  // A beer on chill is finished fermenting: nothing left to log, so it stays off the list
+  const live = tanks.filter((t) => t.brew && t.brew.stage !== 'empty' && t.brew.stage !== 'on_chill')
   const [tankId, setTankId] = useState<string | null>(live.length === 1 ? live[0].tank.id : null)
   const [gravity, setGravity] = useState('')
   const [ph, setPh] = useState('')

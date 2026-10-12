@@ -9,7 +9,7 @@ import { stockForecast } from '@/lib/planner/forecast'
 import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
 import { TempTap } from '@/components/tank/SetPoint'
 import { calcAbv, formatUserName } from '@/lib/utils'
-import { daysBetweenISO } from '@/lib/dates'
+import { addDaysISO, daysBetweenISO } from '@/lib/dates'
 import { stageStyle } from '@/lib/stage-style'
 import { greeting, specialGreeting } from '@/lib/greeting'
 import { Hello } from '@/components/layout/Hello'
@@ -37,6 +37,10 @@ function Panel({ title, action, children, className = '' }: {
     </section>
   )
 }
+
+/** A day the way you would say it: Today, Tomorrow, Yesterday, otherwise "Tue 13 Oct". */
+const relDay = (key: string, today: string) =>
+  key === today ? 'Today' : key === addDaysISO(today, 1) ? 'Tomorrow' : key === addDaysISO(today, -1) ? 'Yesterday' : fmtDay(key)
 
 const more = (href: string, label: string) => (
   <Link href={href} className="text-xs font-medium text-primary hover:underline">{label}</Link>
@@ -215,7 +219,7 @@ export default async function DashboardPage() {
     { label: 'Tanks in use', value: `${full.length} of ${tanks.length}`, sub: `${tanks.length - full.length} empty` },
     { label: 'Beer in tank', value: litres(inTank), sub: `${full.length} batch${full.length === 1 ? '' : 'es'}` },
     { label: 'On chill', value: String(onChill.length), sub: onChill.length ? litres(onChill.reduce((s, t) => s + (t.brew?.volume_l ?? 0), 0)) + ' to package' : 'Nothing waiting' },
-    { label: 'Next brew', value: nextBrew ? fmtDay(nextBrew.date) : 'None booked', sub: nextBrew ? nextBrew.title.replace(/^\s*BREW\s*/i, '') : 'in the next two weeks' },
+    { label: 'Next brew', value: nextBrew ? relDay(nextBrew.date, today) : 'None booked', sub: nextBrew ? nextBrew.title.replace(/^\s*BREW\s*/i, '') : 'in the next two weeks' },
   ]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -306,7 +310,7 @@ export default async function DashboardPage() {
                           </>
                         ) : (
                           <td colSpan={6} className="px-2 py-2 text-gray-400">
-                            Empty{t.next_scheduled_brew ? <span className="text-gray-500"> · next: {t.next_scheduled_brew.recipe_name}, {fmtDay(t.next_scheduled_brew.scheduled_date)}</span> : ''}
+                            Empty{t.next_scheduled_brew ? <span className="text-gray-500"> · next: {t.next_scheduled_brew.recipe_name}, {relDay(t.next_scheduled_brew.scheduled_date, today).replace(/^T/, 't')}</span> : ''}
                           </td>
                         )}
                         <td className="px-2 py-2 text-right tabular-nums text-gray-900">
@@ -380,7 +384,7 @@ export default async function DashboardPage() {
                         <span className="text-gray-400"> · {r.beer}</span>
                       </span>
                       <span className="flex-shrink-0 text-xs text-gray-400 whitespace-nowrap">
-                        {fmtDay(dayKeyOf(r.at))} · {formatUserName(r.by)}
+                        {relDay(dayKeyOf(r.at), today)} · {formatUserName(r.by)}
                       </span>
                     </li>
                   ))}
@@ -401,7 +405,7 @@ export default async function DashboardPage() {
                 {[...byDay.entries()].map(([day, list]) => (
                   <li key={day} className="flex gap-4 px-5 py-2 border-t border-gray-100 text-sm">
                     <span className={`w-24 flex-shrink-0 tabular-nums ${day === today ? 'font-semibold text-primary' : 'text-gray-500'}`}>
-                      {day === today ? 'Today' : fmtDay(day)}
+                      {relDay(day, today)}
                     </span>
                     <span className="flex-1 min-w-0 space-y-0.5">
                       {list.map((e) => (

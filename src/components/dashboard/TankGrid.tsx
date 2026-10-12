@@ -25,9 +25,11 @@ interface TankGridProps {
   currentUser: string
   utilityTemps: FrigidReading[]
   settings: AppSettings
+  /** Shown as the page heading, e.g. "Good morning, James" */
+  greeting?: string
 }
 
-export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }: TankGridProps) {
+export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings, greeting }: TankGridProps) {
   const [view, setView] = useState<ViewMode>('medium')
   const [hydrated, setHydrated] = useState(false)
 
@@ -54,7 +56,7 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
     <div>
       {/* Toolbar. Phones get one fixed layout, so no legend or view switch there. */}
       <div className="hidden md:flex items-center justify-between mb-4 mt-2">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Cellar</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">{greeting || 'Cellar'}</h1>
 
         {/* View toggle */}
         <div className="flex items-center gap-2 flex-shrink-0">

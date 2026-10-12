@@ -11,6 +11,7 @@ import { TempTap } from '@/components/tank/SetPoint'
 import { calcAbv, formatUserName } from '@/lib/utils'
 import { daysBetweenISO } from '@/lib/dates'
 import { stageStyle } from '@/lib/stage-style'
+import { greeting } from '@/lib/greeting'
 import type { TankDashboardData } from '@/types'
 import type { CalEvent } from '@/lib/planner/google'
 
@@ -203,6 +204,9 @@ export default async function DashboardPage() {
   const utilities = utilityReadings(frigid)
   const nextBrew = (events ?? []).find((e) => /^\s*BREW/i.test(e.title))
 
+  const { data: { user } } = await supabase.auth.getUser()
+  const hello = greeting(user?.email ? formatUserName(user.email) : '', { brewDay: !!nextBrew && nextBrew.date === today })
+
   const kpis: { label: string; value: string; sub: string }[] = [
     { label: 'Tanks in use', value: `${full.length} of ${tanks.length}`, sub: `${tanks.length - full.length} empty` },
     { label: 'Beer in tank', value: litres(inTank), sub: `${full.length} batch${full.length === 1 ? '' : 'es'}` },
@@ -231,7 +235,7 @@ export default async function DashboardPage() {
       <div className="px-4 md:px-6 py-5 max-w-[1500px] mx-auto space-y-4">
         <div className="flex items-baseline justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500">{fmtDay(today)}</p>
+          <p className="text-sm text-gray-500">{hello} · {fmtDay(today)}</p>
         </div>
 
         {/* Headline numbers */}

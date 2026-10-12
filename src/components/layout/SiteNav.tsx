@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X, FlaskConical, LayoutDashboard, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, LogIn, Settings, Calculator, Bot } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { ThemeToggle } from './Theme'
 
 const NAV_ITEMS = [
   { href: '/',            label: 'Cellar',           icon: FlaskConical },
@@ -43,6 +44,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Settings — pinned at bottom */}
       <div className="mt-auto pt-3 border-t border-white/10 pb-1">
+        <ThemeToggle className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white/55 hover:text-white hover:bg-white/10 transition-colors" />
         <Link href="/settings" onClick={onNavigate} className={linkClass('/settings')}>
           <Settings className="h-5 w-5 flex-shrink-0" />
           Settings

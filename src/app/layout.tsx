@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { SiteNav } from "@/components/layout/SiteNav";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/layout/Theme";
 
 // Inter: a modern screen typeface with clear numerals, and the one the sales
 // sheet already uses. Served from our own domain, so nothing loads from Google
@@ -30,13 +31,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`h-full antialiased ${inter.variable}`}>
+    <html lang="en" className={`h-full antialiased ${inter.variable}`} suppressHydrationWarning>
       <body className="min-h-full">
-        <SiteNav />
-        <div className="md:pl-44 pt-14 md:pt-0 min-h-full">
-          {children}
-        </div>
-        <Toaster position="top-center" richColors />
+        <ThemeProvider>
+          <SiteNav />
+          <div className="md:pl-44 pt-14 md:pt-0 min-h-full">
+            {children}
+          </div>
+          <Toaster position="top-center" richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

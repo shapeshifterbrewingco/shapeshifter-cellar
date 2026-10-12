@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { setWeekStart } from './actions'
 import type { WeekStart } from './actions'
+import { ThemeChoice } from '@/components/layout/Theme'
 
 /** Settings that follow the person, not the brewery. Each one saves as soon as it is changed. */
 export function MyPreferences({ weekStart, name }: { weekStart: WeekStart; name: string }) {
@@ -38,6 +39,13 @@ export function MyPreferences({ weekStart, name }: { weekStart: WeekStart; name:
             </button>
           ))}
         </div>
+      </div>
+      <div className="flex items-center justify-between gap-4 mt-4 pt-4 border-t border-gray-100">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Appearance</p>
+          <p className="text-xs text-gray-400">Remembered on this device only</p>
+        </div>
+        <ThemeChoice />
       </div>
     </div>
   )

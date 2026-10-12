@@ -141,10 +141,10 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
     ) : (
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 10, fill: '#9ca3af' }}
+            tick={{ fontSize: 10, fill: 'var(--chart-muted)' }}
             tickLine={false}
             axisLine={false}
             interval="preserveStartEnd"
@@ -156,7 +156,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             orientation="left"
             // Whole-number bounds and one fixed decimal, so a tick reads 12.8 and never 12.799999
             domain={[Math.max(0, Math.floor(platoMin - platoPad)), Math.ceil(platoMax + platoPad)]}
-            tick={{ fontSize: 10, fill: '#09434D' }}
+            tick={{ fontSize: 10, fill: 'var(--chart-gravity)' }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => `${Number(v).toFixed(1)}°P`}
@@ -168,7 +168,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             yAxisId="temp"
             orientation="right"
             domain={[tempMin, tempMax]}
-            tick={{ fontSize: 10, fill: '#CD7B58' }}
+            tick={{ fontSize: 10, fill: 'var(--chart-temp)' }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => `${Math.round(Number(v))}°C`}
@@ -191,9 +191,9 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             <ReferenceLine
               yAxisId="plato"
               y={brew.og_plato}
-              stroke="#d1d5db"
+              stroke="var(--chart-muted)"
               strokeDasharray="4 4"
-              label={{ value: 'OG', fontSize: 9, fill: '#9ca3af', position: 'insideTopRight' }}
+              label={{ value: 'OG', fontSize: 9, fill: 'var(--chart-muted)', position: 'insideTopRight' }}
             />
           )}
 
@@ -203,9 +203,9 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
               key={e.id}
               yAxisId="plato"
               x={format(parseISO(e.recorded_at), 'd MMM HH:mm')}
-              stroke="#9ca3af"
+              stroke="var(--chart-muted)"
               strokeDasharray="3 3"
-              label={{ value: e.notes ?? '', fontSize: 8, fill: '#6b7280', position: 'insideTopLeft', angle: -90 }}
+              label={{ value: e.notes ?? '', fontSize: 8, fill: 'var(--chart-muted)', position: 'insideTopLeft', angle: -90 }}
             />
           ))}
 
@@ -216,7 +216,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
               type="monotone"
               dataKey="temp"
               name="Temp (°C)"
-              stroke="#CD7B58"
+              stroke="var(--chart-temp)"
               strokeWidth={1.5}
               dot={false}
               activeDot={{ r: 3 }}
@@ -230,9 +230,9 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             type="monotone"
             dataKey="plato"
             name="Gravity (°P)"
-            stroke="#09434D"
+            stroke="var(--chart-gravity)"
             strokeWidth={2}
-            dot={{ r: 4, fill: '#09434D', strokeWidth: 0 }}
+            dot={{ r: 4, fill: 'var(--chart-gravity)', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls
           />
@@ -243,9 +243,9 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             type="monotone"
             dataKey="ph"
             name="pH"
-            stroke="#7c7c78"
+            stroke="var(--chart-ph)"
             strokeWidth={2}
-            dot={{ r: 4, fill: '#7c7c78', strokeWidth: 0 }}
+            dot={{ r: 4, fill: 'var(--chart-ph)', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls
           />

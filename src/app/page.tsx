@@ -6,6 +6,9 @@ import { getDashboardData } from '@/lib/dashboard'
 import { getFrigidReadings, utilityReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
 import { nextBrewsByTank } from '@/lib/planner/next-brews'
+import { greeting } from '@/lib/greeting'
+import { breweryToday } from '@/lib/dates'
+import { formatUserName } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/app/settings/actions'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
@@ -68,6 +71,11 @@ export default async function DashboardPage() {
     return { ...ft, tankId, history: tankId ? (historyByTankId.get(tankId) ?? []) : [] }
   })
 
+  const today = breweryToday()
+  const hello = greeting(user?.email ? formatUserName(user.email) : '', {
+    brewDay: Object.values(nextBrews).some((b) => b.scheduled_date === today),
+  })
+
   // Keep the temperature history filling in while anyone has the cellar open.
   // Runs after the page is sent, so it costs the brewer nothing.
   after(async () => {
@@ -85,6 +93,7 @@ export default async function DashboardPage() {
             hidden until it does, so check the Frigid panel directly.
           </p>
         )}
+        <p className="md:hidden px-1 pt-1 pb-2 text-lg font-semibold tracking-tight text-gray-900">{hello}</p>
         <QuickLog tanks={tanks} />
         <TankGrid
           tanks={tanks}
@@ -92,6 +101,7 @@ export default async function DashboardPage() {
           currentUser={user?.email ?? user?.id ?? 'Unknown'}
           utilityTemps={utilityTemps}
           settings={settings}
+          greeting={hello}
         />
       </div>
     </main>

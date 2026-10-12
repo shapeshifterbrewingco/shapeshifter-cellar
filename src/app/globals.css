@@ -4,8 +4,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  /* Shapeshifter brand palette (Soft Launch guidelines, 2026) */
+/* Shapeshifter brand palette (Soft Launch guidelines, 2026). Not "inline", so
+   each colour stays a variable that night mode can re-point. */
+@theme {
   --color-yeast: #F6EF6E;
   --color-hops: #09434D;
   --color-malt: #CD7B58;
@@ -13,6 +14,9 @@
   --color-malt-dark: #A8563A;
   --color-water: #AFDAE5;
   --color-charcoal: #323230;
+}
+
+@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -57,6 +61,13 @@
 }
 
 :root {
+  /* Colours used inside drawings and charts, where a class cannot reach */
+  --tank-outline: #09434D;
+  --chart-gravity: #09434D;
+  --chart-temp: #CD7B58;
+  --chart-ph: #7c7c78;
+  --chart-grid: #f0f0f0;
+  --chart-muted: #9ca3af;
   /* The warm off-white the brand guidelines sit on, with charcoal text */
   --background: #F5F3EE;
   --foreground: #323230;
@@ -171,3 +182,76 @@ input[type="date"], input[type="time"], input[type="datetime-local"] {
   text-align: left;
 }
 input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+
+/* ── Night mode ──────────────────────────────────────────────────────────────
+   The app is written with fixed colour names (bg-white, text-gray-900, ...).
+   Rather than add a night variant to every one of them, night mode re-points
+   what those names mean: "white" becomes the dark card colour, the grey scale
+   flips end for end, and so on. A handful of rules below then put back the
+   few cases where a colour must NOT flip, such as white text on a green button. */
+.dark {
+  color-scheme: dark;
+
+  --background: #0e1516;
+  --foreground: #eef2f2;
+  --primary: #0f5c69;
+  --primary-foreground: #ffffff;
+  --card: #172124;
+  --popover: #1c282b;
+  --border: #2c3b40;
+  --input: #2c3b40;
+  --ring: #5fb1bf;
+
+  /* Surfaces and the grey scale, flipped */
+  --color-white: #172124;
+  --color-gray-50: #1c282b;
+  --color-gray-100: #22302f;
+  --color-gray-200: #2c3b40;
+  --color-gray-300: #3d4f55;
+  --color-gray-400: #7e9197;
+  --color-gray-500: #9db0b5;
+  --color-gray-600: #b9c8cc;
+  --color-gray-700: #cfdadd;
+  --color-gray-800: #e2e9eb;
+  --color-gray-900: #f2f6f6;
+  --color-gray-950: #ffffff;
+
+  /* Brand colours as TEXT need to be light to read on a dark card */
+  --color-charcoal: #ebe9e1;
+  --color-malt-dark: #e39a79;
+
+  /* Error tints: dark panels with light red text, not pink blocks */
+  --color-red-50: #331a1a;
+  --color-red-100: #442020;
+  --color-red-200: #6a2c2c;
+  --color-red-400: #f87171;
+  --color-red-500: #f87171;
+  --color-red-600: #fb8a8a;
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+
+  --tank-outline: #5fb1bf;
+  --chart-gravity: #6cc3d1;
+  --chart-temp: #e39a79;
+  --chart-ph: #a9b6b9;
+  --chart-grid: #26353a;
+  --chart-muted: #7e9197;
+}
+
+/* White stays white on anything green, and wherever white text was asked for */
+.dark :is(.bg-primary, .bg-hops),
+.dark [class*="text-white"] { --color-white: #ffffff; }
+
+/* Green as text (links, soft buttons) lightens so it reads on a dark card.
+   Exact class matches only: "text-primary-foreground" on a green button must not match. */
+.dark :is([class~="text-primary"], [class~="text-hops"], [class*="text-hops/"]) {
+  --primary: #8fd3dd;
+  --color-hops: #8fd3dd;
+}
+
+/* Solid brand backgrounds keep their own dark text, exactly as in day mode */
+.dark .bg-yeast { --color-charcoal: #323230; }
+.dark .bg-water { --color-hops: #09434D; --primary: #09434D; }
+
+/* Hairline card edges are black-on-white in day mode; at night they need to be light */
+.dark [class*="ring-black/"] { --tw-ring-color: rgb(255 255 255 / 0.07); }

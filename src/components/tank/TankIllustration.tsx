@@ -22,7 +22,7 @@ export function TankIllustration({
   type, style, styleColour, volume_l, temperature, days_in_tank, empty, stage, width = 80, height = 150, fillOverride,
 }: TankIllustrationProps) {
   const uid = useId().replace(/:/g, '')
-  const fillColour = empty ? 'white' : (fillOverride ?? styleColour ?? getStyleColour(style))
+  const fillColour = empty ? 'var(--color-white)' : (fillOverride ?? styleColour ?? getStyleColour(style))
   const isDark = !empty && isDarkColour(fillColour)
   const props = { fillColour, isDark, empty, stage: stage ?? null, volume_l, temperature, days_in_tank, width, height, clipId: `ti-${uid}` }
   return type === 'fermenter' ? <BriteTank {...props} /> : <FermenterTank {...props} />
@@ -157,16 +157,16 @@ function BriteTank({ fillColour, isDark, empty, stage, volume_l, temperature, wi
           <path d={BBT_INTERIOR} />
         </clipPath>
       </defs>
-      <path d={BBT_DARK} fill="#09434D" />
+      <path d={BBT_DARK} fill="var(--tank-outline)" />
       <path d={BBT_INTERIOR} fill={fillColour} opacity={empty ? 1 : 0.85} />
       {showAnim && (
         <g clipPath={`url(#${clipId})`}>
           <StageAnimation stage={stage} cx={200} left={36} right={364} top={91} bottom={590} />
         </g>
       )}
-      <path d={BBT_CAP} fill="white" />
-      <path d={BBT_LEG_R} fill="white" />
-      <path d={BBT_LEG_L} fill="white" />
+      <path d={BBT_CAP} fill="var(--color-white)" />
+      <path d={BBT_LEG_R} fill="var(--color-white)" />
+      <path d={BBT_LEG_L} fill="var(--color-white)" />
       {!empty && hasVol  && <text x={200} y={volY}  textAnchor="middle" dominantBaseline="central" fontSize={88} fontWeight="700" fill={tc}>{volume_l}L</text>}
       {hasTemp && <text x={200} y={tempY} textAnchor="middle" dominantBaseline="central" fontSize={76} fontWeight="600" fill={empty ? '#9ca3af' : tc}>{temperature!.toFixed(1)}°C</text>}
     </svg>
@@ -189,16 +189,16 @@ function FermenterTank({ fillColour, isDark, empty, stage, volume_l, temperature
           <path d={FV_INTERIOR} />
         </clipPath>
       </defs>
-      <path d={FV_DARK} fill="#09434D" />
+      <path d={FV_DARK} fill="var(--tank-outline)" />
       <path d={FV_INTERIOR} fill={fillColour} opacity={empty ? 1 : 0.85} />
       {showAnim && (
         <g clipPath={`url(#${clipId})`}>
           <StageAnimation stage={stage} cx={230} left={67} right={394} top={96} bottom={626} />
         </g>
       )}
-      <path d={FV_CONNECTOR} fill="white" />
-      <path d={FV_CAP} fill="white" />
-      <path d={FV_CROSSBAR} fill="white" />
+      <path d={FV_CONNECTOR} fill="var(--color-white)" />
+      <path d={FV_CAP} fill="var(--color-white)" />
+      <path d={FV_CROSSBAR} fill="var(--color-white)" />
       {!empty && hasVol  && <text x={231} y={volY}  textAnchor="middle" dominantBaseline="central" fontSize={88} fontWeight="700" fill={tc}>{volume_l}L</text>}
       {hasTemp && <text x={231} y={tempY} textAnchor="middle" dominantBaseline="central" fontSize={76} fontWeight="600" fill={empty ? '#9ca3af' : tc}>{temperature!.toFixed(1)}°C</text>}
     </svg>

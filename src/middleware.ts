@@ -50,6 +50,23 @@ export async function middleware(request: NextRequest) {
   const publicPaths = ['/login', '/auth/callback', '/api/frigid-poll', '/manifest.webmanifest']
   const isPublic = publicPaths.some((p) => request.nextUrl.pathname.startsWith(p))
 
+  // TEMPORARY (Oct 2026): tracing why the iPhone home-screen app forgets its
+  // sign-in. No cookie values or personal data, just whether the cookie came
+  // back and what kind of browser asked. Remove once that is fixed.
+  const path = request.nextUrl.pathname
+  if (path === '/auth/callback' || (!user && !isPublic && request.headers.get('sec-fetch-dest') === 'document')) {
+    const ua = request.headers.get('user-agent') ?? ''
+    console.log('[auth-trace]', JSON.stringify({
+      path,
+      signedIn: !!user,
+      authCookies: request.cookies.getAll().filter((c) => c.name.startsWith('sb-')).length,
+      iphone: /iPhone|iPad/.test(ua),
+      // Safari and its in-app sheet say "Safari"; a home-screen web app does not
+      safariView: /Version\/[\d.]+.*Safari/.test(ua),
+      site: request.headers.get('sec-fetch-site'),
+    }))
+  }
+
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

@@ -140,7 +140,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
       </div>
     ) : (
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+        <ComposedChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
           <XAxis
             dataKey="label"
@@ -154,12 +154,14 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
           <YAxis
             yAxisId="plato"
             orientation="left"
-            domain={[Math.max(0, platoMin - platoPad), platoMax + platoPad]}
+            // Whole-number bounds, so the ticks are round numbers and not 12.799999
+            domain={[Math.max(0, Math.floor(platoMin - platoPad)), Math.ceil(platoMax + platoPad)]}
+            allowDecimals={false}
             tick={{ fontSize: 10, fill: '#0d9488' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `${v}°P`}
-            width={38}
+            tickFormatter={(v) => `${Math.round(Number(v) * 10) / 10}°P`}
+            width={40}
           />
 
           {/* Right: Temperature °C */}
@@ -170,12 +172,14 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             tick={{ fontSize: 10, fill: '#6366f1' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `${v}°C`}
-            width={38}
+            tickFormatter={(v) => `${Math.round(Number(v))}°C`}
+            allowDecimals={false}
+            width={40}
           />
 
-          {/* pH axis — hidden, domain [3,6] keeps line in sensible position */}
-          <YAxis yAxisId="ph" orientation="right" domain={[3, 6]} hide />
+          {/* pH axis: hidden, domain [3,6] keeps the line in a sensible position. Width 0 because a
+              hidden axis still pushes the temperature axis outwards by its width, off the edge. */}
+          <YAxis yAxisId="ph" orientation="right" domain={[3, 6]} hide width={0} />
 
           <Tooltip content={<CustomTooltip />} />
           <Legend

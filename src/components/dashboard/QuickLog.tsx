@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Check, Loader2 } from 'lucide-react'
+import { useEffect, useState, useTransition } from 'react'
+import { Check, ChevronDown, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { quickLogReading } from '@/app/brews/actions'
 import type { TankDashboardData } from '@/types'
+
+const OPEN_KEY = 'cellar-quicklog-open'
 
 // "4,3" from a European keypad is still 4.3
 const parse = (s: string) => {
@@ -25,6 +27,19 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
   const [gravity, setGravity] = useState('')
   const [ph, setPh] = useState('')
   const [isPending, startTransition] = useTransition()
+
+  // Open or folded away is the brewer's choice, and the phone remembers it
+  const [open, setOpen] = useState(true)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
+    try { if (localStorage.getItem(OPEN_KEY) === '0') setOpen(false) } catch { /* private mode */ }
+  }, [])
+  function toggle() {
+    setOpen((was) => {
+      try { localStorage.setItem(OPEN_KEY, was ? '0' : '1') } catch { /* private mode */ }
+      return !was
+    })
+  }
 
   if (live.length === 0) return null
 
@@ -58,9 +73,14 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
   const field = 'w-full h-14 rounded-xl border border-gray-200 bg-white px-3 text-center text-xl font-semibold tabular-nums text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary'
 
   return (
-    <form onSubmit={save} className="md:hidden bg-white rounded-2xl ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] p-4 mb-3">
-      <h2 className="text-base font-bold text-gray-900">Quick log</h2>
+    <form onSubmit={save} className="md:hidden bg-white rounded-2xl ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 py-3.5 mb-3">
+      <button type="button" onClick={toggle} aria-expanded={open}
+        className="w-full flex items-center justify-between -my-1 py-1 text-left">
+        <span className="text-base font-bold text-gray-900">Quick log</span>
+        <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
 
+      {open && <>
       <div className="grid grid-cols-3 gap-2 mt-3">
         {live.map((t) => {
           const on = t.tank.id === tankId
@@ -109,6 +129,7 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
         {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
         {selected ? `Save ${selected.tank.name}` : 'Save'}
       </button>
+      </>}
     </form>
   )
 }

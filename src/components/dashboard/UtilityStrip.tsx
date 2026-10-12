@@ -289,7 +289,26 @@ export function UtilityStrip({ readings }: { readings: FrigidReading[] }) {
 
   return (
     <>
-      <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: `repeat(${readings.length}, 1fr)` }}>
+      {/* Phone: three slim tiles. The full cards need more width than a phone has. */}
+      <div className="md:hidden grid grid-cols-3 gap-2.5 mb-3">
+        {readings.map(r => {
+          const cooling = r.setPoint != null && r.setPoint !== 200
+          return (
+            <button key={r.name} type="button" onClick={() => r.history?.length && setExpanded(r.name)}
+              className="rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-3 py-2.5 text-left active:bg-gray-50">
+              <span className="block text-[11px] text-gray-400 truncate">{SUBTITLES[r.name] ?? r.name}</span>
+              <span className="block text-[17px] font-semibold tabular-nums text-gray-900 leading-tight">
+                {r.temperature != null ? `${r.temperature.toFixed(1)}°` : '-'}
+              </span>
+              <span className="block text-[11px] text-gray-400 tabular-nums">
+                {cooling ? `Set ${r.setPoint!.toFixed(1)}°` : 'No set point'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="hidden md:grid gap-3 mb-3" style={{ gridTemplateColumns: `repeat(${readings.length}, 1fr)` }}>
         {readings.map(r => (
           <UtilityCard key={r.name} r={r} onExpand={() => setExpanded(r.name)} />
         ))}

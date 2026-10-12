@@ -67,12 +67,12 @@ function Logo({ size = 'md', onNavigate }: { size?: 'sm' | 'md'; onNavigate?: ()
   )
 }
 
-// The Shapeshifter horizontal logo from the brand pack. Also a way home.
+// The Shapeshifter logo with the BREWING CO tagline, reversed for dark backgrounds, from the brand pack. Also a way home.
 function Wordmark({ className = '' }: { className?: string }) {
   return (
     <Link href="/" aria-label="Shapeshifter Cellar home" className={`block ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo-horizontal.png" alt="Shapeshifter" className="block w-full h-auto" />
+      <img src="/logo-tagline.png" alt="Shapeshifter Brewing Co" className="block w-full h-auto" />
     </Link>
   )
 }
@@ -143,7 +143,7 @@ export function SiteNav() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary flex items-center justify-between px-4 h-14">
         <Logo size="sm" />
         {/* Centred on the bar itself, whatever sits either side */}
-        <Wordmark className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[46%] max-w-[210px]" />
+        <Wordmark className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48%] max-w-[200px]" />
         <button
           onClick={() => setOpen(true)}
           className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"

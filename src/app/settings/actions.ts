@@ -38,6 +38,27 @@ export async function getWeekStart(): Promise<WeekStart> {
   return data?.week_starts_on === 0 ? 0 : 1
 }
 
+/** The signed-in person's birthday as MM-DD, or null. */
+export async function getBirthday(): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await supabase.from('profiles').select('birthday').eq('id', user.id).maybeSingle()
+  return data?.birthday ?? null
+}
+
+export async function setBirthday(birthday: string | null): Promise<{ ok: boolean; message?: string }> {
+  if (birthday !== null && !/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(birthday)) return { ok: false, message: 'Pick a day and a month.' }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, message: 'You are signed out.' }
+  const { data, error } = await supabase.from('profiles').update({ birthday }).eq('id', user.id).select('id')
+  if (error || !data?.length) return { ok: false, message: error?.message ?? 'Your profile could not be found.' }
+  revalidatePath('/')
+  revalidatePath('/settings')
+  return { ok: true }
+}
+
 export async function setWeekStart(day: WeekStart): Promise<{ ok: boolean; message?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

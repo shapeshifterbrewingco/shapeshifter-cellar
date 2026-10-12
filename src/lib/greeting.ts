@@ -5,17 +5,52 @@ const TZ = 'Australia/Adelaide'
 
 function breweryClock(now: Date) {
   const p = Object.fromEntries(
-    new Intl.DateTimeFormat('en-AU', { timeZone: TZ, weekday: 'long', hour: 'numeric', hourCycle: 'h23' })
+    new Intl.DateTimeFormat('en-AU', { timeZone: TZ, weekday: 'long', hour: 'numeric', hourCycle: 'h23', month: '2-digit', day: '2-digit' })
       .formatToParts(now).map((x) => [x.type, x.value]),
   )
-  return { day: p.weekday as string, hour: Number(p.hour) }
+  return { day: p.weekday as string, hour: Number(p.hour), monthDay: `${p.month}-${p.day}` }
+}
+
+/** The days that get their own line all day. Null on an ordinary day. */
+export function specialGreeting(name: string, opts: { birthday?: string | null; now?: Date } = {}): string | null {
+  const { monthDay } = breweryClock(opts.now ?? new Date())
+  const to = name ? `, ${name}` : ''
+  if (opts.birthday && opts.birthday === monthDay) return `Happy birthday${to}`
+  if (monthDay === '12-21') return `Happy Gravy Day${to}`
+  if (monthDay === '12-25') return `Merry Christmas${to}`
+  return null
+}
+
+// Shown at random, roughly one app open in six. {name} is dropped cleanly when unknown.
+const EGGS = [
+  'Hey big dog',
+  'How good are lagers{name}',
+  'Clean as you go{name}',
+  'Is it a hazy? It is probably a hazy',
+  'Trust the process{name}. And the hydrometer',
+  'Did you check the clamps{name}?',
+  'Another day, another dry hop',
+  'Hops in, worries out{name}',
+  'Nobody ever regretted a second sanitise{name}',
+  'The yeast are doing all the work again{name}',
+  'Smells like brew day{name}',
+  'You are doing great{name}. The tanks said so',
+]
+
+/** An easter egg greeting, or null most of the time. */
+export function easterEgg(name: string, chance = 1 / 6): string | null {
+  if (Math.random() >= chance) return null
+  const pick = EGGS[Math.floor(Math.random() * EGGS.length)]
+  return pick.replace('{name}', name ? `, ${name}` : '')
 }
 
 /**
  * @param name     First name, or '' if unknown
  * @param brewDay  True when a brew is booked for today
  */
-export function greeting(name: string, opts: { brewDay?: boolean; now?: Date } = {}): string {
+export function greeting(name: string, opts: { brewDay?: boolean; birthday?: string | null; now?: Date } = {}): string {
+  const special = specialGreeting(name, opts)
+  if (special) return special
   const { day, hour } = breweryClock(opts.now ?? new Date())
   const to = name ? `, ${name}` : ''
   const weekend = day === 'Saturday' || day === 'Sunday'

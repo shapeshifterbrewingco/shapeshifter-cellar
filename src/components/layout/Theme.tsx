@@ -34,10 +34,10 @@ export function ThemeChoice() {
   const { theme, setTheme } = useTheme()
   const current = useMounted() ? theme ?? 'light' : 'light'
   return (
-    <div className="flex rounded-xl border border-gray-200 overflow-hidden">
+    <div className="flex flex-shrink-0 rounded-xl border border-gray-200 overflow-hidden">
       {([['light', 'Day'], ['dark', 'Night'], ['system', 'Match device']] as const).map(([v, label]) => (
         <button key={v} type="button" onClick={() => setTheme(v)} aria-pressed={current === v}
-          className={`px-3.5 py-2 text-sm font-semibold transition-colors ${current === v ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+          className={`px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${current === v ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
           {label}
         </button>
       ))}

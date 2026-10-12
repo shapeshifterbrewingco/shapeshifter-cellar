@@ -12,6 +12,7 @@ import { calcAbv, formatUserName } from '@/lib/utils'
 import { daysBetweenISO } from '@/lib/dates'
 import { stageStyle } from '@/lib/stage-style'
 import { greeting } from '@/lib/greeting'
+import { getBirthday } from '@/app/settings/actions'
 import type { TankDashboardData } from '@/types'
 import type { CalEvent } from '@/lib/planner/google'
 
@@ -205,7 +206,7 @@ export default async function DashboardPage() {
   const nextBrew = (events ?? []).find((e) => /^\s*BREW/i.test(e.title))
 
   const { data: { user } } = await supabase.auth.getUser()
-  const hello = greeting(user?.email ? formatUserName(user.email) : '', { brewDay: !!nextBrew && nextBrew.date === today })
+  const hello = greeting(user?.email ? formatUserName(user.email) : '', { brewDay: !!nextBrew && nextBrew.date === today, birthday: await getBirthday() })
 
   const kpis: { label: string; value: string; sub: string }[] = [
     { label: 'Tanks in use', value: `${full.length} of ${tanks.length}`, sub: `${tanks.length - full.length} empty` },

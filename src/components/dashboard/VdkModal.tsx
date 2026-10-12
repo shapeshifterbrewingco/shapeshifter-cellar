@@ -1,5 +1,6 @@
 'use client'
 
+import { logDay } from '@/lib/log-date'
 import { useState, useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
 import { X, Loader2, Pencil, Trash2 } from 'lucide-react'
@@ -146,7 +147,7 @@ export function VdkModal({ brew, tank, currentUser, onClose, onVdkPass }: Props)
                   return (
                     <li key={r.id} className="rounded-xl bg-gray-50 px-3 py-2">
                       <div className="flex items-center gap-2.5 text-xs">
-                        <span className="text-gray-400 w-12 flex-shrink-0 tabular-nums">{format(parseISO(r.recorded_at), 'd MMM')}</span>
+                        <span className="text-gray-400 w-12 flex-shrink-0 tabular-nums">{logDay(r.recorded_at)}</span>
                         <span className={`px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 ${s.bg} ${s.text} ${s.border}`}>{s.label}</span>
                         <span className="text-gray-500 truncate flex-1 min-w-0">{r.notes ?? ''}</span>
                         <span className="text-gray-400 flex-shrink-0">{formatUserName(r.recorded_by)}</span>

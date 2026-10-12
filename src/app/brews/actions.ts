@@ -66,6 +66,8 @@ export async function assignBrew(data: {
 
   if (!data.beer_name.trim()) return fail('Give the brew a name.')
   if (!(data.volume_l > 0)) return fail('Volume must be more than zero.')
+  if (!(data.og_plato != null && data.og_plato > 0)) return fail('Enter the measured OG.')
+  if (!(data.initial_ph != null && data.initial_ph > 0 && data.initial_ph <= 14)) return fail('Enter the measured pH.')
 
   const occupant = await brewInTank(supabase, data.tank_id)
   if (occupant) return fail(`That tank already holds ${occupant.beer_name}. Refresh the page.`)

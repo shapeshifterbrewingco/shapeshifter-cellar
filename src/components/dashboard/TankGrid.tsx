@@ -26,7 +26,7 @@ interface TankGridProps {
   utilityTemps: FrigidReading[]
   settings: AppSettings
   /** Shown as the page heading, e.g. "Good morning, James" */
-  greeting?: string
+  greeting?: React.ReactNode
 }
 
 export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings, greeting }: TankGridProps) {

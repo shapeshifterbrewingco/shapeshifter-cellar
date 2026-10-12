@@ -52,7 +52,14 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
     // The calendar shortens names ("Findon's" for Findon's Finest). Take a
     // recipe that starts the same way only if exactly one does.
     const starts = want.length >= 4 ? recipes.filter((r) => r.name.toLowerCase().startsWith(want)) : []
-    return starts.length === 1 ? starts[0] : null
+    if (starts.length === 1) return starts[0]
+    // The calendar also pads names ("Big chonky fruited sour", "Divide by Zero
+    // 2027"). Take the recipe whose every word appears in the title, again
+    // only if exactly one does.
+    const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, '').split(/\s+/).filter(Boolean)
+    const have = new Set(words(want))
+    const within = recipes.filter((r) => { const w = words(r.name); return w.length > 0 && w.every((x) => have.has(x)) })
+    return within.length === 1 ? within[0] : null
   })()
 
   const [recipeId, setRecipeId] = useState(plannedRecipe?.id ?? '')
@@ -63,11 +70,13 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
     plannedRecipe?.brew_volume_l != null ? String(plannedRecipe.brew_volume_l)
       : defaultVolumeL != null ? String(defaultVolumeL) : ''
   )
-  const [ogPlato, setOgPlato] = useState(plannedRecipe?.target_og_plato != null ? String(plannedRecipe.target_og_plato) : '')
-  const [ph, setPh] = useState('5.4')
+  const [ogPlato, setOgPlato] = useState('')
+  const [ph, setPh] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const targetOg = recipes.find((r) => r.id === recipeId)?.target_og_plato ?? null
 
   function handleRecipeChange(id: string) {
     setRecipeId(id)
@@ -75,7 +84,6 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
     if (recipe) {
       setBeerName(recipe.name)
       setStyle(recipe.style ?? '')
-      if (recipe.target_og_plato != null) setOgPlato(String(recipe.target_og_plato))
       if (recipe.brew_volume_l != null) setVolumeL(String(recipe.brew_volume_l))
     }
   }
@@ -84,6 +92,9 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
     e.preventDefault()
     if (!beerName.trim()) { setError('Beer name is required.'); return }
     if (!volumeL || isNaN(parseFloat(volumeL))) { setError('Enter a valid volume.'); return }
+    if (!(parseFloat(ogPlato) > 0)) { setError('Enter the measured OG.'); return }
+    const phValue = parseFloat(ph)
+    if (!(phValue > 0 && phValue <= 14)) { setError('Enter the measured pH.'); return }
     setError(null)
     startTransition(async () => {
       try {
@@ -94,8 +105,8 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
           style: style || null,
           brew_day: brewDay,
           volume_l: parseFloat(volumeL),
-          og_plato: ogPlato ? parseFloat(ogPlato) : null,
-          initial_ph: ph ? parseFloat(ph) : null,
+          og_plato: parseFloat(ogPlato),
+          initial_ph: phValue,
           notes,
         })
         if (!result.ok) { setError(result.message); return }
@@ -191,7 +202,8 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
                 min="0"
                 value={ogPlato}
                 onChange={(e) => setOgPlato(e.target.value)}
-                placeholder="e.g. 16.5"
+                placeholder={targetOg != null ? `Target ${targetOg}` : 'Measured'}
+                required
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
             </div>
@@ -204,7 +216,8 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, on
                 max="14"
                 value={ph}
                 onChange={(e) => setPh(e.target.value)}
-                placeholder="e.g. 5.2"
+                placeholder="Measured"
+                required
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
             </div>

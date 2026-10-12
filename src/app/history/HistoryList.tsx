@@ -1,5 +1,6 @@
 'use client'
 
+import { logDayTime } from '@/lib/log-date'
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -221,7 +222,7 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
                         const noteOnly = r.plato == null && r.ph == null
                         return (
                           <li key={r.id} className="flex items-baseline gap-3 px-3 py-2">
-                            <span className="w-[4.75rem] flex-shrink-0 text-xs text-gray-400 tabular-nums">{format(parseISO(r.recorded_at), 'd MMM HH:mm')}</span>
+                            <span className="w-[4.75rem] flex-shrink-0 text-xs text-gray-400 tabular-nums">{logDayTime(r.recorded_at)}</span>
                             {r.vdk ? (
                               <span className="flex-1 min-w-0">
                                 <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${VDK_STYLE[r.vdk].bg} ${VDK_STYLE[r.vdk].text} ${VDK_STYLE[r.vdk].border}`}>VDK {VDK_STYLE[r.vdk].label}</span>

@@ -1,8 +1,8 @@
 'use client'
 
+import { logDay } from '@/lib/log-date'
 import { useEffect, useState } from 'react'
 import { X, FlaskConical, ArrowRightLeft, MoreHorizontal } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
 import { FermentChart, useBrewChart } from '@/components/dashboard/BrewChartModal'
 import { StageBadge } from './StageBadge'
 import { TempTap } from './SetPoint'
@@ -118,7 +118,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
                 const noteOnly = r.plato == null && r.ph == null
                 return (
                   <li key={r.id} className="px-3 py-2.5 flex items-baseline gap-3 text-sm">
-                    <span className="w-[4.5rem] flex-shrink-0 text-gray-400 tabular-nums">{format(parseISO(r.recorded_at), 'd MMM')}</span>
+                    <span className="w-[4.5rem] flex-shrink-0 text-gray-400 tabular-nums">{logDay(r.recorded_at)}</span>
                     {r.vdk ? (
                       <span className="flex-1 min-w-0">
                         <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${VDK_STYLE[r.vdk].bg} ${VDK_STYLE[r.vdk].text} ${VDK_STYLE[r.vdk].border}`}>VDK {VDK_STYLE[r.vdk].label}</span>

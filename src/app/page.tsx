@@ -6,7 +6,9 @@ import { getDashboardData } from '@/lib/dashboard'
 import { getFrigidReadings, utilityReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
 import { nextBrewsByTank } from '@/lib/planner/next-brews'
-import { greeting } from '@/lib/greeting'
+import { greeting, specialGreeting } from '@/lib/greeting'
+import { Hello } from '@/components/layout/Hello'
+import { getBirthday } from '@/app/settings/actions'
 import { breweryToday } from '@/lib/dates'
 import { formatUserName } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
@@ -72,7 +74,11 @@ export default async function DashboardPage() {
   })
 
   const today = breweryToday()
-  const hello = greeting(user?.email ? formatUserName(user.email) : '', {
+  const firstName = user?.email ? formatUserName(user.email) : ''
+  const birthday = await getBirthday()
+  const isSpecial = !!specialGreeting(firstName, { birthday })
+  const hello = greeting(firstName, {
+    birthday,
     brewDay: Object.values(nextBrews).some((b) => b.scheduled_date === today),
   })
 
@@ -93,7 +99,7 @@ export default async function DashboardPage() {
             hidden until it does, so check the Frigid panel directly.
           </p>
         )}
-        <p className="md:hidden px-1 pt-1 pb-2 text-lg font-semibold tracking-tight text-gray-900">{hello}</p>
+        <p className="md:hidden px-1 pt-1 pb-2 text-lg font-semibold tracking-tight text-gray-900"><Hello text={hello} name={firstName} special={isSpecial} /></p>
         <QuickLog tanks={tanks} currentUser={user?.email ?? user?.id ?? 'Unknown'} />
         <TankGrid
           tanks={tanks}
@@ -101,7 +107,7 @@ export default async function DashboardPage() {
           currentUser={user?.email ?? user?.id ?? 'Unknown'}
           utilityTemps={utilityTemps}
           settings={settings}
-          greeting={hello}
+          greeting={<Hello text={hello} name={firstName} special={isSpecial} />}
         />
       </div>
     </main>

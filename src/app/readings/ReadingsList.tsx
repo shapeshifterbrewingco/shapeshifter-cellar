@@ -1,5 +1,6 @@
 'use client'
 
+import { logDayTime } from '@/lib/log-date'
 import { useState, useTransition, useMemo } from 'react'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
@@ -150,7 +151,7 @@ export function ReadingsList({ readings: initial }: Props) {
                       }`}
                     >
                       <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap tabular-nums text-xs">
-                        {format(parseISO(r.recorded_at), 'd MMM yyyy, HH:mm')}
+                        {logDayTime(r.recorded_at, ', ', 'd MMM yyyy')}
                       </td>
                       <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide">{r.tank_name}</td>
                       <td className="px-4 py-2.5 font-bold text-gray-800 max-w-[160px] truncate">{r.beer_name}</td>

@@ -1,5 +1,6 @@
 'use client'
 
+import { logDayTime } from '@/lib/log-date'
 import { useState, useEffect } from 'react'
 import { X, FlaskConical } from 'lucide-react'
 import {
@@ -333,7 +334,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
                     if (r.vdk) {
                       return (
                         <tr key={r.id} className="border-t border-gray-50">
-                          <td className="px-3 py-1.5 text-gray-500">{format(parseISO(r.recorded_at), 'd MMM, HH:mm')}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{logDayTime(r.recorded_at, ', ')}</td>
                           <td colSpan={2} className="px-3 py-1.5 text-center">
                             <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${VDK_STYLE[r.vdk].bg} ${VDK_STYLE[r.vdk].text} ${VDK_STYLE[r.vdk].border}`}>VDK {VDK_STYLE[r.vdk].label}</span>
                             {r.notes && <span className="ml-2 text-gray-500">{r.notes}</span>}
@@ -347,7 +348,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
                       return (
                         <tr key={r.id} className="border-t border-gray-50 bg-gray-50/60">
                           <td className="px-3 py-1.5 text-gray-400">
-                            {format(parseISO(r.recorded_at), 'd MMM, HH:mm')}
+                            {logDayTime(r.recorded_at, ', ')}
                           </td>
                           <td colSpan={2} className="px-3 py-1.5 text-center">
                             <span className="inline-block bg-gray-100 text-gray-500 rounded px-2 py-0.5 text-[10px] font-medium tracking-wide">
@@ -361,7 +362,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
                     return (
                       <tr key={r.id} className="border-t border-gray-50">
                         <td className="px-3 py-1.5 text-gray-500">
-                          {format(parseISO(r.recorded_at), 'd MMM, HH:mm')}
+                          {logDayTime(r.recorded_at, ', ')}
                         </td>
                         <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">
                           {r.plato != null ? `${r.plato}°P` : '—'}

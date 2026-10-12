@@ -28,9 +28,12 @@ export interface PackReport {
   best_before: string | null
   bbt_temp_c: number | null
   bbt_co2_vol: number | null
+  /** Lowest DO reading. With a high beside it, the two are a range. */
   bbt_do_ppb: number | null
+  bbt_do_ppb_high: number | null
   pack_co2_vol: number | null
   pack_do_ppb: number | null
+  pack_do_ppb_high: number | null
   unders: string | null
   stock_venue_kegs: number | null
   stock_venue_cartons: number | null
@@ -42,10 +45,17 @@ export interface PackReport {
 }
 
 export const PACK_REPORT_FIELDS = [
-  'best_before', 'bbt_temp_c', 'bbt_co2_vol', 'bbt_do_ppb', 'pack_co2_vol', 'pack_do_ppb', 'unders',
+  'best_before', 'bbt_temp_c', 'bbt_co2_vol', 'bbt_do_ppb', 'bbt_do_ppb_high', 'pack_co2_vol', 'pack_do_ppb', 'pack_do_ppb_high', 'unders',
   'stock_venue_kegs', 'stock_venue_cartons', 'stock_options_kegs', 'stock_options_cartons',
   'stock_sales_kegs', 'stock_sales_cartons', 'notes',
 ] as const
+
+/** A DO reading as text: "59 to 73 ppb", "23 ppb", or "-" when nothing was recorded. */
+export function doRange(low: number | null | undefined, high: number | null | undefined): string {
+  if (low == null && high == null) return '-'
+  if (low != null && high != null && Number(low) !== Number(high)) return `${Number(low)} to ${Number(high)} ppb`
+  return `${Number(low ?? high)} ppb`
+}
 
 /** How many of each pack format a batch made. */
 export type PackCounts = { keg30: number; keg50: number; c24: number; c16: number }

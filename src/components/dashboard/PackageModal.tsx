@@ -74,8 +74,10 @@ export function PackageModal({ brew, tank, onClose }: Props) {
   const [bbtTemp, setBbtTemp] = useState('')
   const [bbtCo2, setBbtCo2] = useState('')
   const [bbtDo, setBbtDo] = useState('')
+  const [bbtDoHigh, setBbtDoHigh] = useState('')
   const [canCo2, setCanCo2] = useState('')
   const [canDo, setCanDo] = useState('')
+  const [canDoHigh, setCanDoHigh] = useState('')
   const [undersSor, setUndersSor] = useState('')
 
   // Stock distribution
@@ -136,8 +138,10 @@ export function PackageModal({ brew, tank, onClose }: Props) {
         bbt_temp_c: n(bbtTemp),
         bbt_co2_vol: n(bbtCo2),
         bbt_do_ppb: n(bbtDo),
+        bbt_do_ppb_high: n(bbtDoHigh),
         can_co2_vol: n(canCo2),
         can_do_ppb: n(canDo),
+        can_do_ppb_high: n(canDoHigh),
         unders_sor: undersSor.trim() || null,
         stock_venue_kegs: n(venueKegs),
         stock_venue_cartons: n(venueCartons),
@@ -334,12 +338,14 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                 <div className="flex gap-2">
                   <NumInput label="Temp" value={bbtTemp} onChange={setBbtTemp} unit="°C" />
                   <NumInput label="CO₂" value={bbtCo2} onChange={setBbtCo2} unit="vol" />
-                  <NumInput label="DO" value={bbtDo} onChange={setBbtDo} unit="ppb" />
+                  <NumInput label="DO low" value={bbtDo} onChange={setBbtDo} unit="ppb" />
+                  <NumInput label="DO high" value={bbtDoHigh} onChange={setBbtDoHigh} unit="ppb" />
                 </div>
                 <p className="text-[11px] text-gray-400 pt-1">Can</p>
                 <div className="flex gap-2">
                   <NumInput label="CO₂" value={canCo2} onChange={setCanCo2} unit="vol" />
-                  <NumInput label="DO" value={canDo} onChange={setCanDo} unit="ppb" />
+                  <NumInput label="DO low" value={canDo} onChange={setCanDo} unit="ppb" />
+                  <NumInput label="DO high" value={canDoHigh} onChange={setCanDoHigh} unit="ppb" />
                   <div className="flex-1 min-w-0">
                     <label className="block text-[11px] font-medium text-gray-500 mb-1">Unders/SOR</label>
                     <input

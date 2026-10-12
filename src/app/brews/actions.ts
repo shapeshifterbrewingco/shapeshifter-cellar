@@ -366,8 +366,10 @@ export async function packageBrew(data: {
   bbt_temp_c?: number | null
   bbt_co2_vol?: number | null
   bbt_do_ppb?: number | null
+  bbt_do_ppb_high?: number | null
   can_co2_vol?: number | null
   can_do_ppb?: number | null
+  can_do_ppb_high?: number | null
   unders_sor?: string | null
   // Stock distribution
   stock_venue_kegs?: number | null
@@ -456,8 +458,10 @@ export async function packageBrew(data: {
     bbt_temp_c: data.bbt_temp_c ?? null,
     bbt_co2_vol: data.bbt_co2_vol ?? null,
     bbt_do_ppb: data.bbt_do_ppb ?? null,
+    bbt_do_ppb_high: data.bbt_do_ppb_high ?? null,
     pack_co2_vol: data.can_co2_vol ?? null,
     pack_do_ppb: data.can_do_ppb ?? null,
+    pack_do_ppb_high: data.can_do_ppb_high ?? null,
     unders: data.unders_sor || null,
     stock_venue_kegs: data.stock_venue_kegs ?? null,
     stock_venue_cartons: data.stock_venue_cartons ?? null,

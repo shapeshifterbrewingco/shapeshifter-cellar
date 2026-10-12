@@ -10,6 +10,7 @@ import { deleteBrewHistory, loadBrewDetail } from './actions'
 import { EditBrewModal } from './EditBrewModal'
 import type { BrewHistoryItem, BrewReading, PackagingRun, PackCounts, VdkEntry } from '@/lib/history'
 import { PackReportPanel } from './PackReportPanel'
+import { doRange } from '@/lib/history'
 import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import { PACKAGE_FORMATS } from '@/types'
 import { formatUserName } from '@/lib/utils'
@@ -138,8 +139,8 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
       ['OG', item.og_plato != null ? `${item.og_plato}°P` : '-'],
       ['FG', item.final_plato != null ? `${item.final_plato}°P` : '-'],
       ['Final ABV', item.abv != null ? `${item.abv.toFixed(1)}%` : '-'],
-      ['DO in brite', item.report?.bbt_do_ppb != null ? `${item.report.bbt_do_ppb} ppb` : '-'],
-      ['DO in pack', item.report?.pack_do_ppb != null ? `${item.report.pack_do_ppb} ppb` : '-'],
+      ['DO in brite', doRange(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high)],
+      ['DO in pack', doRange(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high)],
     ]
     return (
       <li key={item.id} className={`${CARD} overflow-hidden`}>

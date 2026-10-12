@@ -5,10 +5,11 @@ import { toast } from 'sonner'
 import { Loader2, Pencil } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { savePackagingReport } from './actions'
+import { doRange } from '@/lib/history'
 import type { PackReport } from '@/lib/history'
 
 const EMPTY: PackReport = {
-  best_before: null, bbt_temp_c: null, bbt_co2_vol: null, bbt_do_ppb: null, pack_co2_vol: null, pack_do_ppb: null, unders: null,
+  best_before: null, bbt_temp_c: null, bbt_co2_vol: null, bbt_do_ppb: null, bbt_do_ppb_high: null, pack_co2_vol: null, pack_do_ppb: null, pack_do_ppb_high: null, unders: null,
   stock_venue_kegs: null, stock_venue_cartons: null, stock_options_kegs: null, stock_options_cartons: null,
   stock_sales_kegs: null, stock_sales_cartons: null, notes: null,
 }
@@ -17,9 +18,19 @@ type Key = keyof PackReport
 const MEASURES: { key: Key; label: string; unit: string; whole?: boolean }[] = [
   { key: 'bbt_temp_c',   label: 'Brite temp', unit: '°C' },
   { key: 'bbt_co2_vol',  label: 'Brite CO2',  unit: 'vol' },
-  { key: 'bbt_do_ppb',   label: 'Brite DO',   unit: 'ppb', whole: true },
-  { key: 'pack_co2_vol', label: 'Pack CO2',   unit: 'vol' },
-  { key: 'pack_do_ppb',  label: 'Pack DO',    unit: 'ppb', whole: true },
+  { key: 'bbt_do_ppb',       label: 'Brite DO low',  unit: 'ppb' },
+  { key: 'bbt_do_ppb_high',  label: 'Brite DO high', unit: 'ppb' },
+  { key: 'pack_co2_vol',     label: 'Pack CO2',      unit: 'vol' },
+  { key: 'pack_do_ppb',      label: 'Pack DO low',   unit: 'ppb' },
+  { key: 'pack_do_ppb_high', label: 'Pack DO high',  unit: 'ppb' },
+]
+// How the same readings are shown once saved: a DO low and high read as one range
+const SHOWN = (r: PackReport): [string, string][] => [
+  ['Brite temp', show(r.bbt_temp_c, '°C')],
+  ['Brite CO2', show(r.bbt_co2_vol, 'vol')],
+  ['Brite DO', doRange(r.bbt_do_ppb, r.bbt_do_ppb_high)],
+  ['Pack CO2', show(r.pack_co2_vol, 'vol')],
+  ['Pack DO', doRange(r.pack_do_ppb, r.pack_do_ppb_high)],
 ]
 const STOCK: { where: string; kegs: Key; cartons: Key }[] = [
   { where: 'At venue',       kegs: 'stock_venue_kegs',   cartons: 'stock_venue_cartons' },
@@ -74,10 +85,10 @@ export function PackReportPanel({ brewId, report }: { brewId: string; report: Pa
         ) : (
           <div className="rounded-xl bg-white ring-1 ring-black/5 text-sm divide-y divide-gray-100">
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 px-3 py-2.5">
-              {MEASURES.map((m) => (
-                <div key={m.key}>
-                  <dt className="text-[11px] text-gray-400">{m.label}</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900">{show(saved[m.key], m.unit)}</dd>
+              {SHOWN(saved).map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-[11px] text-gray-400">{label}</dt>
+                  <dd className="font-semibold tabular-nums text-gray-900">{value}</dd>
                 </div>
               ))}
               <div>

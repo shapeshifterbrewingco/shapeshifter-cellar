@@ -32,7 +32,7 @@ export function specialGreeting(name: string, opts: { birthday?: string | null; 
 // Shown at random, roughly one app open in six. {name} is dropped cleanly when unknown.
 const EGGS = [
   'Hey big dog',
-  'How good are lagers{name}',
+  'How good are lagers{name}?',
   'Trust the process{name}. And the Anton Paar',
   'Another day, another dry hop',
   'Smells like brew day{name}',

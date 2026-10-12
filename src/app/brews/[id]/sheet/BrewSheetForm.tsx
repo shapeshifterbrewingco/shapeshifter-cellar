@@ -273,7 +273,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
               className="w-10 h-9 bg-transparent text-xs text-gray-500 placeholder:text-gray-300 focus:outline-none" />
             <input value={l.when} onChange={(e) => setLine(listKey, i, { when: e.target.value })} placeholder={whenLabel} aria-label={whenLabel}
               className="w-16 h-9 bg-transparent text-xs text-gray-500 placeholder:text-gray-300 focus:outline-none" />
-            <button type="button" onClick={() => update({ ...data, [listKey]: data[listKey].filter((_, j) => j !== i) })} aria-label="Remove line"
+            <button type="button" onClick={() => removeLine(listKey, i)} aria-label={`Remove ${data[listKey][i]?.name || 'line'}`}
               className="h-9 w-7 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500">
               <X className="h-4 w-4" />
             </button>
@@ -300,6 +300,28 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
         {by && <span className="text-sm text-gray-500">{by}</span>}
       </button>
     )
+  }
+
+  // Removing a line asks first, and can be undone for a few seconds after
+  function removeLine(listKey: ListKey, index: number) {
+    const line = data[listKey][index]
+    if (!line) return
+    const label = [line.name || 'this line', [line.amount, line.unit].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    if (!window.confirm(`Remove ${label} from this brew sheet?`)) return
+    update({ ...data, [listKey]: data[listKey].filter((_, j) => j !== index) })
+    toast(`Removed ${line.name || 'the line'}`, {
+      duration: 10000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          // Put it back into the sheet as it is now, not as it was when removed
+          const now = latest.current.data
+          const list = [...now[listKey]]
+          list.splice(Math.min(index, list.length), 0, line)
+          update({ ...now, [listKey]: list })
+        },
+      },
+    })
   }
 
   const progress = sheetProgress(data)

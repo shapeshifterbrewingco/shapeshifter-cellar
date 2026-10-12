@@ -11,7 +11,8 @@ import { TempTap } from '@/components/tank/SetPoint'
 import { calcAbv, formatUserName } from '@/lib/utils'
 import { daysBetweenISO } from '@/lib/dates'
 import { stageStyle } from '@/lib/stage-style'
-import { greeting } from '@/lib/greeting'
+import { greeting, specialGreeting } from '@/lib/greeting'
+import { Hello } from '@/components/layout/Hello'
 import { getBirthday } from '@/app/settings/actions'
 import type { TankDashboardData } from '@/types'
 import type { CalEvent } from '@/lib/planner/google'
@@ -206,7 +207,9 @@ export default async function DashboardPage() {
   const nextBrew = (events ?? []).find((e) => /^\s*BREW/i.test(e.title))
 
   const { data: { user } } = await supabase.auth.getUser()
-  const hello = greeting(user?.email ? formatUserName(user.email) : '', { brewDay: !!nextBrew && nextBrew.date === today, birthday: await getBirthday() })
+  const firstName = user?.email ? formatUserName(user.email) : ''
+  const birthday = await getBirthday()
+  const hello = greeting(firstName, { brewDay: !!nextBrew && nextBrew.date === today, birthday })
 
   const kpis: { label: string; value: string; sub: string }[] = [
     { label: 'Tanks in use', value: `${full.length} of ${tanks.length}`, sub: `${tanks.length - full.length} empty` },
@@ -234,9 +237,12 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-background text-foreground">
       <AutoRefresh seconds={60} />
       <div className="px-4 md:px-6 py-5 max-w-[1500px] mx-auto space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500">{hello} · {fmtDay(today)}</p>
+        {/* Same greeting line as the Cellar page */}
+        <div className="md:flex md:items-baseline md:justify-between">
+          <h1 className="px-1 md:px-0 text-lg font-semibold md:text-2xl md:font-bold tracking-tight text-gray-900">
+            <Hello text={hello} name={firstName} special={!!specialGreeting(firstName, { birthday })} />
+          </h1>
+          <p className="px-1 md:px-0 text-sm text-gray-500">Dashboard · {fmtDay(today)}</p>
         </div>
 
         {/* Headline numbers */}

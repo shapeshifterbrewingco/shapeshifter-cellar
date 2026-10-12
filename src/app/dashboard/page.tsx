@@ -218,8 +218,34 @@ export default async function DashboardPage() {
   const hello = greeting(firstName, { brewDay: !!nextBrew && nextBrew.date === today, birthday })
 
   const kpis: Kpi[] = [
-    { label: 'Tanks in use', value: `${full.length} of ${tanks.length}`, sub: `${tanks.length - full.length} empty` },
-    { label: 'Beer in tank', value: litres(inTank), sub: `${full.length} batch${full.length === 1 ? '' : 'es'}` },
+    {
+      label: 'Tanks in use', value: `${full.length} of ${tanks.length}`, sub: `${tanks.length - full.length} empty`,
+      rowsTitle: 'Every tank',
+      rows: tanks.map((t) => {
+        const next = t.next_scheduled_brew
+        return t.brew && t.brew.stage !== 'empty'
+          ? {
+              lead: t.tank.name, title: t.brew.beer_name,
+              sub: [stageStyle(t.brew.stage).label, t.brew.style].filter(Boolean).join(' · '),
+              right: litres(t.brew.volume_l), rightSub: t.days_in_tank != null ? `day ${t.days_in_tank}` : '',
+            }
+          : {
+              lead: t.tank.name, title: 'Empty',
+              sub: next ? `Next: ${next.recipe_name ?? 'a brew'}, ${relDay(next.scheduled_date, today).replace(/^T/, 't')}` : 'Nothing booked',
+              right: '', rightSub: '',
+            }
+      }),
+    },
+    {
+      label: 'Beer in tank', value: litres(inTank), sub: `${full.length} batch${full.length === 1 ? '' : 'es'}`,
+      rowsTitle: 'Beer in tank, biggest first',
+      rows: [...full].sort((a, b) => (b.brew?.volume_l ?? 0) - (a.brew?.volume_l ?? 0)).map((t) => ({
+        lead: t.tank.name, title: t.brew?.beer_name ?? '',
+        sub: [t.brew ? stageStyle(t.brew.stage).label : '', t.brew?.style].filter(Boolean).join(' · '),
+        right: litres(t.brew?.volume_l ?? 0),
+        rightSub: inTank > 0 ? `${Math.round(((t.brew?.volume_l ?? 0) / inTank) * 100)}% of the cellar` : '',
+      })),
+    },
     {
       label: 'On chill', value: String(onChill.length),
       sub: onChill.length ? litres(onChill.reduce((s, t) => s + (t.brew?.volume_l ?? 0), 0)) + ' to package' : 'Nothing waiting',
@@ -228,7 +254,7 @@ export default async function DashboardPage() {
         const abv = t.brew?.og_plato != null && t.latest_gravity?.plato != null ? calcAbv(t.brew.og_plato, t.latest_gravity.plato) : null
         const set = t.set_point_c != null && t.set_point_c !== FRIGID_OFF_SET_POINT ? `Set to ${t.set_point_c.toFixed(1)}°` : 'No set point'
         return {
-          tank: t.tank.name,
+          lead: t.tank.name,
           title: t.brew?.beer_name ?? '',
           sub: [t.brew?.style, litres(t.brew?.volume_l ?? 0), abv != null ? `${abv.toFixed(1)}%` : '', t.days_in_tank != null ? `day ${t.days_in_tank}` : ''].filter(Boolean).join(' · '),
           right: t.temperature != null ? `${t.temperature.toFixed(1)}°C` : '-',
@@ -236,7 +262,16 @@ export default async function DashboardPage() {
         }
       }),
     },
-    { label: 'Next brew', value: nextBrew ? relDay(nextBrew.date, today) : 'None booked', sub: nextBrew ? nextBrew.title.replace(/^\s*BREW\s*/i, '') : 'in the next two weeks' },
+    {
+      label: 'Next brew', value: nextBrew ? relDay(nextBrew.date, today) : 'None booked', sub: nextBrew ? nextBrew.title.replace(/^\s*BREW\s*/i, '') : 'in the next two weeks',
+      rowsTitle: 'Brews in the next two weeks',
+      rows: (events ?? []).filter((e) => /^\s*BREW/i.test(e.title)).map((e) => ({
+        lead: new Date(e.date + 'T00:00:00Z').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' }),
+        title: e.title.replace(/^\s*BREW\s*/i, '').replace(/^[\s:\-]+/, ''),
+        sub: relDay(e.date, today) === fmtDay(e.date) ? new Date(e.date + 'T00:00:00Z').toLocaleDateString('en-AU', { weekday: 'long', timeZone: 'UTC' }) : relDay(e.date, today),
+        right: '', rightSub: '',
+      })),
+    },
   ]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

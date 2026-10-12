@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-export interface KpiRow { tank: string; title: string; sub: string; right: string; rightSub: string }
+/** `lead` is the short label on the left: a tank name, or a date */
+export interface KpiRow { lead: string; title: string; sub: string; right: string; rightSub: string }
 export interface Kpi {
   label: string
   value: string
@@ -47,9 +48,9 @@ export function KpiTiles({ kpis }: { kpis: Kpi[] }) {
         <section className={`${CARD} mt-3 overflow-hidden`} aria-label={shown.rowsTitle ?? shown.label}>
           <h2 className="px-5 pt-3.5 pb-2 text-sm font-semibold text-gray-900">{shown.rowsTitle ?? shown.label}</h2>
           <ul className="divide-y divide-gray-100">
-            {shown.rows!.map((r) => (
-              <li key={r.tank} className="flex items-center gap-3 px-5 py-2.5">
-                <span className="w-12 flex-shrink-0 text-sm font-semibold tabular-nums text-gray-900">{r.tank}</span>
+            {shown.rows!.map((r, i) => (
+              <li key={`${r.lead}-${i}`} className="flex items-center gap-3 px-5 py-2.5">
+                <span className="w-14 flex-shrink-0 text-sm font-semibold tabular-nums text-gray-900">{r.lead}</span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium text-gray-900 truncate">{r.title}</span>
                   <span className="block text-xs text-gray-400 truncate">{r.sub}</span>

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { sanitiseSheet, sheetNumber } from '@/lib/brew-sheet'
+import { sanitiseSheet, sheetNumber, sheetFromRecipe, withRecipeDefaults, recipeChanges, LIST_KEYS } from '@/lib/brew-sheet'
 import type { BrewSheetData, SheetReading } from '@/lib/brew-sheet'
 import { logActivity, who, esc } from '@/lib/slack'
 import { isRtd } from '@/lib/rtd'
@@ -194,4 +194,93 @@ function adelaideInstant(date: string, time: string, plusMinutes: number): Date 
     guess += wall - Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute)
   }
   return Number.isNaN(guess) ? null : new Date(guess)
+}
+
+const STAGE_FOR: Record<string, string> = { malt: 'malt', mash_additions: 'mash_addition', kettle_additions: 'kettle_addition', kettle_hops: 'kettle_hop', dry_hops: 'dry_hop' }
+const NOT_A_HOP = /aldc|enzyme|zinc|antifoam|hop ?aid|biofine|finings|nutrient|tetra|sorbate|spirit|puree|juice|sky ?farm/i
+
+/**
+ * Make what was brewed today the recipe for next time. The recipe keeps its
+ * place (same name, same link from past brews) and its version number goes up
+ * by one. Each line keeps its price-list link where the ingredient is unchanged.
+ */
+export async function applySheetToRecipe(brew_id: string): Promise<{ ok: true; version: number } | { ok: false; message: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, message: 'You are signed out. Sign in again and retry.' }
+
+  const { data: brew } = await supabase.from('brews').select('beer_name, recipe_id').eq('id', brew_id).maybeSingle()
+  if (!brew?.recipe_id) return { ok: false, message: 'This brew was not started from a recipe.' }
+  const [{ data: sheetRow }, { data: recipe }, { data: old }] = await Promise.all([
+    supabase.from('brew_sheets').select('data').eq('brew_id', brew_id).maybeSingle(),
+    supabase.from('recipes').select('id, name, version, boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle(),
+    supabase.from('recipe_ingredients')
+      .select('recipe_id, name, category, addition_stage, quantity, unit, time_minutes, trigger, sort_order, ingredient_id')
+      .eq('recipe_id', brew.recipe_id).order('sort_order'),
+  ])
+  if (!sheetRow || !recipe) return { ok: false, message: 'The brew sheet or its recipe could not be found.' }
+  const sheet = sanitiseSheet(sheetRow.data)
+  const before = old ?? []
+  const changes = recipeChanges(withRecipeDefaults(sheetFromRecipe(before), recipe), sheet)
+  if (!changes.length) return { ok: false, message: 'Nothing on the sheet differs from the recipe.' }
+
+  const find = (name: string) => before.find((o) => o.name.trim().toLowerCase() === name.trim().toLowerCase())
+  const rows: Record<string, unknown>[] = []
+  for (const key of LIST_KEYS) {
+    for (const l of sheet[key]) {
+      if (!l.name.trim()) continue
+      const same = find(l.name)
+      // A substitute takes the place of what it replaced: same step, same kind of ingredient
+      const replaced = /^Substituted for (.+)$/.exec(l.note)?.[1]
+      const like = same ?? (replaced ? find(replaced) : undefined)
+      const stage = like?.addition_stage ?? (key === 'dry_hops' && NOT_A_HOP.test(l.name) ? 'process' : STAGE_FOR[key])
+      const category = like?.category ?? (stage === 'malt' ? 'malt' : stage === 'kettle_hop' || stage === 'dry_hop' ? 'hop' : /calcium|gypsum/i.test(l.name) ? 'water_treatment' : 'other')
+      const minutes = /^(\d+)\s*min/i.exec(l.when.trim())
+      rows.push({
+        recipe_id: recipe.id, name: l.name.trim(), category, addition_stage: stage,
+        quantity: sheetNumber(l.amount), unit: l.unit.trim() || same?.unit || null,
+        time_minutes: minutes ? Number(minutes[1]) : null,
+        trigger: minutes ? null : l.when.trim() || null,
+        // Only an unchanged ingredient keeps its price; a new one has to be linked on the recipe page
+        ingredient_id: same?.ingredient_id ?? null,
+      })
+    }
+  }
+  if (sheet.yeast.strain.trim()) {
+    const same = find(sheet.yeast.strain)
+    const m = /^([\d.]+)\s*(kg|g|ml|l)$/i.exec(sheet.yeast.amount.trim())
+    rows.push({
+      recipe_id: recipe.id, name: sheet.yeast.strain.trim(), category: 'yeast', addition_stage: 'yeast',
+      quantity: m ? Number(m[1]) : null, unit: m ? m[2].toLowerCase().replace('ml', 'mL').replace(/^l$/, 'L') : null,
+      time_minutes: null, trigger: m ? null : sheet.yeast.amount.trim() || null, ingredient_id: same?.ingredient_id ?? null,
+    })
+  } else rows.push(...before.filter((o) => o.addition_stage === 'yeast'))
+  // Lines the sheet has no place for (first wort hops and the like) carry over untouched
+  rows.push(...before.filter((o) => o.addition_stage === 'mash_hop' && !rows.some((r) => r.name === o.name)))
+  rows.forEach((r, i) => { r.sort_order = i })
+
+  const { error: clearError } = await supabase.from('recipe_ingredients').delete().eq('recipe_id', recipe.id)
+  if (clearError) return { ok: false, message: `Recipe not changed: ${clearError.message}` }
+  const { error: insertError } = await supabase.from('recipe_ingredients').insert(rows)
+  if (insertError) {
+    if (before.length) await supabase.from('recipe_ingredients').insert(before)
+    return { ok: false, message: `Recipe not changed: ${insertError.message}` }
+  }
+
+  const version = Number(recipe.version ?? 1) + 1
+  const num = (v: string, fallback: number | null) => sheetNumber(v) ?? fallback
+  const { error: recipeError } = await supabase.from('recipes').update({
+    version,
+    boil_duration_min: Math.round(num(sheet.kettle.boil_minutes, recipe.boil_duration_min) ?? 60),
+    mash_temp_c: num(sheet.mash.target_temp_c, recipe.mash_temp_c),
+    pitch_temp_c: num(sheet.yeast.pitch_temp_c, recipe.pitch_temp_c),
+    ferment_temp_c: num(sheet.yeast.set_temp_c, recipe.ferment_temp_c),
+    updated_at: new Date().toISOString(),
+  }).eq('id', recipe.id)
+  if (recipeError) console.error('[applySheetToRecipe] version not bumped:', recipeError.message)
+
+  logActivity(`${who(user.email)} updated the *${esc(recipe.name)}* recipe to v${version} from today's brew:\n${changes.map((c) => `• ${esc(c)}`).join('\n')}`)
+  revalidatePath('/recipes')
+  revalidatePath(`/recipes/${recipe.id}`)
+  return { ok: true, version }
 }

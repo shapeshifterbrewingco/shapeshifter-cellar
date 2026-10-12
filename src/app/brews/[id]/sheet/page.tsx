@@ -24,26 +24,32 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
   ])
   if (!brew) notFound()
 
+  // The recipe as a sheet: what a new sheet starts from, and what today's is
+  // compared against when the day is finished.
+  const [{ data: lines }, { data: recipe }] = brew.recipe_id
+    ? await Promise.all([
+        supabase.from('recipe_ingredients').select('name, addition_stage, quantity, unit, time_minutes, trigger').eq('recipe_id', brew.recipe_id).order('sort_order'),
+        supabase.from('recipes').select('version, boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle(),
+      ])
+    : [{ data: [] }, { data: null }]
+  const baseline = brew.recipe_id ? withRecipeDefaults(sheetFromRecipe(lines ?? []), recipe) : null
+
   // No sheet yet: lay out the recipe's lines ready to tick off. Nothing is
   // written until the brewer changes something.
-  let initial = sheetRow ? sanitiseSheet(sheetRow.data) : null
-  if (!initial) {
-    const { data: lines } = brew.recipe_id
-      ? await supabase
-          .from('recipe_ingredients')
-          .select('name, addition_stage, quantity, unit, time_minutes, trigger')
-          .eq('recipe_id', brew.recipe_id)
-          .order('sort_order')
-      : { data: [] }
-    initial = sheetFromRecipe(lines ?? [])
-  }
+  let initial = sheetRow ? sanitiseSheet(sheetRow.data) : sheetFromRecipe(lines ?? [])
   // Boil time, mash target and yeast temperatures start from the recipe. Only
   // while the brew is in tank: a finished batch's sheet is left as it was written.
-  if (!brew.deleted_at) {
-    const { data: recipe } = brew.recipe_id
-      ? await supabase.from('recipes').select('boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle()
-      : { data: null }
-    initial = withRecipeDefaults(initial, recipe)
+  if (!brew.deleted_at) initial = withRecipeDefaults(initial, recipe)
+
+  // The last time this beer was brewed, to compare against through the day
+  let previous: { id: string; brew_day: string; batch_code: string | null; data: ReturnType<typeof sanitiseSheet> } | null = null
+  {
+    const earlier = supabase.from('brews').select('id, brew_day, batch_code').neq('id', brew.id).lte('brew_day', brew.brew_day).order('brew_day', { ascending: false }).limit(12)
+    const { data: candidates } = await (brew.recipe_id ? earlier.eq('recipe_id', brew.recipe_id) : earlier.ilike('beer_name', brew.beer_name))
+    const ids = (candidates ?? []).map((c) => c.id)
+    const { data: sheets } = ids.length ? await supabase.from('brew_sheets').select('brew_id, data').in('brew_id', ids) : { data: [] }
+    const hit = (candidates ?? []).find((c) => (sheets ?? []).some((sh) => sh.brew_id === c.id))
+    if (hit) previous = { ...hit, data: sanitiseSheet((sheets ?? []).find((sh) => sh.brew_id === hit.id)!.data) }
   }
 
   const tank = Array.isArray(brew.tanks) ? brew.tanks[0] : brew.tanks
@@ -69,6 +75,9 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
           exists={!!sheetRow}
           finished={brew.og_plato != null || brew.stage !== 'active_ferment'}
           rtd={isRtd(brew.beer_name, brew.style)}
+          baseline={baseline}
+          recipeVersion={recipe?.version ?? null}
+          previous={previous}
           me={formatUserName(user?.email ?? '')}
         />
       </div>

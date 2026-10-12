@@ -8,10 +8,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { importSheetReadings } from '@/app/brews/sheet-actions'
+import { importSheetReadings, applySheetToRecipe } from '@/app/brews/sheet-actions'
+import Link from 'next/link'
 import { setTankTarget } from '@/app/tanks/actions'
 import { useRouter } from 'next/navigation'
-import { sheetProgress, bagsLabel, isDayZero } from '@/lib/brew-sheet'
+import { sheetProgress, bagsLabel, isDayZero, recipeChanges } from '@/lib/brew-sheet'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
 type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean }
@@ -92,7 +93,7 @@ function Section({ title, hint, id, children }: { title: string; hint?: string; 
 )
 }
 
-export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, me }: {
+export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, baseline = null, recipeVersion = null, previous = null, me }: {
   brew: BrewInfo
   initial: BrewSheetData
   initialUnchecked: string[]
@@ -101,6 +102,11 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   finished: boolean
   /** A hard lemonade: no mash, no yeast, no gravity or pH, and it goes straight on chill */
   rtd?: boolean
+  /** The recipe as a sheet, to see what was changed on the day. Null if the brew has no recipe. */
+  baseline?: BrewSheetData | null
+  recipeVersion?: number | null
+  /** The last brew of this beer, shown beside each box for comparison */
+  previous?: { id: string; brew_day: string; batch_code: string | null; data: BrewSheetData } | null
   me: string
 }) {
   const [data, setData] = useState(initial)
@@ -113,6 +119,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   const [finishing, setFinishing] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [setTemp, setSetTemp] = useState('')
+  const [keepChanges, setKeepChanges] = useState(true)
+  const [compare, setCompare] = useState(true)
   const router = useRouter()
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -290,6 +298,9 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         onBlur={() => confirm(path)}
         className={`${INPUT} ${unsure(path) ? UNSURE : ''}`}
       />
+      {compare && previous && getPath(previous.data, path).trim() && (
+        <span className="block mt-0.5 text-[11px] text-malt-dark tabular-nums truncate">Last time {getPath(previous.data, path)}</span>
+      )}
     </label>
   )
 
@@ -420,6 +431,12 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       const set = await setTankTarget(brew.tank_id, temp).catch(() => ({ success: false, message: 'Frigid could not be reached.' }))
       if (set.success) toast.success(`Brew day finished. ${brew.beer_name} is in ${brew.tank_name}${rtd ? ' on chill' : ''}, set to ${temp}°C.`)
       else toast.warning(`Brew day finished, but ${brew.tank_name} was not set to ${temp}°C: ${set.message} Set it from the tank card or at the panel.`, { duration: 15000 })
+      // What was changed on the day becomes the recipe, unless the brewer said it was a one-off
+      if (baseline && keepChanges && recipeChanges(baseline, sheet).length > 0) {
+        const saved = await applySheetToRecipe(brew.id).catch(() => ({ ok: false as const, message: 'Could not reach the app.' }))
+        if (saved.ok) toast.success(`Recipe updated to v${saved.version} for next time.`)
+        else toast.warning(`The recipe was not updated: ${saved.message}`, { duration: 12000 })
+      }
       setConfirming(false)
       router.push('/')
     } catch {
@@ -452,6 +469,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   }
 
   const progress = sheetProgress(data, rtd)
+  // What differs from the recipe, worked out only while the finish box is up
+  const changes = confirming && baseline ? recipeChanges(baseline, data) : []
   const statusText = { idle: 'Nothing entered yet', unsaved: 'Saving…', saving: 'Saving…', saved: 'All saved', error: 'Not saved - will retry on your next change' }[status]
 
   return (
@@ -477,6 +496,21 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
                 className="w-full h-14 rounded-xl border border-gray-200 bg-white px-3 text-center text-xl font-semibold tabular-nums text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/30" />
               <span className="block text-xs text-gray-400 mt-1">{rtd ? 'It goes straight on chill. ' : ''}This is sent to Frigid when you finish.</span>
             </label>
+            {changes.length > 0 && (
+              <div className="mt-4 rounded-xl bg-background px-3 py-2.5">
+                <p className="text-sm font-medium text-gray-900">{changes.length} change{changes.length === 1 ? '' : 's'} from the recipe</p>
+                <ul className="mt-1 max-h-32 overflow-y-auto text-xs text-gray-600 space-y-0.5">
+                  {changes.map((c) => <li key={c} className="break-words">• {c}</li>)}
+                </ul>
+                <label className="mt-2.5 flex items-start gap-2.5">
+                  <input type="checkbox" checked={keepChanges} onChange={(e) => setKeepChanges(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[var(--color-hops)]" />
+                  <span className="text-sm text-gray-900">
+                    Make this the recipe for next time{recipeVersion != null ? ` (v${recipeVersion + 1})` : ''}
+                    <span className="block text-xs text-gray-500">Untick if it was a one-off, like a substitute for something out of stock.</span>
+                  </span>
+                </label>
+              </div>
+            )}
             <div className="flex gap-2 mt-5">
               <button type="button" onClick={() => setConfirming(false)} disabled={finishing} className="flex-1 h-12 rounded-xl ring-1 ring-black/10 text-sm font-medium text-gray-700">Back</button>
               <button type="button" onClick={() => void finishDay()} disabled={finishing}
@@ -507,6 +541,17 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           </span>
         </div>
         {reading && <p className="text-xs text-gray-400 mt-2">This takes up to a minute. Keep this page open.</p>}
+        {previous && (
+          <div className="mt-3 flex items-center gap-3 rounded-xl bg-malt/10 px-3 py-2">
+            <p className="flex-1 min-w-0 text-xs text-charcoal">
+              {compare ? 'Showing last time under each box: ' : 'Last brewed '}
+              <Link href={`/brews/${previous.id}/sheet`} className="font-semibold underline decoration-dotted underline-offset-2">
+                {new Date(previous.brew_day + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}{previous.batch_code ? `, batch ${previous.batch_code}` : ''}
+              </Link>
+            </p>
+            <button type="button" onClick={() => setCompare((c) => !c)} className="flex-shrink-0 text-xs font-semibold text-primary">{compare ? 'Hide' : 'Compare'}</button>
+          </div>
+        )}
         {!done && (
           <p className="mt-3 rounded-xl bg-yeast/40 px-3 py-2 text-xs text-charcoal">
             Brew day in progress. It saves as you type, so close this and come back any time. Nothing reaches the tank card until you tap Finish brew day.

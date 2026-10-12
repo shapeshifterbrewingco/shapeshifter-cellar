@@ -228,3 +228,47 @@ export interface SheetReading {
   temp_c: number | null
   note: string
 }
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+const sameAmount = (a: string, b: string) => {
+  const x = sheetNumber(a), y = sheetNumber(b)
+  return x == null || y == null ? a.trim() === b.trim() : x === y
+}
+const LIST_WORDS: Record<ListKey, string> = { malt: 'malt', mash_additions: 'mash addition', kettle_additions: 'kettle addition', kettle_hops: 'kettle hop', dry_hops: 'dry hop or cellar addition' }
+
+/**
+ * What a brewer changed on the day, against the recipe the sheet was laid out
+ * from. One plain sentence per change, for the brewer to read before deciding
+ * whether the recipe itself should change. Empty when the sheet matches.
+ */
+export function recipeChanges(recipe: BrewSheetData, sheet: BrewSheetData): string[] {
+  const out: string[] = []
+  const amount = (l: SheetLine) => [l.amount, l.unit].filter(Boolean).join(' ') || 'no amount'
+  for (const key of LIST_KEYS) {
+    const was = recipe[key], now = sheet[key].filter((l) => l.name.trim())
+    for (const l of now) {
+      const before = was.find((w) => sameName(w.name, l.name))
+      const swapped = /^Substituted for (.+)$/.exec(l.note)?.[1]
+      if (!before) out.push(swapped ? `${l.name} in place of ${swapped}` : `Added ${l.name} (${amount(l)}) as a ${LIST_WORDS[key]}`)
+      else {
+        if (!sameAmount(before.amount, l.amount)) out.push(`${l.name}: ${amount(before)} is now ${amount(l)}`)
+        if (before.when.trim() !== l.when.trim() && key !== 'malt') out.push(`${l.name}: timing "${before.when || 'none'}" is now "${l.when || 'none'}"`)
+      }
+    }
+    for (const w of was) {
+      const stillThere = now.some((l) => sameName(l.name, w.name) || /^Substituted for (.+)$/.exec(l.note)?.[1]?.toLowerCase() === w.name.trim().toLowerCase())
+      if (!stillThere) out.push(`Removed ${w.name}`)
+    }
+  }
+  const scalar = (label: string, a: string, b: string, unit = '') => {
+    if (b.trim() && a.trim() && !sameAmount(a, b)) out.push(`${label}: ${a}${unit} is now ${b}${unit}`)
+    else if (b.trim() && !a.trim()) out.push(`${label}: now ${b}${unit}`)
+  }
+  if (recipe.yeast.strain.trim() && sheet.yeast.strain.trim() && !sameName(recipe.yeast.strain, sheet.yeast.strain)) out.push(`Yeast: ${recipe.yeast.strain} is now ${sheet.yeast.strain}`)
+  if (recipe.yeast.amount.trim() && sheet.yeast.amount.trim() && !sameAmount(recipe.yeast.amount, sheet.yeast.amount)) out.push(`Yeast amount: ${recipe.yeast.amount} is now ${sheet.yeast.amount}`)
+  scalar('Mash target', recipe.mash.target_temp_c, sheet.mash.target_temp_c, '°C')
+  scalar('Boil', recipe.kettle.boil_minutes, sheet.kettle.boil_minutes, ' min')
+  scalar('Pitch temp', recipe.yeast.pitch_temp_c, sheet.yeast.pitch_temp_c, '°C')
+  scalar('Set temp', recipe.yeast.set_temp_c, sheet.yeast.set_temp_c, '°C')
+  return out
+}

@@ -2,6 +2,9 @@ import { after } from 'next/server'
 import { TankGrid } from '@/components/dashboard/TankGrid'
 import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
 import { QuickLog } from '@/components/dashboard/QuickLog'
+import { BrewDayPanel } from '@/components/dashboard/BrewDayPanel'
+import type { OpenBrewDay } from '@/components/dashboard/BrewDayPanel'
+import { sanitiseSheet, sheetFromRecipe, sheetProgress, LIST_KEYS } from '@/lib/brew-sheet'
 import { getDashboardData } from '@/lib/dashboard'
 import { getFrigidReadings, utilityReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
@@ -89,6 +92,38 @@ export default async function DashboardPage() {
     if (result.error) console.error('[dashboard] temperature log failed:', result.error)
   })
 
+  // Brew days still running: started, but OG not in yet. Their sheets feed the panel at the top.
+  const openBrews = tanks.filter((t) => t.brew && t.brew.stage === 'active_ferment' && t.brew.og_plato == null)
+  let brewDays: OpenBrewDay[] = []
+  if (openBrews.length) {
+    const ids = openBrews.map((t) => t.brew!.id)
+    const recipeIds = [...new Set(openBrews.map((t) => t.brew!.recipe_id).filter((x): x is string => !!x))]
+    const [{ data: sheets }, { data: lines }] = await Promise.all([
+      supabase.from('brew_sheets').select('brew_id, data').in('brew_id', ids),
+      recipeIds.length
+        ? supabase.from('recipe_ingredients').select('recipe_id, name, addition_stage, quantity, unit, time_minutes, trigger').in('recipe_id', recipeIds).order('sort_order')
+        : Promise.resolve({ data: [] as { recipe_id: string }[] }),
+    ])
+    const sheetBy = new Map((sheets ?? []).map((s) => [s.brew_id as string, s.data]))
+    brewDays = openBrews.map((t) => {
+      const b = t.brew!
+      // No sheet saved yet: it will open laid out from the recipe, so count against that
+      const sheet = sheetBy.has(b.id)
+        ? sanitiseSheet(sheetBy.get(b.id))
+        : sheetFromRecipe(((lines ?? []) as { recipe_id: string }[]).filter((l) => l.recipe_id === b.recipe_id) as never)
+      const progress = sheetProgress(sheet)
+      return {
+        id: b.id,
+        beer: b.beer_name,
+        tank: t.tank.name,
+        filled: progress.filled,
+        total: progress.total,
+        missing: [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.plato.trim() && 'gravity', !sheet.fv.ph.trim() && 'pH'].filter((x): x is string => !!x),
+        next: LIST_KEYS.flatMap((k) => sheet[k]).filter((l) => !l.done).slice(0, 3).map((l) => [l.name, [l.amount, l.unit].filter(Boolean).join(' ')].filter(Boolean).join(' ')),
+      }
+    })
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="px-4 py-2">
@@ -100,6 +135,7 @@ export default async function DashboardPage() {
           </p>
         )}
         <p className="md:hidden px-1 pt-1 pb-2 text-lg font-semibold tracking-tight text-gray-900"><Hello text={hello} name={firstName} special={isSpecial} /></p>
+        <BrewDayPanel days={brewDays} />
         <QuickLog tanks={tanks} currentUser={user?.email ?? user?.id ?? 'Unknown'} />
         <TankGrid
           tanks={tanks}

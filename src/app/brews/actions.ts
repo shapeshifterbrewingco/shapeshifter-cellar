@@ -170,7 +170,7 @@ export async function quickLogReading(data: {
   if (error) return fail(`Not saved: ${error.message}`)
 
   revalidatePath('/')
-  revalidatePath('/readings')
+  revalidatePath('/history')
   return { ok: true }
 }
 
@@ -598,7 +598,7 @@ export async function renameBrew(brew_id: string, beer_name: string): Promise<Ac
 
   revalidatePath('/')
   revalidatePath('/history')
-  revalidatePath('/readings')
+  revalidatePath('/history')
   return { ok: true }
 }
 

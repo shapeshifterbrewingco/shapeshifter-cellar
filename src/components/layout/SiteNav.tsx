@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, FlaskConical, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, LogIn, CalendarDays, Settings, Calculator, Bot } from 'lucide-react'
+import { Menu, X, FlaskConical, Clock, BookOpen, Package2, PackageCheck, BarChart3, LogOut, LogIn, CalendarDays, Settings, Calculator, Bot } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
@@ -11,7 +11,6 @@ const NAV_ITEMS = [
   { href: '/planner',     label: 'Planner',          icon: Bot },
   { href: '/schedule',    label: 'Schedule',         icon: CalendarDays },
   { href: '/history',     label: 'History',          icon: Clock },
-  { href: '/readings',    label: 'Temp Log',         icon: Thermometer },
   { href: '/packaging',   label: 'Packaging',        icon: PackageCheck },
   { href: '/reports',     label: 'Reports',          icon: BarChart3 },
   { href: '/recipes',     label: 'Recipes',          icon: BookOpen },

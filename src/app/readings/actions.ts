@@ -16,7 +16,7 @@ export async function updateReading(id: string, data: {
     .select('id')
   if (error) throw error
   if (!saved?.length) throw new Error('Reading was not updated (no permission or already gone)')
-  revalidatePath('/readings')
+  revalidatePath('/history')
 }
 
 export async function deleteReading(id: string) {
@@ -28,5 +28,5 @@ export async function deleteReading(id: string) {
     .select('id')
   if (error) throw error
   if (!removed?.length) throw new Error('Reading was not deleted (no permission or already gone)')
-  revalidatePath('/readings')
+  revalidatePath('/history')
 }

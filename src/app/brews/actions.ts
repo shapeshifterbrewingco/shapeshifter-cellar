@@ -534,7 +534,7 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
 
   const [{ data: readings }, { data: temps }] = await Promise.all([
     supabase.from('gravity_readings')
-      .select('id, recorded_at, plato, ph, recorded_by, notes')
+      .select('id, recorded_at, plato, ph, temperature_c, recorded_by, notes')
       .eq('brew_id', brew_id)
       .order('recorded_at'),
     supabase.from('temperature_readings')

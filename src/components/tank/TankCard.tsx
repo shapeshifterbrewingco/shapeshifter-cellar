@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { TankIllustration } from './TankIllustration'
 import { StageBadge } from './StageBadge'
+import { TankDetailSheet } from './TankDetailSheet'
+import type { SheetAction, StageOption } from './TankDetailSheet'
 import { AssignBrewModal } from '@/components/dashboard/AssignBrewModal'
 import { LogReadingModal } from '@/components/dashboard/LogReadingModal'
 import { BrewChartModal } from '@/components/dashboard/BrewChartModal'
@@ -61,6 +63,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const [batchInput, setBatchInput] = useState(brew?.batch_code ?? '')
   const [showEditVolume, setShowEditVolume] = useState(false)
   const [showRename, setShowRename] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
   const [nameInput, setNameInput] = useState(brew?.beer_name ?? '')
   const [volumeInput, setVolumeInput] = useState(String(brew?.volume_l ?? ''))
   const [showDiacetylModal, setShowDiacetylModal] = useState(false)
@@ -177,6 +180,44 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       if (!res.ok) toast.error(res.message)
     }, 'Could not rename the beer. Try again.')
   }
+
+  // On a phone, tapping the card (anywhere that is not already a button) opens
+  // the full-screen detail sheet. Menu items live in a portal but their clicks
+  // still bubble up to here through React, hence the role checks.
+  function handleCardTap(e: React.MouseEvent) {
+    if (isEmpty || !window.matchMedia('(max-width: 767px)').matches) return
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, label, [role="menu"], [role="menuitem"], [role="dialog"]')) return
+    setShowDetail(true)
+  }
+
+  const sheetStages: StageOption[] = STAGE_TRANSITIONS
+    .filter((t) => t.stage !== stage)
+    .map((t) => ({
+      ...t,
+      blocked: (t.stage === 'on_chill' || t.stage === 'vdk_pass') && !vdkPassed ? 'VDK required' : undefined,
+    }))
+
+  const sheetMore: SheetAction[] = [
+    { label: 'Log VDK result', onSelect: () => setShowVdkModal(true) },
+    { label: 'Packaging plan', onSelect: () => setShowSplitModal(true) },
+    { label: 'Rename beer', onSelect: () => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) } },
+    { label: 'Edit batch code', onSelect: () => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) } },
+    { label: 'Edit volume', onSelect: () => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) } },
+    { label: 'Transfer to tank', onSelect: () => setShowTransferModal(true) },
+    { label: 'Package / keg', onSelect: () => setShowPackageModal(true) },
+    { label: 'Empty for cleaning', onSelect: handleCip, danger: true },
+  ]
+
+  const detailSheet = showDetail && brew && !isEmpty ? (
+    <TankDetailSheet
+      data={data}
+      stages={sheetStages}
+      more={sheetMore}
+      onLog={() => setShowLogModal(true)}
+      onStage={handleStageChange}
+      onClose={() => setShowDetail(false)}
+    />
+  ) : null
 
   const renameDialog = showRename && brew ? (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRename(false)}>
@@ -672,7 +713,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
   return (
     <>
-      <div className={`flex flex-col rounded-2xl shadow-md overflow-hidden w-full ${
+      {detailSheet}
+      <div onClick={handleCardTap} className={`flex flex-col rounded-2xl shadow-md overflow-hidden w-full ${
         stage === 'active_ferment' ? 'bg-amber-50 border-2 border-amber-400 shadow-amber-100' :
         stage === 'diacetyl_rest' ? 'bg-violet-50 border-2 border-violet-400 shadow-violet-100' :
         stage === 'on_chill'      ? 'bg-sky-50 border-2 border-blue-600 shadow-blue-100' :

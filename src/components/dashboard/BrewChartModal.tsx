@@ -25,7 +25,7 @@ interface Props {
   onClose: () => void
 }
 
-type ChartData = Awaited<ReturnType<typeof getBrewChartData>>
+export type ChartData = Awaited<ReturnType<typeof getBrewChartData>>
 
 interface ChartPoint {
   ts: number
@@ -77,30 +77,187 @@ function mergeChartData(
       label: format(parseISO(r.recorded_at), 'd MMM HH:mm'),
       plato: r.plato ?? null,
       ph: r.ph ?? null,
-      temp: existing?.temp ?? null,
+      temp: r.temperature_c != null ? Number(r.temperature_c) : existing?.temp ?? null,
     })
   }
 
   return [...map.values()].sort((a, b) => a.ts - b.ts)
 }
 
-export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
+/** Loads a brew's readings and tank temperatures once, for the chart and the readings list. */
+// `refreshKey` changes when something new has been logged, so an open screen picks it up.
+export function useBrewChart(brew: Brew, tank: Tank, refreshKey = '') {
   const [data, setData] = useState<ChartData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getBrewChartData(brew.id, tank.id, brew.brew_day).then((d) => {
-      setData(d)
-      setLoading(false)
-    })
-  }, [brew.id, tank.id, brew.brew_day])
+    let live = true
+    getBrewChartData(brew.id, tank.id, brew.brew_day)
+      .then((d) => { if (live) setData(d) })
+      .catch(() => { /* chart stays empty; the rest of the screen still works */ })
+      .finally(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [brew.id, tank.id, brew.brew_day, refreshKey])
 
+  return { data, loading }
+}
+
+/** Gravity, pH and temperature over the life of a brew. */
+export function FermentChart({ brew, data, loading, height = 280 }: {
+  brew: Brew
+  data: ChartData | null
+  loading: boolean
+  height?: number
+}) {
   const readings = data?.readings ?? []
-  const stageEvents = readings.filter(
-    (r) => r.plato == null && r.ph == null && r.notes?.startsWith('→')
-  )
+  const stageEvents = readings.filter((r) => r.plato == null && r.ph == null && r.notes?.startsWith('→'))
   const gravityReadings = readings.filter((r) => r.plato != null || r.ph != null)
   const chartData = data ? mergeChartData(data.readings, data.temps) : []
+
+  const platoVals = readings.map((r) => r.plato).filter((v): v is number => v != null)
+  const platoMin = platoVals.length ? Math.min(...platoVals) : 0
+  const platoMax = brew.og_plato ?? (platoVals.length ? Math.max(...platoVals) : 20)
+  const platoPad = Math.max((platoMax - platoMin) * 0.2, 1)
+
+  const tempVals = chartData.map((p) => p.temp).filter((v): v is number => v != null)
+  const tempMin = tempVals.length ? Math.floor(Math.min(...tempVals)) - 2 : 0
+  const tempMax = tempVals.length ? Math.ceil(Math.max(...tempVals)) + 2 : 30
+
+  const hasTemp = tempVals.length > 0
+  const hasReadings = gravityReadings.length > 0 || stageEvents.length > 0
+
+  return (
+    <>
+    {loading ? (
+      <div className="h-56 flex items-center justify-center text-sm text-gray-400">
+        Loading…
+      </div>
+    ) : !hasReadings && !hasTemp ? (
+      <div className="h-56 flex flex-col items-center justify-center gap-2 text-gray-400">
+        <FlaskConical className="h-8 w-8 text-gray-200" />
+        <p className="text-sm">No readings logged yet.</p>
+        <p className="text-xs">Use the Log button on the tank card to add readings.</p>
+      </div>
+    ) : (
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10, fill: '#9ca3af' }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+          />
+
+          {/* Left: Gravity °P */}
+          <YAxis
+            yAxisId="plato"
+            orientation="left"
+            domain={[Math.max(0, platoMin - platoPad), platoMax + platoPad]}
+            tick={{ fontSize: 10, fill: '#0d9488' }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(v) => `${v}°P`}
+            width={38}
+          />
+
+          {/* Right: Temperature °C */}
+          <YAxis
+            yAxisId="temp"
+            orientation="right"
+            domain={[tempMin, tempMax]}
+            tick={{ fontSize: 10, fill: '#6366f1' }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(v) => `${v}°C`}
+            width={38}
+          />
+
+          {/* pH axis — hidden, domain [3,6] keeps line in sensible position */}
+          <YAxis yAxisId="ph" orientation="right" domain={[3, 6]} hide />
+
+          <Tooltip content={<CustomTooltip />} />
+          <Legend
+            wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+            formatter={(value) => <span className="text-gray-500">{value}</span>}
+          />
+
+          {/* OG reference */}
+          {brew.og_plato != null && (
+            <ReferenceLine
+              yAxisId="plato"
+              y={brew.og_plato}
+              stroke="#d1d5db"
+              strokeDasharray="4 4"
+              label={{ value: 'OG', fontSize: 9, fill: '#9ca3af', position: 'insideTopRight' }}
+            />
+          )}
+
+          {/* Stage change markers */}
+          {stageEvents.map((e) => (
+            <ReferenceLine
+              key={e.id}
+              yAxisId="plato"
+              x={format(parseISO(e.recorded_at), 'd MMM HH:mm')}
+              stroke="#9ca3af"
+              strokeDasharray="3 3"
+              label={{ value: e.notes ?? '', fontSize: 8, fill: '#6b7280', position: 'insideTopLeft', angle: -90 }}
+            />
+          ))}
+
+          {/* Temperature line */}
+          {hasTemp && (
+            <Line
+              yAxisId="temp"
+              type="monotone"
+              dataKey="temp"
+              name="Temp (°C)"
+              stroke="#6366f1"
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{ r: 3 }}
+              connectNulls
+            />
+          )}
+
+          {/* Gravity line */}
+          <Line
+            yAxisId="plato"
+            type="monotone"
+            dataKey="plato"
+            name="Gravity (°P)"
+            stroke="#0d9488"
+            strokeWidth={2}
+            dot={{ r: 4, fill: '#0d9488', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            connectNulls
+          />
+
+          {/* pH line */}
+          <Line
+            yAxisId="ph"
+            type="monotone"
+            dataKey="ph"
+            name="pH"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            dot={{ r: 4, fill: '#f59e0b', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            connectNulls
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    )}
+    </>
+  )
+}
+
+export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
+  const { data, loading } = useBrewChart(brew, tank)
+
+  const readings = data?.readings ?? []
+  const gravityReadings = readings.filter((r) => r.plato != null || r.ph != null)
 
   const latestPlato = gravityReadings.filter((r) => r.plato != null).at(-1)?.plato ?? null
   const attenuation =
@@ -112,18 +269,6 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
     brew.og_plato != null && latestPlato != null
       ? calcAbv(brew.og_plato, latestPlato)
       : null
-
-  const platoVals = readings.map((r) => r.plato).filter((v): v is number => v != null)
-  const platoMin = platoVals.length ? Math.min(...platoVals) : 0
-  const platoMax = brew.og_plato ?? (platoVals.length ? Math.max(...platoVals) : 20)
-  const platoPad = Math.max((platoMax - platoMin) * 0.2, 1)
-
-  const tempVals = (data?.temps ?? []).map((t) => Number(t.temperature_c))
-  const tempMin = tempVals.length ? Math.floor(Math.min(...tempVals)) - 2 : 0
-  const tempMax = tempVals.length ? Math.ceil(Math.max(...tempVals)) + 2 : 30
-
-  const hasTemp = tempVals.length > 0
-  const hasReadings = gravityReadings.length > 0 || stageEvents.length > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -162,127 +307,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
 
         {/* Chart */}
         <div className="px-4 pt-4 pb-2">
-          {loading ? (
-            <div className="h-64 flex items-center justify-center text-sm text-gray-400">
-              Loading…
-            </div>
-          ) : !hasReadings && !hasTemp ? (
-            <div className="h-64 flex flex-col items-center justify-center gap-2 text-gray-400">
-              <FlaskConical className="h-8 w-8 text-gray-200" />
-              <p className="text-sm">No readings logged yet.</p>
-              <p className="text-xs">Use the Log button on the tank card to add readings.</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: '#9ca3af' }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval="preserveStartEnd"
-                />
-
-                {/* Left: Gravity °P */}
-                <YAxis
-                  yAxisId="plato"
-                  orientation="left"
-                  domain={[Math.max(0, platoMin - platoPad), platoMax + platoPad]}
-                  tick={{ fontSize: 10, fill: '#0d9488' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => `${v}°P`}
-                  width={38}
-                />
-
-                {/* Right: Temperature °C */}
-                <YAxis
-                  yAxisId="temp"
-                  orientation="right"
-                  domain={[tempMin, tempMax]}
-                  tick={{ fontSize: 10, fill: '#6366f1' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => `${v}°C`}
-                  width={38}
-                />
-
-                {/* pH axis — hidden, domain [3,6] keeps line in sensible position */}
-                <YAxis yAxisId="ph" orientation="right" domain={[3, 6]} hide />
-
-                <Tooltip content={<CustomTooltip />} />
-                <Legend
-                  wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-                  formatter={(value) => <span className="text-gray-500">{value}</span>}
-                />
-
-                {/* OG reference */}
-                {brew.og_plato != null && (
-                  <ReferenceLine
-                    yAxisId="plato"
-                    y={brew.og_plato}
-                    stroke="#d1d5db"
-                    strokeDasharray="4 4"
-                    label={{ value: 'OG', fontSize: 9, fill: '#9ca3af', position: 'insideTopRight' }}
-                  />
-                )}
-
-                {/* Stage change markers */}
-                {stageEvents.map((e) => (
-                  <ReferenceLine
-                    key={e.id}
-                    yAxisId="plato"
-                    x={format(parseISO(e.recorded_at), 'd MMM HH:mm')}
-                    stroke="#9ca3af"
-                    strokeDasharray="3 3"
-                    label={{ value: e.notes ?? '', fontSize: 8, fill: '#6b7280', position: 'insideTopLeft', angle: -90 }}
-                  />
-                ))}
-
-                {/* Temperature line */}
-                {hasTemp && (
-                  <Line
-                    yAxisId="temp"
-                    type="monotone"
-                    dataKey="temp"
-                    name="Temp (°C)"
-                    stroke="#6366f1"
-                    strokeWidth={1.5}
-                    dot={false}
-                    activeDot={{ r: 3 }}
-                    connectNulls
-                  />
-                )}
-
-                {/* Gravity line */}
-                <Line
-                  yAxisId="plato"
-                  type="monotone"
-                  dataKey="plato"
-                  name="Gravity (°P)"
-                  stroke="#0d9488"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: '#0d9488', strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
-                  connectNulls
-                />
-
-                {/* pH line */}
-                <Line
-                  yAxisId="ph"
-                  type="monotone"
-                  dataKey="ph"
-                  name="pH"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: '#f59e0b', strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
-                  connectNulls
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
+          <FermentChart brew={brew} data={data} loading={loading} />
         </div>
 
         {/* Readings + stage events table */}

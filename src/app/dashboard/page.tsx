@@ -264,7 +264,7 @@ export default async function DashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[11px] text-gray-400 text-left">
-                    <th className="font-normal px-5 py-1.5">Tank</th>
+                    <th className="font-normal sticky left-0 z-10 bg-white pl-4 pr-3 md:px-5 py-1.5">Tank</th>
                     <th className="font-normal px-2 py-1.5">Beer</th>
                     <th className="font-normal px-2 py-1.5">Stage</th>
                     <th className="font-normal px-2 py-1.5 text-right">Day</th>
@@ -287,7 +287,8 @@ export default async function DashboardPage() {
                     const late = !!brew && (brew.stage === 'active_ferment' || brew.stage === 'diacetyl_rest') && (since == null || since >= READING_OVERDUE_DAYS)
                     return (
                       <tr key={tank.id} className="border-t border-gray-100">
-                        <td className="px-5 py-2 font-semibold tabular-nums text-gray-900 whitespace-nowrap">{tank.name}</td>
+                        {/* Stays put while the rest scrolls sideways on a phone */}
+                        <td className="sticky left-0 z-10 bg-white pl-4 pr-3 md:px-5 py-2 font-semibold tabular-nums text-gray-900 whitespace-nowrap shadow-[6px_0_6px_-6px_rgba(16,24,40,0.12)] md:shadow-none">{tank.name}</td>
                         {brew ? (
                           <>
                             <td className="px-2 py-2 max-w-[16rem]">

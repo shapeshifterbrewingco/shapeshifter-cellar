@@ -37,7 +37,16 @@ const EGGS = [
   'Another day, another dry hop',
   'Smells like brew day{name}',
   'You are doing great{name}. Untappd said so',
+  'Brew-tiful day, isn’t it{name}?',
+  'In hops we trust{name}.',
+  'You’re a glass act{name}.',
+  'Cheers to beers{name}!',
 ]
+
+// Only in the pool on the named day
+const DAY_EGGS: Record<string, string[]> = {
+  Friday: ['Ale yeah, it’s Friday{name}!'],
+}
 
 // Ones written for one person. They join the pool only for that name.
 const PERSONAL_EGGS: Record<string, string[]> = {
@@ -47,7 +56,7 @@ const PERSONAL_EGGS: Record<string, string[]> = {
 /** An easter egg greeting, or null most of the time. */
 export function easterEgg(name: string, chance = 1 / 6): string | null {
   if (Math.random() >= chance) return null
-  const pool = [...EGGS, ...(PERSONAL_EGGS[name.toLowerCase()] ?? [])]
+  const pool = [...EGGS, ...(DAY_EGGS[breweryClock(new Date()).day] ?? []), ...(PERSONAL_EGGS[name.toLowerCase()] ?? [])]
   const pick = pool[Math.floor(Math.random() * pool.length)]
   return pick.replace('{name}', name ? `, ${name}` : '')
 }

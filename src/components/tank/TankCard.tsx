@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { FlaskConical, BarChart2, MoreHorizontal, TestTube2, Package, ChevronRight, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,7 +20,6 @@ import { TransferModal } from '@/components/dashboard/TransferModal'
 import { PackageModal } from '@/components/dashboard/PackageModal'
 import { VdkModal } from '@/components/dashboard/VdkModal'
 import { PackagingSplitModal } from '@/components/dashboard/PackagingSplitModal'
-import { BrewModal } from '@/components/schedule/BrewModal'
 import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume, renameBrew } from '@/app/brews/actions'
 import { setTankTarget } from '@/app/tanks/actions'
 import { calcAbv } from '@/lib/utils'
@@ -57,7 +57,6 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const [showPackageModal, setShowPackageModal] = useState(false)
   const [showVdkModal, setShowVdkModal] = useState(false)
   const [showSplitModal, setShowSplitModal] = useState(false)
-  const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [showEditBatch, setShowEditBatch] = useState(false)
   const [batchInput, setBatchInput] = useState(brew?.batch_code ?? '')
   const [showEditVolume, setShowEditVolume] = useState(false)
@@ -313,10 +312,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                     ) : (
                       <div>
                         <p className="text-xs text-gray-300 mb-1.5">Empty</p>
-                        <button type="button" onClick={() => setShowScheduleModal(true)}
-                          className="text-xs font-semibold text-primary hover:opacity-80 border border-primary/30 hover:border-primary/60 px-2.5 py-1 rounded-lg transition-colors">
-                          Schedule brew
-                        </button>
+                        <Link href="/planner" className="text-xs font-semibold text-primary hover:opacity-80 border border-primary/30 hover:border-primary/60 px-2.5 py-1 rounded-lg transition-colors inline-block">
+                    Plan a brew
+                  </Link>
                       </div>
                     )}
                   </div>
@@ -606,11 +604,6 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             </div>
           </div>
         )}
-        {showScheduleModal && (
-          <BrewModal state={{ mode: 'create' }} recipes={recipes}
-            tanks={allTanks.map(t => ({ id: t.tank.id, name: t.tank.name }))}
-            settings={settings} initialTankId={tank.id} onClose={() => setShowScheduleModal(false)} />
-        )}
         {showAssignModal && (
           <AssignBrewModal tank={tank} recipes={recipes} defaultVolumeL={settings.default_brew_volume_l} onClose={() => setShowAssignModal(false)} />
         )}
@@ -746,14 +739,10 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               ) : (
                 <div className="space-y-1.5">
                   <p className="text-xs text-gray-300">Empty</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowScheduleModal(true)}
-                    className="text-xs font-semibold text-primary hover:opacity-80 border border-primary/30 hover:border-primary/60 px-2.5 py-1 rounded-lg transition-colors block"
-                  >
-                    Schedule brew
-                  </button>
-                  <p className="text-[10px] text-gray-300 leading-tight">Plan a future brew date</p>
+                  <Link href="/planner" className="text-xs font-semibold text-primary hover:opacity-80 border border-primary/30 hover:border-primary/60 px-2.5 py-1 rounded-lg transition-colors block inline-block">
+                    Plan a brew
+                  </Link>
+                  <p className="text-[10px] text-gray-300 leading-tight">Opens the Planner</p>
                 </div>
               )}
             </div>
@@ -1118,17 +1107,6 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             </div>
           </div>
         </div>
-      )}
-
-      {showScheduleModal && (
-        <BrewModal
-          state={{ mode: 'create' }}
-          recipes={recipes}
-          tanks={allTanks.map(t => ({ id: t.tank.id, name: t.tank.name }))}
-          settings={settings}
-          initialTankId={tank.id}
-          onClose={() => setShowScheduleModal(false)}
-        />
       )}
       {showAssignModal && (
         <AssignBrewModal tank={tank} recipes={recipes} defaultVolumeL={settings.default_brew_volume_l} onClose={() => setShowAssignModal(false)} />

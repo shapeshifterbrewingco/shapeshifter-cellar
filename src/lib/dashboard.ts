@@ -3,7 +3,12 @@ import type { TankDashboardData, PackagingSplit, NextScheduledBrew } from '@/typ
 import type { FrigidReading } from '@/lib/frigid'
 import { breweryToday, daysBetweenISO } from '@/lib/dates'
 
-export async function getDashboardData(supabase: SupabaseClient, live: FrigidReading[] = []): Promise<TankDashboardData[]> {
+export async function getDashboardData(
+  supabase: SupabaseClient,
+  live: FrigidReading[] = [],
+  // Next brew per tank name, from the Brewery Schedule calendar
+  nextBrews: Record<string, NextScheduledBrew> = {},
+): Promise<TankDashboardData[]> {
   // ── Tier 1: independent queries run in parallel ────────────────────────────
   const [
     { data: tanks, error: tanksError },
@@ -38,7 +43,6 @@ export async function getDashboardData(supabase: SupabaseClient, live: FrigidRea
   const [
     { data: readings },
     { data: splits },
-    { data: upcoming },
     { data: vdkReadings },
     { data: temps },
   ] = await Promise.all([
@@ -55,16 +59,6 @@ export async function getDashboardData(supabase: SupabaseClient, live: FrigidRea
           .from('packaging_splits')
           .select('id, brew_id, hop_load, qty_24x375, qty_16x440, qty_keg30, qty_keg50, notes')
           .in('brew_id', brewIds)
-      : none,
-    tankIds.length > 0
-      ? supabase
-          .from('scheduled_brews')
-          .select('id, tank_id, scheduled_date, recipe_name, recipes(name)')
-          .eq('event_type', 'brew')
-          .not('status', 'in', '(done,cancelled)')
-          .gte('scheduled_date', today)
-          .in('tank_id', tankIds)
-          .order('scheduled_date', { ascending: true })
       : none,
     brewIds.length > 0
       ? supabase
@@ -105,19 +99,6 @@ export async function getDashboardData(supabase: SupabaseClient, live: FrigidRea
   const splitsByBrew: Record<string, PackagingSplit> = {}
   for (const s of splits ?? []) {
     splitsByBrew[s.brew_id] = s as PackagingSplit
-  }
-
-  const nextScheduledByTank = new Map<string, NextScheduledBrew>()
-  for (const s of upcoming ?? []) {
-    if (s.tank_id && !nextScheduledByTank.has(s.tank_id)) {
-      const recipe = Array.isArray(s.recipes) ? s.recipes[0] ?? null : (s.recipes as { name: string } | null)
-      nextScheduledByTank.set(s.tank_id, {
-        id: s.id,
-        scheduled_date: s.scheduled_date,
-        recipe_name: s.recipe_name,
-        recipe: recipe ? { name: (recipe as { name: string }).name } : null,
-      })
-    }
   }
 
   const latestVdk: Record<string, { result: string; recorded_at: string }> = {}
@@ -185,7 +166,7 @@ export async function getDashboardData(supabase: SupabaseClient, live: FrigidRea
       style_colour: brew?.style ? (styleColourMap.get(brew.style) ?? null) : null,
       latest_vdk: brew ? (latestVdk[brew.id] as import('@/types').TankDashboardData['latest_vdk'] ?? null) : null,
       packaging_split: brew ? (splitsByBrew[brew.id] ?? null) : null,
-      next_scheduled_brew: !brew ? (nextScheduledByTank.get(tank.id) ?? null) : null,
+      next_scheduled_brew: !brew ? (nextBrews[tank.name] ?? null) : null,
     }
   })
 }

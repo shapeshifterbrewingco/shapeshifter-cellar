@@ -5,6 +5,7 @@ import { QuickLog } from '@/components/dashboard/QuickLog'
 import { getDashboardData } from '@/lib/dashboard'
 import { getFrigidReadings, utilityReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
+import { nextBrewsByTank } from '@/lib/planner/next-brews'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/app/settings/actions'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
@@ -20,8 +21,9 @@ export default async function DashboardPage() {
   // Everything that does not depend on anything else, in one round trip.
   // A failure here is thrown to error.tsx: an empty cellar must never be shown
   // because a query failed.
-  const [frigid, settings, { data: { user } }, recipesResult, utilityRowsResult] = await Promise.all([
+  const [frigid, nextBrews, settings, { data: { user } }, recipesResult, utilityRowsResult] = await Promise.all([
     getFrigidReadings(),
+    nextBrewsByTank(),
     getSettings(),
     supabase.auth.getUser(),
     supabase
@@ -44,7 +46,7 @@ export default async function DashboardPage() {
   const since = hoursAgo(25)
 
   const [tanks, historyResult] = await Promise.all([
-    getDashboardData(supabase, frigid),
+    getDashboardData(supabase, frigid, nextBrews),
     utilityIds.length > 0
       ? supabase
           .from('temperature_readings')

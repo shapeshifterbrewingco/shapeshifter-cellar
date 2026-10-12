@@ -44,10 +44,10 @@ export function PackedSummary({ runs }: { runs: PackedRun[] }) {
 
   return (
     <section className="mb-5" aria-label="Packed in the period">
-      <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 [scrollbar-width:none]">
+      <div className="grid grid-cols-2 gap-1.5 mb-2 sm:flex sm:flex-wrap">
         {PERIODS.map((p) => (
           <button key={p.id} type="button" onClick={() => setPeriod(p.id)} aria-pressed={period === p.id}
-            className={`flex-shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${period === p.id ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-black/5'}`}>
+            className={`whitespace-nowrap rounded-full px-3.5 py-2 text-center text-sm font-medium transition-colors ${period === p.id ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-black/5'}`}>
             {p.label}
           </button>
         ))}

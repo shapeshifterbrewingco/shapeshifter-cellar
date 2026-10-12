@@ -52,8 +52,8 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
 
   return (
     <div>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-3">
+      {/* Toolbar. Phones get one fixed layout, so no legend or view switch there. */}
+      <div className="hidden md:flex items-center justify-between mb-3">
         {/* Stage legend */}
         <div className="flex flex-wrap gap-2">
           {[
@@ -103,9 +103,9 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
 
       {/* Tanks */}
       {isList ? (
-        <div className="space-y-2">
+        <div className="space-y-2.5 md:space-y-2">
           {/* Column headers */}
-          <div className="flex items-center gap-3 px-4 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+          <div className="hidden md:flex items-center gap-3 px-4 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">
             <span className="w-4 flex-shrink-0" />
             <span className="w-12 flex-shrink-0">Tank</span>
             <span className="flex-1">Beer</span>
@@ -129,7 +129,8 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
           ))}
         </div>
       ) : (
-        <div className="grid gap-2" style={{ gridTemplateColumns: GRID_COLS[cardSize] }}>
+        <div className="grid grid-cols-1 gap-2.5 md:gap-2 md:[grid-template-columns:var(--tank-cols)]"
+          style={{ '--tank-cols': GRID_COLS[cardSize] } as React.CSSProperties}>
           {tanks.map(t => (
             <TankCard
               key={t.tank.id}

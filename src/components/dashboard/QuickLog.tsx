@@ -58,7 +58,7 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
   const field = 'w-full h-14 rounded-xl border border-gray-200 bg-white px-3 text-center text-xl font-semibold tabular-nums text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary'
 
   return (
-    <form onSubmit={save} className="md:hidden bg-white rounded-2xl border border-gray-200 shadow-sm p-4 mb-4">
+    <form onSubmit={save} className="md:hidden bg-white rounded-2xl ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] p-4 mb-3">
       <h2 className="text-base font-bold text-gray-900">Quick log</h2>
 
       <div className="grid grid-cols-3 gap-2 mt-3">

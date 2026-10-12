@@ -59,7 +59,7 @@ function Logo({ size = 'md', onNavigate }: { size?: 'sm' | 'md'; onNavigate?: ()
       <img
         src="/wolf.svg"
         alt="Shapeshifter Cellar"
-        className={size === 'sm' ? 'h-[60px] w-[60px]' : 'h-24 w-24'}
+        className={size === 'sm' ? 'h-10 w-10' : 'h-24 w-24'}
         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
       />
     </Link>
@@ -129,7 +129,7 @@ export function SiteNav() {
       </aside>
 
       {/* ── Mobile top bar ───────────────────────────────────── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary flex items-center justify-between px-4 h-20">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary flex items-center justify-between px-4 h-14">
         <Logo size="sm" />
         <button
           onClick={() => setOpen(true)}

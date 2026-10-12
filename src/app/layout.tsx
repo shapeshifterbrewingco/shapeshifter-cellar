@@ -27,7 +27,7 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full">
         <SiteNav />
-        <div className="md:pl-44 pt-20 md:pt-0 min-h-full">
+        <div className="md:pl-44 pt-14 md:pt-0 min-h-full">
           {children}
         </div>
         <Toaster position="top-center" richColors />

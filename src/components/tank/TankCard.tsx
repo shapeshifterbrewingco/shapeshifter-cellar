@@ -257,10 +257,88 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     stage === 'vdk_pass'       ? 'border-l-orange-400' :
     'border-l-gray-200'
 
+  // ── Phone layout ──────────────────────────────────────────────────────────
+  // One calm white card per tank: name and stage on top, four numbers below.
+  // No buttons: tapping the card opens the detail screen, which has them all.
+  // Stage is the only thing that carries colour.
+  const stagePill: Record<string, string> = {
+    active_ferment: 'bg-amber-50 text-amber-700',
+    diacetyl_rest:  'bg-violet-50 text-violet-700',
+    vdk_pass:       'bg-orange-50 text-orange-700',
+    on_chill:       'bg-sky-50 text-sky-700',
+  }
+  const stageDot: Record<string, string> = {
+    active_ferment: 'bg-amber-400',
+    diacetyl_rest:  'bg-violet-400',
+    vdk_pass:       'bg-orange-400',
+    on_chill:       'bg-sky-500',
+  }
+  const phoneStageLabel: Record<string, string> = {
+    active_ferment: 'Fermenting', diacetyl_rest: 'Diacetyl rest', vdk_pass: 'VDK pass', on_chill: 'On chill',
+  }
+  const phoneStats: [string, string][] = [
+    ['Gravity', latest_gravity?.plato != null ? `${latest_gravity.plato}°P` : '-'],
+    ['pH', latest_gravity?.ph != null ? String(latest_gravity.ph) : '-'],
+    ['ABV', abv != null ? `${abv.toFixed(1)}%` : '-'],
+    ['Temp', temperature != null ? `${temperature.toFixed(1)}°` : '-'],
+  ]
+
+  const mobileRow = isEmpty || !brew ? (
+    <div className="md:hidden flex items-center gap-3 rounded-2xl bg-white/60 ring-1 ring-black/5 px-4 py-3">
+      <span className="w-12 flex-shrink-0 text-[15px] font-semibold text-gray-400 tabular-nums">{tank.name}</span>
+      <div className="flex-1 min-w-0">
+        {next_scheduled_brew ? (
+          <>
+            <p className="text-sm text-gray-700 truncate">{next_scheduled_brew.recipe?.name ?? next_scheduled_brew.recipe_name ?? 'Untitled'}</p>
+            <p className="text-xs text-gray-400">
+              Next brew, {new Date(next_scheduled_brew.scheduled_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-gray-400">Empty</p>
+        )}
+      </div>
+      <button type="button" onClick={() => setShowAssignModal(true)}
+        className="flex-shrink-0 h-9 px-3.5 rounded-full bg-primary/10 text-primary text-sm font-semibold active:bg-primary/20">
+        Start brew
+      </button>
+    </div>
+  ) : (
+    <div onClick={handleCardTap} role="button" tabIndex={0} aria-label={`${tank.name}, ${brew.beer_name}. Open details`}
+      onKeyDown={(e) => { if (e.key === 'Enter') setShowDetail(true) }}
+      className="md:hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 pt-3.5 pb-3 active:bg-gray-50 transition-colors">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-semibold tracking-wide text-gray-400">
+            {tank.name}<span className="font-normal"> · Day {days_in_tank ?? '-'}</span>
+          </p>
+          <p className="text-[17px] font-semibold leading-snug text-gray-900 truncate">{brew.beer_name}</p>
+          <p className="text-[13px] text-gray-500 truncate">
+            {[brew.style, `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${stagePill[stage] ?? 'bg-gray-100 text-gray-600'}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${stageDot[stage] ?? 'bg-gray-400'}`} />
+          {phoneStageLabel[stage] ?? stage}
+        </span>
+      </div>
+      <dl className="grid grid-cols-4 mt-3 pt-2.5 border-t border-gray-100">
+        {phoneStats.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-[11px] text-gray-400">{label}</dt>
+            <dd className="text-[15px] font-semibold tabular-nums text-gray-900">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+
   if (listMode) {
     return (
       <>
-        <div className={`bg-white border border-gray-200 border-l-4 ${listBorderColour} rounded-xl shadow-sm overflow-hidden`}>
+        {detailSheet}
+        {mobileRow}
+        <div className={`hidden md:block bg-white border border-gray-200 border-l-4 ${listBorderColour} rounded-xl shadow-sm overflow-hidden`}>
           {/* Summary row */}
           <button
             type="button"
@@ -714,7 +792,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   return (
     <>
       {detailSheet}
-      <div onClick={handleCardTap} className={`flex flex-col rounded-2xl shadow-md overflow-hidden w-full ${
+      {mobileRow}
+      <div className={`hidden md:flex flex-col rounded-2xl shadow-md overflow-hidden w-full ${
         stage === 'active_ferment' ? 'bg-amber-50 border-2 border-amber-400 shadow-amber-100' :
         stage === 'diacetyl_rest' ? 'bg-violet-50 border-2 border-violet-400 shadow-violet-100' :
         stage === 'on_chill'      ? 'bg-sky-50 border-2 border-blue-600 shadow-blue-100' :

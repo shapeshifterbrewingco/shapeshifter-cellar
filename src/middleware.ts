@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const publicPaths = ['/login', '/auth/callback', '/api/frigid-poll']
+  const publicPaths = ['/login', '/auth/callback', '/api/frigid-poll', '/manifest.webmanifest']
   const isPublic = publicPaths.some((p) => request.nextUrl.pathname.startsWith(p))
 
   if (!user && !isPublic) {

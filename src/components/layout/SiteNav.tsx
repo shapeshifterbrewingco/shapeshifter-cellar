@@ -3,11 +3,12 @@
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, FlaskConical, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, LogIn, Settings, Calculator, Bot } from 'lucide-react'
+import { Menu, X, FlaskConical, LayoutDashboard, Clock, Thermometer, BookOpen, Package2, PackageCheck, BarChart3, LogOut, LogIn, Settings, Calculator, Bot } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
   { href: '/',            label: 'Cellar',           icon: FlaskConical },
+  { href: '/dashboard',   label: 'Dashboard',        icon: LayoutDashboard },
   { href: '/planner',     label: 'Planner',          icon: Bot },
   { href: '/history',     label: 'History',          icon: Clock },
   { href: '/readings',    label: 'Readings',         icon: Thermometer },

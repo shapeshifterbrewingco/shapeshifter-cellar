@@ -13,6 +13,8 @@ import { addDaysISO, daysBetweenISO } from '@/lib/dates'
 import { stageStyle } from '@/lib/stage-style'
 import { greeting, specialGreeting } from '@/lib/greeting'
 import { Hello } from '@/components/layout/Hello'
+import { KpiTiles } from './KpiTiles'
+import type { Kpi } from './KpiTiles'
 import { getBirthday } from '@/app/settings/actions'
 import type { TankDashboardData } from '@/types'
 import type { CalEvent } from '@/lib/planner/google'
@@ -215,10 +217,25 @@ export default async function DashboardPage() {
   const birthday = await getBirthday()
   const hello = greeting(firstName, { brewDay: !!nextBrew && nextBrew.date === today, birthday })
 
-  const kpis: { label: string; value: string; sub: string }[] = [
+  const kpis: Kpi[] = [
     { label: 'Tanks in use', value: `${full.length} of ${tanks.length}`, sub: `${tanks.length - full.length} empty` },
     { label: 'Beer in tank', value: litres(inTank), sub: `${full.length} batch${full.length === 1 ? '' : 'es'}` },
-    { label: 'On chill', value: String(onChill.length), sub: onChill.length ? litres(onChill.reduce((s, t) => s + (t.brew?.volume_l ?? 0), 0)) + ' to package' : 'Nothing waiting' },
+    {
+      label: 'On chill', value: String(onChill.length),
+      sub: onChill.length ? litres(onChill.reduce((s, t) => s + (t.brew?.volume_l ?? 0), 0)) + ' to package' : 'Nothing waiting',
+      rowsTitle: 'On chill',
+      rows: onChill.map((t) => {
+        const abv = t.brew?.og_plato != null && t.latest_gravity?.plato != null ? calcAbv(t.brew.og_plato, t.latest_gravity.plato) : null
+        const set = t.set_point_c != null && t.set_point_c !== FRIGID_OFF_SET_POINT ? `Set to ${t.set_point_c.toFixed(1)}°` : 'No set point'
+        return {
+          tank: t.tank.name,
+          title: t.brew?.beer_name ?? '',
+          sub: [t.brew?.style, litres(t.brew?.volume_l ?? 0), abv != null ? `${abv.toFixed(1)}%` : '', t.days_in_tank != null ? `day ${t.days_in_tank}` : ''].filter(Boolean).join(' · '),
+          right: t.temperature != null ? `${t.temperature.toFixed(1)}°C` : '-',
+          rightSub: set,
+        }
+      }),
+    },
     { label: 'Next brew', value: nextBrew ? relDay(nextBrew.date, today) : 'None booked', sub: nextBrew ? nextBrew.title.replace(/^\s*BREW\s*/i, '') : 'in the next two weeks' },
   ]
 
@@ -247,15 +264,7 @@ export default async function DashboardPage() {
         </h1>
 
         {/* Headline numbers */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {kpis.map((k) => (
-            <div key={k.label} className={`${CARD} px-5 py-4`}>
-              <p className="text-xs text-gray-500">{k.label}</p>
-              <p className="text-2xl font-semibold tabular-nums tracking-tight text-gray-900 mt-0.5">{k.value}</p>
-              <p className="text-xs text-gray-400 mt-0.5 truncate">{k.sub}</p>
-            </div>
-          ))}
-        </div>
+        <KpiTiles kpis={kpis} />
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
           {/* Tanks */}

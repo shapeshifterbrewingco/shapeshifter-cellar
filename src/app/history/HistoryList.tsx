@@ -7,7 +7,8 @@ import { ChevronDown, ClipboardList, Loader2, Pencil, Search, Trash2, X } from '
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { deleteBrewHistory, loadBrewDetail } from './actions'
 import { EditBrewModal } from './EditBrewModal'
-import type { BrewHistoryItem, BrewReading, PackagingRun } from '@/lib/history'
+import type { BrewHistoryItem, BrewReading, PackagingRun, VdkEntry } from '@/lib/history'
+import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import { PACKAGE_FORMATS } from '@/types'
 import { formatUserName } from '@/lib/utils'
 
@@ -24,7 +25,7 @@ const monthLabel = (key: string) => `${MONTHS[Number(key.slice(5, 7)) - 1]} ${ke
 const litres = (n: number) => `${Math.round(n).toLocaleString('en-AU')} L`
 const day = (iso: string) => format(parseISO(iso), 'd MMM yyyy')
 
-type Detail = { readings: BrewReading[]; packaging_runs: PackagingRun[] }
+type Detail = { readings: BrewReading[]; packaging_runs: PackagingRun[]; vdk: VdkEntry[] }
 
 /** Which part of a batch matched the search, so a hop search says which hop. */
 function matchReason(item: BrewHistoryItem, q: string): string | null {
@@ -211,17 +212,22 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
                 </section>
 
                 <section>
-                  <h3 className="text-xs font-semibold text-gray-500 mb-1.5">Readings</h3>
-                  {detail.readings.length === 0 ? (
+                  <h3 className="text-xs font-semibold text-gray-500 mb-1.5">Readings and VDK</h3>
+                  {detail.readings.length === 0 && detail.vdk.length === 0 ? (
                     <p className="text-sm text-gray-400">No readings logged.</p>
                   ) : (
                     <ul className="rounded-xl bg-white ring-1 ring-black/5 divide-y divide-gray-100 text-sm">
-                      {[...detail.readings].reverse().map((r) => {
+                      {withVdk(detail.readings, detail.vdk).reverse().map((r) => {
                         const noteOnly = r.plato == null && r.ph == null
                         return (
                           <li key={r.id} className="flex items-baseline gap-3 px-3 py-2">
                             <span className="w-[4.75rem] flex-shrink-0 text-xs text-gray-400 tabular-nums">{format(parseISO(r.recorded_at), 'd MMM HH:mm')}</span>
-                            {noteOnly ? (
+                            {r.vdk ? (
+                              <span className="flex-1 min-w-0">
+                                <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${VDK_STYLE[r.vdk].bg} ${VDK_STYLE[r.vdk].text} ${VDK_STYLE[r.vdk].border}`}>VDK {VDK_STYLE[r.vdk].label}</span>
+                                {r.notes && <span className="block text-xs text-gray-500 mt-0.5 break-words">{r.notes}</span>}
+                              </span>
+                            ) : noteOnly ? (
                               <span className="text-gray-600 break-words min-w-0">{r.notes}</span>
                             ) : (
                               <span className="flex-1 min-w-0">

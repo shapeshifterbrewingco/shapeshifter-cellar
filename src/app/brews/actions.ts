@@ -560,7 +560,7 @@ export async function getBrewCogs(brew_id: string): Promise<{
 export async function getBrewChartData(brew_id: string, tank_id: string, brew_day: string) {
   const supabase = await createClient()
 
-  const [{ data: readings }, { data: temps }] = await Promise.all([
+  const [{ data: readings }, { data: temps }, { data: vdk }] = await Promise.all([
     supabase.from('gravity_readings')
       .select('id, recorded_at, plato, ph, temperature_c, recorded_by, notes')
       .eq('brew_id', brew_id)
@@ -570,6 +570,10 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
       .eq('tank_id', tank_id)
       .gte('recorded_at', brew_day)
       .order('recorded_at'),
+    supabase.from('vdk_readings')
+      .select('id, recorded_at, result, recorded_by, notes')
+      .eq('brew_id', brew_id)
+      .order('recorded_at'),
   ])
 
   const tempsByHour = new Map<string, { recorded_at: string; temperature_c: number }>()
@@ -578,7 +582,11 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
     if (!tempsByHour.has(hour)) tempsByHour.set(hour, t)
   }
 
-  return { readings: readings ?? [], temps: [...tempsByHour.values()] }
+  return {
+    readings: readings ?? [],
+    temps: [...tempsByHour.values()],
+    vdk: (vdk ?? []) as { id: string; recorded_at: string; result: string; recorded_by: string; notes: string | null }[],
+  }
 }
 
 // ── VDK readings ──────────────────────────────────────────────
@@ -600,6 +608,30 @@ export async function logVdkReading(data: {
   })
   if (error) throw error
   revalidatePath('/')
+}
+
+/** Correct a VDK result that was logged wrongly. */
+export async function updateVdkReading(id: string, result: 'high' | 'medium' | 'low' | 'pass'): Promise<ActionResult> {
+  if (!['high', 'medium', 'low', 'pass'].includes(result)) return fail('That is not a VDK result.')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+  const { data, error } = await supabase.from('vdk_readings').update({ result }).eq('id', id).select('id')
+  if (error) return fail(`Not saved: ${error.message}`)
+  if (!data?.length) return fail('That result could not be changed. Refresh and try again.')
+  revalidatePath('/')
+  return { ok: true }
+}
+
+export async function deleteVdkReading(id: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+  const { data, error } = await supabase.from('vdk_readings').delete().eq('id', id).select('id')
+  if (error) return fail(`Not deleted: ${error.message}`)
+  if (!data?.length) return fail('That result could not be deleted. Refresh and try again.')
+  revalidatePath('/')
+  return { ok: true }
 }
 
 export async function getBrewVdkReadings(brew_id: string) {

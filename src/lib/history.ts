@@ -11,6 +11,8 @@ export interface BrewReading {
   notes: string | null
 }
 
+export interface VdkEntry { id: string; recorded_at: string; result: string; recorded_by: string; notes: string | null }
+
 export interface PackagingRun {
   id: string
   format: string
@@ -183,8 +185,8 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
 }
 
 /** Readings and packaging runs for one batch, fetched when it is opened. */
-export async function getBrewHistoryDetail(supabase: SupabaseClient, brewId: string): Promise<{ readings: BrewReading[]; packaging_runs: PackagingRun[] }> {
-  const [{ data: readings, error: rErr }, { data: runs, error: pErr }] = await Promise.all([
+export async function getBrewHistoryDetail(supabase: SupabaseClient, brewId: string): Promise<{ readings: BrewReading[]; packaging_runs: PackagingRun[]; vdk: VdkEntry[] }> {
+  const [{ data: readings, error: rErr }, { data: runs, error: pErr }, { data: vdk }] = await Promise.all([
     supabase
       .from('gravity_readings')
       .select('id, recorded_at, plato, ph, temperature_c, recorded_by, notes')
@@ -195,8 +197,13 @@ export async function getBrewHistoryDetail(supabase: SupabaseClient, brewId: str
       .select('id, format, qty, volume_l, packaged_by, packaged_at, notes')
       .eq('brew_id', brewId)
       .order('packaged_at', { ascending: true }),
+    supabase
+      .from('vdk_readings')
+      .select('id, recorded_at, result, recorded_by, notes')
+      .eq('brew_id', brewId)
+      .order('recorded_at', { ascending: true }),
   ])
   if (rErr) throw new Error(rErr.message)
   if (pErr) throw new Error(pErr.message)
-  return { readings: (readings ?? []) as BrewReading[], packaging_runs: (runs ?? []) as PackagingRun[] }
+  return { readings: (readings ?? []) as BrewReading[], packaging_runs: (runs ?? []) as PackagingRun[], vdk: (vdk ?? []) as VdkEntry[] }
 }

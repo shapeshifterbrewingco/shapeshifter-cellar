@@ -16,6 +16,7 @@ import {
 import { format, parseISO } from 'date-fns'
 import { getBrewChartData } from '@/app/brews/actions'
 import { calcAbv, formatUserName } from '@/lib/utils'
+import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import type { Brew, Tank } from '@/types'
 
 interface Props {
@@ -314,7 +315,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
         </div>
 
         {/* Readings + stage events table */}
-        {readings.length > 0 && (
+        {(readings.length > 0 || (data?.vdk.length ?? 0) > 0) && (
           <div className="px-5 pb-4">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Readings</p>
             <div className="overflow-auto max-h-36 rounded-lg border border-gray-100">
@@ -328,7 +329,19 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...readings].reverse().map((r) => {
+                  {withVdk(readings, data?.vdk).reverse().map((r) => {
+                    if (r.vdk) {
+                      return (
+                        <tr key={r.id} className="border-t border-gray-50">
+                          <td className="px-3 py-1.5 text-gray-500">{format(parseISO(r.recorded_at), 'd MMM, HH:mm')}</td>
+                          <td colSpan={2} className="px-3 py-1.5 text-center">
+                            <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${VDK_STYLE[r.vdk].bg} ${VDK_STYLE[r.vdk].text} ${VDK_STYLE[r.vdk].border}`}>VDK {VDK_STYLE[r.vdk].label}</span>
+                            {r.notes && <span className="ml-2 text-gray-500">{r.notes}</span>}
+                          </td>
+                          <td className="px-3 py-1.5 text-gray-400">{formatUserName(r.recorded_by)}</td>
+                        </tr>
+                      )
+                    }
                     const isStageEvent = r.plato == null && r.ph == null && r.notes?.startsWith('→')
                     if (isStageEvent) {
                       return (

@@ -7,6 +7,7 @@ import { FermentChart, useBrewChart } from '@/components/dashboard/BrewChartModa
 import { StageBadge } from './StageBadge'
 import { TempTap } from './SetPoint'
 import { calcAbv } from '@/lib/utils'
+import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import type { TankDashboardData, TankStage } from '@/types'
 
 export interface SheetAction {
@@ -37,7 +38,7 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
 }) {
   const { tank, latest_gravity, temperature, set_point_c, days_in_tank } = data
   const brew = data.brew!
-  const { data: chart, loading } = useBrewChart(brew, tank, `${latest_gravity?.recorded_at ?? ''}|${brew.stage}`)
+  const { data: chart, loading } = useBrewChart(brew, tank, `${latest_gravity?.recorded_at ?? ''}|${brew.stage}|${data.latest_vdk?.recorded_at ?? ''}|${data.latest_vdk?.result ?? ''}`)
   const [panel, setPanel] = useState<'stage' | 'more' | null>(null)
 
   // The page behind must not scroll while the sheet is up
@@ -59,7 +60,8 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
     { label: 'Volume', value: `${Math.round(brew.volume_l).toLocaleString('en-AU')} L` },
   ]
 
-  const recent = [...(chart?.readings ?? [])].reverse().slice(0, 8)
+  // Readings and VDK results together, newest first
+  const recent = withVdk(chart?.readings ?? [], chart?.vdk).reverse().slice(0, 10)
 
   const pick = (fn: () => void) => () => { setPanel(null); fn() }
   const row = 'w-full text-left px-4 py-3.5 text-base font-medium border-b border-gray-100 last:border-b-0 active:bg-gray-50 disabled:text-gray-300'
@@ -103,7 +105,7 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
         </section>
 
         <section>
-          <h3 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Recent readings</h3>
+          <h3 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Readings and VDK</h3>
           {loading ? (
             <p className="text-sm text-gray-400">Loading…</p>
           ) : recent.length === 0 ? (
@@ -115,7 +117,12 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
                 return (
                   <li key={r.id} className="px-3 py-2.5 flex items-baseline gap-3 text-sm">
                     <span className="w-[4.5rem] flex-shrink-0 text-gray-400 tabular-nums">{format(parseISO(r.recorded_at), 'd MMM')}</span>
-                    {noteOnly ? (
+                    {r.vdk ? (
+                      <span className="flex-1 min-w-0">
+                        <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${VDK_STYLE[r.vdk].bg} ${VDK_STYLE[r.vdk].text} ${VDK_STYLE[r.vdk].border}`}>VDK {VDK_STYLE[r.vdk].label}</span>
+                        {r.notes && <span className="block text-xs text-gray-500 mt-0.5">{r.notes}</span>}
+                      </span>
+                    ) : noteOnly ? (
                       <span className="text-gray-600">{r.notes}</span>
                     ) : (
                       <span className="flex-1 min-w-0">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Loader2, Minus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -88,8 +89,14 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
     })
   }
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start sm:items-center justify-center bg-black/50 px-4 pt-[12vh] sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} set point`}>
+  // Drawn at the top of the page, not inside whatever was tapped. Otherwise it
+  // inherits that element's styling (a card that fades on hover made this see-
+  // through), and it is clipped by any parent that hides overflow.
+  // A portal moves the HTML but React still passes clicks up to the original
+  // parent, so every click in here is stopped: clicking away must close this
+  // dialog and nothing else (it used to also open the card's temperature graph).
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-start sm:items-center justify-center bg-black/50 px-4 pt-[12vh] sm:p-4" onClick={(e) => { e.stopPropagation(); onClose() }} role="dialog" aria-modal="true" aria-label={`${name} set point`}>
       <div className="w-full max-w-sm sm:max-w-xs bg-white rounded-2xl shadow-xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
           <h2 className="text-base font-semibold text-gray-900">{name} set point</h2>
@@ -142,6 +149,7 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
         </div>
         <p className="text-[11px] text-gray-400 text-center">Use − and + to step by half a degree, or tap the number to type. This changes the real controller straight away.</p>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

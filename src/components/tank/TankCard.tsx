@@ -303,10 +303,13 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           <p className="text-sm text-gray-400">Empty</p>
         )}
       </div>
-      <button type="button" onClick={() => setShowAssignModal(true)}
-        className="flex-shrink-0 h-9 px-3.5 rounded-full bg-primary/10 text-primary text-sm font-semibold active:bg-primary/20">
-        Start brew
-      </button>
+      {/* A brite is filled by a transfer, never by starting a brew */}
+      {tank.type !== 'brite' && (
+        <button type="button" onClick={() => setShowAssignModal(true)}
+          className="flex-shrink-0 h-9 px-3.5 rounded-full bg-primary/10 text-primary text-sm font-semibold active:bg-primary/20">
+          Start brew
+        </button>
+      )}
     </div>
   ) : (
     <div onClick={handleCardTap} role="button" tabIndex={0} aria-label={`${tank.name}, ${brew.beer_name}. Open details`}
@@ -381,7 +384,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         </TempTap>
         <div className="ml-auto flex items-center gap-2">
           {isEmpty || !brew ? (
-            <Button size="sm" className="h-8 text-sm px-4" onClick={() => setShowAssignModal(true)}>Start Brew</Button>
+            tank.type === 'brite'
+              ? <span className="text-xs text-gray-400">Empty, filled by transfer</span>
+              : <Button size="sm" className="h-8 text-sm px-4" onClick={() => setShowAssignModal(true)}>Start Brew</Button>
           ) : (
             <>
               <Button size="sm" variant="outline"
@@ -568,9 +573,11 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 'border-gray-100'
               }`}>
                 {isEmpty ? (
-                  <Button size="sm" className="w-full h-8 text-sm" onClick={() => setShowAssignModal(true)}>
-                    Start Brew
-                  </Button>
+                  tank.type === 'brite'
+                    ? <p className="h-8 flex items-center justify-center text-xs text-gray-400">Filled by transfer</p>
+                    : <Button size="sm" className="w-full h-8 text-sm" onClick={() => setShowAssignModal(true)}>
+                        Start Brew
+                      </Button>
                 ) : (
                   <div className="flex w-full gap-2">
                     {stage === 'diacetyl_rest' ? (
@@ -1022,9 +1029,11 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         {/* Actions */}
         <div className="mt-auto border-t border-gray-100 px-3 py-2">
           {isEmpty ? (
-            <Button size="sm" className="w-full h-8 text-sm" onClick={() => setShowAssignModal(true)}>
-              Start Brew
-            </Button>
+            tank.type === 'brite'
+              ? <p className="h-8 flex items-center justify-center text-xs text-gray-400">Filled by transfer</p>
+              : <Button size="sm" className="w-full h-8 text-sm" onClick={() => setShowAssignModal(true)}>
+                  Start Brew
+                </Button>
           ) : (
             <div className="flex w-full gap-2">
               {stage === 'diacetyl_rest' ? (

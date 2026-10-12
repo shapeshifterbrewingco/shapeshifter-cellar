@@ -2,7 +2,8 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, Package, Pencil, Trash2, Search } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronDown, ChevronRight, ClipboardList, Package, Pencil, Trash2, Search } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { deleteBrewHistory } from './actions'
 import { EditBrewModal } from './EditBrewModal'
@@ -153,6 +154,10 @@ export function HistoryList({ items }: Props) {
 
                 {/* Edit / delete actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  <Link href={`/brews/${item.id}/sheet`} onClick={e => e.stopPropagation()} title="Brew sheet"
+                    className="p-1.5 text-gray-300 hover:text-primary transition-colors">
+                    <ClipboardList className="h-3.5 w-3.5" />
+                  </Link>
                   <button
                     type="button"
                     onClick={() => setEditItem(item)}

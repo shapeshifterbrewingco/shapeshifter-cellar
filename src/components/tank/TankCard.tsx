@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { FlaskConical, BarChart2, MoreHorizontal, TestTube2, Package, ChevronRight, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -182,6 +183,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     }, 'Could not rename the beer. Try again.')
   }
 
+  const router = useRouter()
+  const openBrewSheet = () => { if (brew) router.push(`/brews/${brew.id}/sheet`) }
+
   // On a phone, tapping the card (anywhere that is not already a button) opens
   // the full-screen detail sheet. Menu items live in a portal but their clicks
   // still bubble up to here through React, hence the role checks.
@@ -199,6 +203,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     }))
 
   const sheetMore: SheetAction[] = [
+    { label: 'Brew sheet', onSelect: openBrewSheet },
     { label: 'Log VDK result', onSelect: () => setShowVdkModal(true) },
     { label: 'Packaging plan', onSelect: () => setShowSplitModal(true) },
     { label: 'Rename beer', onSelect: () => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) } },
@@ -497,6 +502,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
@@ -529,6 +535,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={() => setShowChartModal(true)}>View Chart…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
@@ -562,6 +569,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={() => setShowChartModal(true)}>View Chart…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
@@ -599,6 +607,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
@@ -944,6 +953,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
@@ -974,6 +984,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={() => setShowChartModal(true)}>View Chart…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
@@ -1005,6 +1016,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={() => setShowChartModal(true)}>View Chart…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>
@@ -1042,6 +1054,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setShowSplitModal(true)}>Packaging Plan…</DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setShowRename(true) }}>Rename beer…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setVolumeInput(String(brew?.volume_l ?? '')); setShowEditVolume(true) }}>Edit volume…</DropdownMenuItem>

@@ -7,12 +7,12 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { breweryInstant, breweryToday } from '@/lib/dates'
 import { calcAbv } from '@/lib/utils'
 import { postSlack, slackConfigured } from '@/lib/slack'
+import { isRtd } from '@/lib/rtd'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 // Beer excise is charged on the alcohol above this strength; RTDs on all of it
 const BEER_FREE_ABV = 1.15
-const isRtd = (name: string, style: string | null) => /lemonade|seltzer|\brtd\b/i.test(`${name} ${style ?? ''}`)
 
 type Bucket = { litres: number; lal: number; dutiable: number }
 const empty = (): Bucket => ({ litres: 0, lal: 0, dutiable: 0 })

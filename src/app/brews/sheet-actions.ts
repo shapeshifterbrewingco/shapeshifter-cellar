@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { sanitiseSheet, sheetNumber } from '@/lib/brew-sheet'
 import type { BrewSheetData, SheetReading } from '@/lib/brew-sheet'
 import { logActivity, who, esc } from '@/lib/slack'
+import { isRtd } from '@/lib/rtd'
+import { updateBrewStage } from '@/app/brews/actions'
 
 type Result = { ok: true } | { ok: false; message: string }
 const fail = (message: string): Result => ({ ok: false, message })
@@ -30,7 +32,7 @@ export async function saveBrewSheet(input: {
     .filter((p) => typeof p === 'string' && /^[a-z_.0-9]+$/.test(p)).slice(0, 200)
 
   const { data: brew } = await supabase
-    .from('brews').select('id, beer_name, stage, og_plato, volume_l, deleted_at').eq('id', input.brew_id).maybeSingle()
+    .from('brews').select('id, beer_name, style, tank_id, stage, og_plato, volume_l, deleted_at').eq('id', input.brew_id).maybeSingle()
   if (!brew) return fail('That brew no longer exists.')
   const { data: already } = await supabase.from('brew_sheets').select('brew_id, source').eq('brew_id', input.brew_id).maybeSingle()
 
@@ -59,18 +61,28 @@ export async function saveBrewSheet(input: {
   // Typing those figures does nothing to the tank on its own: autosave would
   // send a half-typed gravity. They land when the brewer taps Finish brew day.
   // After that, the sheet is the record, so a correction here corrects the tank.
-  const finished = brew.og_plato != null
+  // A hard lemonade is made, not fermented: volume and temperature at the end,
+  // no gravity or pH, and straight on chill.
+  const rtd = isRtd(brew.beer_name, brew.style)
+  const finished = brew.og_plato != null || brew.stage !== 'active_ferment'
+  const tempIn = sheetNumber(data.fv.temp_c)
   if (input.finish) {
-    const phCheck = sheetNumber(data.fv.ph)
-    if (!(volume != null && volume > 0 && volume < 20000)) return fail('Enter the volume under All in FV.')
-    if (!(og != null && og > 0 && og < 40)) return fail('Enter the gravity under All in FV.')
-    if (!(phCheck != null && phCheck > 0 && phCheck <= 14)) return fail('Enter the pH under All in FV.')
+    if (finished) return fail('This brew day is already finished.')
+    if (!(volume != null && volume > 0 && volume < 20000)) return fail('Enter the volume.')
+    if (rtd) {
+      if (!(tempIn != null && tempIn > -10 && tempIn < 110)) return fail('Enter the temperature.')
+    } else {
+      const phCheck = sheetNumber(data.fv.ph)
+      if (!(og != null && og > 0 && og < 40)) return fail('Enter the gravity under All in FV.')
+      if (!(phCheck != null && phCheck > 0 && phCheck <= 14)) return fail('Enter the pH under All in FV.')
+    }
   } else if (!finished) {
     return { ok: true }
   }
   const patch: Record<string, unknown> = {}
   if (og != null && og > 0 && og < 40 && Number(brew.og_plato) !== og) patch.og_plato = og
-  if (volume != null && volume > 0 && volume < 20000 && brew.stage === 'active_ferment' && !brew.deleted_at && Number(brew.volume_l) !== volume) {
+  const firstTank = brew.stage === 'active_ferment' || (rtd && brew.stage === 'on_chill')
+  if (volume != null && volume > 0 && volume < 20000 && firstTank && !brew.deleted_at && Number(brew.volume_l) !== volume) {
     patch.volume_l = volume
   }
   // OG and pH together are the brew's first reading: the start of its ferment
@@ -100,6 +112,18 @@ export async function saveBrewSheet(input: {
     const { error: syncError } = await supabase.from('brews').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', input.brew_id)
     if (syncError) console.error('[saveBrewSheet] could not sync OG/volume to the brew:', syncError.message)
     else revalidatePath('/')
+  }
+
+  // The lemonade's finish: note what went in, and put it on chill
+  if (input.finish && rtd) {
+    const { error: noteError } = await supabase.from('gravity_readings').insert({
+      brew_id: input.brew_id, tank_id: brew.tank_id, plato: null, ph: null, temperature_c: tempIn,
+      recorded_by: user.email ?? user.id, notes: `Made: ${volume} L in tank at ${tempIn}°C`,
+    })
+    if (noteError) console.error('[saveBrewSheet] finish note failed:', noteError.message)
+    logActivity(`${who(user.email)} finished *${esc(brew.beer_name)}*: ${volume} L in tank at ${tempIn}°C.`)
+    await updateBrewStage(input.brew_id, brew.tank_id, 'on_chill')
+    revalidatePath('/')
   }
 
   return { ok: true }

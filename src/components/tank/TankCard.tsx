@@ -28,7 +28,7 @@ import { PackagingSplitModal } from '@/components/dashboard/PackagingSplitModal'
 import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume, renameBrew } from '@/app/brews/actions'
 import { setTankTarget } from '@/app/tanks/actions'
 import { calcAbv } from '@/lib/utils'
-import { stageStyle } from '@/lib/stage-style'
+import { stageStyle, IN_PRODUCTION, inProduction } from '@/lib/stage-style'
 import { toast } from 'sonner'
 import type { TankDashboardData, TankStage, AppSettings } from '@/types'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
@@ -228,7 +228,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   // signed off (VDK pass or on chill) there is nothing left to log: the beer moves.
   const doneFermenting = stage === 'vdk_pass' || stage === 'on_chill'
   // Started, but OG not in yet: the brew day is still going, and the sheet is where it is recorded
-  const brewDayOpen = !!brew && stage === 'active_ferment' && brew.og_plato == null
+  const brewDayOpen = inProduction(brew)
   const nextStep: { label: string; run: () => void } =
     brewDayOpen ? { label: 'Brew sheet', run: () => { if (brew) router.push(`/brews/${brew.id}/sheet`) } }
     : onDiacetylRest ? { label: 'Log VDK', run: () => setShowVdkModal(true) }
@@ -315,7 +315,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   // One calm white card per tank: name and stage on top, four numbers below.
   // No buttons: tapping the card opens the detail screen, which has them all.
   // Stage is the only thing that carries colour.
-  const look = stageStyle(stage)
+  const look = brew && inProduction(brew) ? IN_PRODUCTION : stageStyle(stage)
   const phoneStats: [string, string][] = [
     ['Gravity', latest_gravity?.plato != null ? `${latest_gravity.plato}°P` : '-'],
     ['pH', latest_gravity?.ph != null ? String(latest_gravity.ph) : '-'],
@@ -410,7 +410,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         <span className="text-lg font-semibold text-gray-900 tracking-tight leading-none whitespace-nowrap">{tank.name}</span>
         {isEmpty || !brew
           ? <span className="text-xs text-gray-400">Empty</span>
-          : <StageBadge stage={stage} />}
+          : <StageBadge stage={stage} inProduction={inProduction(brew)} />}
       </div>
 
       <div className="min-w-0">
@@ -520,7 +520,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             </div>
 
             {/* Stage badge — hidden on small screens */}
-            {!isEmpty && <div className="hidden sm:block flex-shrink-0"><StageBadge stage={stage} /></div>}
+            {!isEmpty && <div className="hidden sm:block flex-shrink-0"><StageBadge stage={stage} inProduction={inProduction(brew)} /></div>}
 
             {/* Gravity + ABV — hidden on small screens */}
             {showGravity && (
@@ -595,7 +595,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <p className="text-base font-bold text-gray-900 leading-tight">{brew.beer_name}</p>
                       {brew.style && <p className="text-xs text-gray-500 mt-0.5">{brew.style}</p>}
                     </div>
-                    <StageBadge stage={stage} />
+                    <StageBadge stage={stage} inProduction={inProduction(brew)} />
                     {stage === 'diacetyl_rest' && (() => {
                       const VDK_STYLES: Record<string, string> = {
                         high: 'bg-red-50 text-red-700 border-red-200', medium: 'bg-malt/15 text-malt-dark border-malt/40',
@@ -1037,7 +1037,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               </div>
 
               {/* Stage badge */}
-              <StageBadge stage={stage} />
+              <StageBadge stage={stage} inProduction={inProduction(brew)} />
 
               {/* Latest VDK result — diacetyl rest only */}
               {stage === 'diacetyl_rest' && (() => {

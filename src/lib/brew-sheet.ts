@@ -201,8 +201,9 @@ export function sheetFromRecipe(lines: RecipeLine[]): BrewSheetData {
 }
 
 /** How much of the sheet has something in it, for a progress hint. */
-export function sheetProgress(s: BrewSheetData): { filled: number; total: number } {
-  const scalars = [
+export function sheetProgress(s: BrewSheetData, rtd = false): { filled: number; total: number } {
+  // A hard lemonade has no mash, runnings, gravity or yeast to record
+  const scalars = rtd ? [s.kettle.volume_l, s.fv.volume_l, s.fv.temp_c, s.signoffs.frigid_set] : [
     s.mash.actual_temp_c, s.mash.ph, s.runnings.first.plato, s.runnings.last.plato,
     s.kettle.volume_l, s.kettle.post_boil_plato, s.fv.volume_l, s.fv.plato, s.fv.ph,
     s.yeast.strain, s.yeast.lot, s.signoffs.aldc, s.signoffs.frigid_set,

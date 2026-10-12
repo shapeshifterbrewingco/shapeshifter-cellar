@@ -13,6 +13,7 @@ import { greeting, specialGreeting } from '@/lib/greeting'
 import { Hello } from '@/components/layout/Hello'
 import { getBirthday } from '@/app/settings/actions'
 import { breweryToday } from '@/lib/dates'
+import { isRtd } from '@/lib/rtd'
 import { formatUserName } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/app/settings/actions'
@@ -111,14 +112,18 @@ export default async function DashboardPage() {
       const sheet = sheetBy.has(b.id)
         ? sanitiseSheet(sheetBy.get(b.id))
         : sheetFromRecipe(((lines ?? []) as { recipe_id: string }[]).filter((l) => l.recipe_id === b.recipe_id) as never)
-      const progress = sheetProgress(sheet)
+      const rtd = isRtd(b.beer_name, b.style)
+      const progress = sheetProgress(sheet, rtd)
       return {
         id: b.id,
         beer: b.beer_name,
         tank: t.tank.name,
         filled: progress.filled,
         total: progress.total,
-        missing: [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.plato.trim() && 'gravity', !sheet.fv.ph.trim() && 'pH'].filter((x): x is string => !!x),
+        missing: (rtd
+          ? [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.temp_c.trim() && 'temperature']
+          : [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.plato.trim() && 'gravity', !sheet.fv.ph.trim() && 'pH']
+        ).filter((x): x is string => !!x),
         next: brewDayLines(sheet).filter(({ line }) => !line.done).slice(0, 3)
           .map(({ line: l, malt }) => [l.name, (malt && bagsLabel(l.amount, l.unit, l.name)) || [l.amount, l.unit].filter(Boolean).join(' ')].filter(Boolean).join(' ')),
       }

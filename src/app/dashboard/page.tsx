@@ -10,7 +10,7 @@ import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
 import { TempTap } from '@/components/tank/SetPoint'
 import { calcAbv, formatUserName } from '@/lib/utils'
 import { addDaysISO, daysBetweenISO } from '@/lib/dates'
-import { stageStyle } from '@/lib/stage-style'
+import { stageStyle, brewStageStyle } from '@/lib/stage-style'
 import { greeting, specialGreeting } from '@/lib/greeting'
 import { Hello } from '@/components/layout/Hello'
 import { KpiTiles } from './KpiTiles'
@@ -229,7 +229,7 @@ export default async function DashboardPage() {
         return t.brew && t.brew.stage !== 'empty'
           ? {
               lead: t.tank.name, title: t.brew.beer_name,
-              sub: [stageStyle(t.brew.stage).label, t.brew.style].filter(Boolean).join(' · '),
+              sub: [brewStageStyle(t.brew).label, t.brew.style].filter(Boolean).join(' · '),
               right: litres(t.brew.volume_l), rightSub: t.days_in_tank != null ? `day ${t.days_in_tank}` : '',
               href: tankHref(t.tank.id),
             }
@@ -245,7 +245,7 @@ export default async function DashboardPage() {
       rowsTitle: 'Beer in tank, biggest first',
       rows: [...full].sort((a, b) => (b.brew?.volume_l ?? 0) - (a.brew?.volume_l ?? 0)).map((t) => ({
         lead: t.tank.name, title: t.brew?.beer_name ?? '',
-        sub: [t.brew ? stageStyle(t.brew.stage).label : '', t.brew?.style].filter(Boolean).join(' · '),
+        sub: [t.brew ? brewStageStyle(t.brew).label : '', t.brew?.style].filter(Boolean).join(' · '),
         right: litres(t.brew?.volume_l ?? 0),
         rightSub: inTank > 0 ? `${Math.round(((t.brew?.volume_l ?? 0) / inTank) * 100)}% of the cellar` : '',
         href: tankHref(t.tank.id),
@@ -330,7 +330,7 @@ export default async function DashboardPage() {
                 <tbody>
                   {tanks.map((t) => {
                     const { tank, brew } = t
-                    const stage = brew ? stageStyle(brew.stage) : null
+                    const stage = brew ? brewStageStyle(brew) : null
                     const abv = brew?.og_plato != null && t.latest_gravity?.plato != null ? calcAbv(brew.og_plato, t.latest_gravity.plato) : null
                     const lastDay = t.latest_gravity?.recorded_at?.slice(0, 10)
                     const since = lastDay ? daysBetweenISO(lastDay, today) : null

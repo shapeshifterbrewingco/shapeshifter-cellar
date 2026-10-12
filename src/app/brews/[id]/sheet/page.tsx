@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { sanitiseSheet, sheetFromRecipe, withRecipeDefaults } from '@/lib/brew-sheet'
 import { formatUserName } from '@/lib/utils'
+import { isRtd } from '@/lib/rtd'
 import { BrewSheetForm } from './BrewSheetForm'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,7 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
   const [{ data: brew }, { data: sheetRow }, { data: { user } }] = await Promise.all([
     supabase
       .from('brews')
-      .select('id, beer_name, style, brew_day, tank_id, recipe_id, deleted_at, og_plato, tanks(name)')
+      .select('id, beer_name, style, brew_day, tank_id, recipe_id, deleted_at, og_plato, stage, tanks(name)')
       .eq('id', id)
       .maybeSingle(),
     supabase.from('brew_sheets').select('data, unchecked, source, updated_at, updated_by').eq('brew_id', id).maybeSingle(),
@@ -66,7 +67,8 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
           initial={initial}
           initialUnchecked={sheetRow?.unchecked ?? []}
           exists={!!sheetRow}
-          finished={brew.og_plato != null}
+          finished={brew.og_plato != null || brew.stage !== 'active_ferment'}
+          rtd={isRtd(brew.beer_name, brew.style)}
           me={formatUserName(user?.email ?? '')}
         />
       </div>

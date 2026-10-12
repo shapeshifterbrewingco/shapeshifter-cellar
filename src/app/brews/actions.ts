@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getFrigidReadings } from '@/lib/frigid'
 import { addPackedStock } from '@/lib/sales-stock'
+import { coolingOff } from '@/lib/cooling'
 import { logActivity, who, esc, logGroupedActivity } from '@/lib/slack'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
@@ -343,6 +344,8 @@ export async function transferBrew(data: {
       tankName(supabase, data.dest_tank_id),
     ])
     const lost = data.volume_in_l - data.volume_out_l
+    // The fermenter it left is empty: stop holding it cold
+    await coolingOff(data.source_tank_id)
     logActivity(`${who(user.email)} transferred *${esc(b?.beer_name ?? 'a beer')}* from ${from} to ${to}: ${data.volume_out_l} L arrived${lost > 0 ? ` (${Math.round(lost)} L lost)` : ''}.`)
   }
 
@@ -428,6 +431,9 @@ export async function packageBrew(data: {
     }).eq('id', data.brew_id)
     return fail(`Could not record the packaging run, so the brew is still in tank: ${runsError.message}`)
   }
+
+  // The tank is empty now, so it stops being held cold
+  await coolingOff(data.tank_id)
 
   // Into Sales App stock, so nobody has to add it there by hand
   let stockNote = ''
@@ -808,6 +814,8 @@ export async function endBrew(brew_id: string, final_stage: 'transferred' | 'pac
     updated_at: new Date().toISOString(),
   }).eq('id', brew_id)
   if (error) throw error
-  if (ending) logActivity(`${who(user?.email)} emptied ${await tankName(supabase, ending.tank_id)} (${esc(ending.beer_name)}) for cleaning.`)
+  // An empty tank is not held at a temperature
+  const off = ending ? await coolingOff(ending.tank_id) : false
+  if (ending) logActivity(`${who(user?.email)} emptied ${await tankName(supabase, ending.tank_id)} (${esc(ending.beer_name)}) for cleaning.${off ? ' Cooling switched off.' : ''}`)
   revalidatePath('/')
 }

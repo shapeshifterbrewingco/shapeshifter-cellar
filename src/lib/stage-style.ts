@@ -30,4 +30,15 @@ export const STAGE_STYLE: Record<string, StageStyle> = {
   packaged:    { ...NEUTRAL, label: 'Packaged' },
 }
 
+// A brew day still running: started, nothing in the tank to ferment yet
+export const IN_PRODUCTION: StageStyle = { label: 'In production', pill: 'bg-malt text-white', dot: 'bg-yeast', accent: 'border-l-malt' }
+
+/** True while a brew day is open: in its first stage with no OG on the tank yet. */
+export const inProduction = (brew: { stage: string; og_plato: number | null } | null | undefined) =>
+  !!brew && brew.stage === 'active_ferment' && brew.og_plato == null
+
+/** How a brew's stage looks, with a brew day in progress shown as such rather than as fermenting. */
+export const brewStageStyle = (brew: { stage: string; og_plato: number | null }): StageStyle =>
+  inProduction(brew) ? IN_PRODUCTION : stageStyle(brew.stage)
+
 export const stageStyle = (stage: string): StageStyle => STAGE_STYLE[stage] ?? { ...NEUTRAL, label: stage }

@@ -48,6 +48,8 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
   const [value, setValue] = useState(isOn(setPoint) ? String(setPoint) : '')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  // A mouse or trackpad means a real keyboard, so start in the box ready to type
+  const [typing] = useState(() => typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches)
 
   const parsed = value.trim() === '' ? NaN : Number(value.replace(',', '.').replace('−', '-'))
   const valid = Number.isFinite(parsed)
@@ -58,6 +60,10 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
     setValue(String(Math.round((from + by) * 10) / 10))
     setError(null)
   }
+
+  // Pressing a button normally moves focus to it. Cancelling that on pointer-down
+  // leaves focus (and the phone keyboard, open or closed) exactly as it was.
+  const keepFocus = (e: React.PointerEvent) => e.preventDefault()
 
   const flipSign = () => {
     setValue((v) => (/^[-−]/.test(v.trim()) ? v.trim().slice(1) : `-${v.trim()}`))
@@ -83,8 +89,8 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} set point`}>
-      <div className="w-full sm:max-w-xs bg-white rounded-t-3xl sm:rounded-2xl shadow-xl p-5 space-y-4" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] flex items-start sm:items-center justify-center bg-black/50 px-4 pt-[12vh] sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${name} set point`}>
+      <div className="w-full max-w-sm sm:max-w-xs bg-white rounded-2xl shadow-xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
           <h2 className="text-base font-semibold text-gray-900">{name} set point</h2>
           <p className="text-sm text-gray-500 mt-0.5 tabular-nums">
@@ -95,14 +101,14 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
         </div>
 
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => nudge(-0.5)} aria-label="Down half a degree"
+          <button type="button" onPointerDown={keepFocus} onClick={() => nudge(-0.5)} aria-label="Down half a degree"
             className="h-14 w-14 flex-shrink-0 rounded-xl border border-gray-200 text-gray-700 flex items-center justify-center active:bg-gray-100">
             <Minus className="h-5 w-5" />
           </button>
           <div className="relative flex-1">
             {/* The phone number pad has no minus key, and chill set points are
                 negative, so the sign has its own button inside the field. */}
-            <button type="button" onClick={flipSign} aria-label="Switch between above and below zero"
+            <button type="button" onPointerDown={keepFocus} onClick={flipSign} aria-label="Switch between above and below zero"
               className="absolute left-1.5 top-1/2 -translate-y-1/2 h-11 w-10 rounded-lg bg-black/[0.05] text-lg font-semibold text-gray-700 active:bg-black/10">
               ±
             </button>
@@ -112,13 +118,13 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
               onKeyDown={(e) => { if (e.key === 'Enter') send(); if (e.key === 'Escape') onClose() }}
               inputMode="decimal"
               autoComplete="off"
-              autoFocus
+              autoFocus={typing}
               aria-label="New set point in degrees Celsius"
               className="w-full h-14 rounded-xl border border-gray-200 pl-12 pr-9 text-center text-2xl font-semibold tabular-nums text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">°C</span>
           </div>
-          <button type="button" onClick={() => nudge(0.5)} aria-label="Up half a degree"
+          <button type="button" onPointerDown={keepFocus} onClick={() => nudge(0.5)} aria-label="Up half a degree"
             className="h-14 w-14 flex-shrink-0 rounded-xl border border-gray-200 text-gray-700 flex items-center justify-center active:bg-gray-100">
             <Plus className="h-5 w-5" />
           </button>
@@ -134,7 +140,7 @@ function SetPointDialog({ tankId, name, temperature, setPoint, onClose }: Target
             {isPending ? 'Sending to Frigid…' : valid ? `Set ${name} to ${parsed}°C` : 'Enter a temperature'}
           </button>
         </div>
-        <p className="text-[11px] text-gray-400 text-center">This changes the real controller straight away.</p>
+        <p className="text-[11px] text-gray-400 text-center">Use − and + to step by half a degree, or tap the number to type. This changes the real controller straight away.</p>
       </div>
     </div>
   )

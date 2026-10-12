@@ -37,6 +37,9 @@ interface ChartPoint {
   temp: number | null
 }
 
+// Frigid reports to three decimals; one is all a brewer reads
+const oneDp = (n: number) => Math.round(n * 10) / 10
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -67,7 +70,7 @@ function mergeChartData(
       label: format(parseISO(t.recorded_at), 'd MMM HH:mm'),
       plato: null,
       ph: null,
-      temp: Number(t.temperature_c),
+      temp: oneDp(Number(t.temperature_c)),
     })
   }
 
@@ -79,7 +82,7 @@ function mergeChartData(
       label: format(parseISO(r.recorded_at), 'd MMM HH:mm'),
       plato: r.plato ?? null,
       ph: r.ph ?? null,
-      temp: r.temperature_c != null ? Number(r.temperature_c) : existing?.temp ?? null,
+      temp: r.temperature_c != null ? oneDp(Number(r.temperature_c)) : existing?.temp ?? null,
     })
   }
 

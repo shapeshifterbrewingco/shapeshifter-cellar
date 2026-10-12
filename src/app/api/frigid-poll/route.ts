@@ -3,6 +3,7 @@ import { getFrigidReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
 import { runAlerts } from '@/lib/alerts'
 import { flushSlackOutbox } from '@/lib/slack'
+import { sendExciseReportIfDue } from '@/lib/excise'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
 
   // Alarms first, and before the early exit below: Frigid going quiet is itself an alarm
   await flushSlackOutbox().catch(() => 0)
+  await sendExciseReportIfDue().catch((e) => console.error('[excise] report failed:', e instanceof Error ? e.message : e))
   const alerts = await runAlerts(readings).catch((e) => ({ skipped: e instanceof Error ? e.message : 'alert check failed' }))
 
   if (readings.length === 0) {

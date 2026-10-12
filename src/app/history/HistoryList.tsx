@@ -239,7 +239,7 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
                                 <span className="font-semibold tabular-nums text-gray-900">
                                   {[r.plato != null ? `${r.plato}°P` : '', r.ph != null ? `pH ${r.ph}` : ''].filter(Boolean).join(' · ')}
                                 </span>
-                                {r.temperature_c != null && <span className="tabular-nums text-gray-400"> · {r.temperature_c}°C</span>}
+                                {r.temperature_c != null && <span className="tabular-nums text-gray-400"> · {Number(r.temperature_c).toFixed(1)}°C</span>}
                                 {r.notes && <span className="block text-xs text-gray-500 break-words">{r.notes}</span>}
                               </span>
                             )}

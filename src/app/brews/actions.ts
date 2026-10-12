@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getFrigidReadings } from '@/lib/frigid'
+import { addPackedStock } from '@/lib/sales-stock'
 import { logActivity, who, esc, logGroupedActivity } from '@/lib/slack'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
@@ -10,7 +11,7 @@ import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit 
 // Actions that move a brew return a result instead of throwing: Next strips
 // error messages in production, so a thrown error reaches the brewer as a
 // generic crash screen with no reason on it.
-export type ActionResult = { ok: true } | { ok: false; message: string }
+export type ActionResult = { ok: true; note?: string } | { ok: false; message: string }
 
 const fail = (message: string): ActionResult => ({ ok: false, message })
 
@@ -428,23 +429,30 @@ export async function packageBrew(data: {
     return fail(`Could not record the packaging run, so the brew is still in tank: ${runsError.message}`)
   }
 
+  // Into Sales App stock, so nobody has to add it there by hand
+  let stockNote = ''
   {
-    const { data: b } = await supabase.from('brews').select('beer_name').eq('id', data.brew_id).maybeSingle()
+    const { data: b } = await supabase.from('brews').select('beer_name, style').eq('id', data.brew_id).maybeSingle()
     const total = packages.reduce((sum, p) => sum + p.volume_l, 0)
     const parts = packages.map((p) => `${p.qty} x ${p.format}`).join(', ')
-    logActivity(`${who(user.email)} packaged *${esc(b?.beer_name ?? 'a beer')}* (batch ${esc(batchCode)}) from ${await tankName(supabase, data.tank_id)}: ${parts}. ${Math.round(total)} L in total.`)
+    const stock = b?.beer_name ? await addPackedStock(b.beer_name, b.style ?? null, batchCode, packages) : { added: [], missed: ['the beer name could not be read'] }
+    stockNote = [
+      stock.added.length ? `Added to Sales App stock: ${stock.added.join(', ')}.` : '',
+      stock.missed.length ? `Not added to Sales App stock (${stock.missed.join('; ')}). Add it there by hand.` : '',
+    ].filter(Boolean).join(' ')
+    logActivity(`${who(user.email)} packaged *${esc(b?.beer_name ?? 'a beer')}* (batch ${esc(batchCode)}) from ${await tankName(supabase, data.tank_id)}: ${parts}. ${Math.round(total)} L in total. ${esc(stockNote)}`.trim())
   }
 
-  // QC readings and stock distribution live on the packaging split. Only those
-  // columns are written, so an existing plan keeps its quantities and hop load.
+  // QC readings and stock distribution are the packaging report, the same one
+  // History shows and edits.
   const qc = {
-    best_before_date: data.best_before_date || null,
+    best_before: data.best_before_date || null,
     bbt_temp_c: data.bbt_temp_c ?? null,
     bbt_co2_vol: data.bbt_co2_vol ?? null,
     bbt_do_ppb: data.bbt_do_ppb ?? null,
-    can_co2_vol: data.can_co2_vol ?? null,
-    can_do_ppb: data.can_do_ppb ?? null,
-    unders_sor: data.unders_sor || null,
+    pack_co2_vol: data.can_co2_vol ?? null,
+    pack_do_ppb: data.can_do_ppb ?? null,
+    unders: data.unders_sor || null,
     stock_venue_kegs: data.stock_venue_kegs ?? null,
     stock_venue_cartons: data.stock_venue_cartons ?? null,
     stock_options_kegs: data.stock_options_kegs ?? null,
@@ -453,17 +461,9 @@ export async function packageBrew(data: {
     stock_sales_cartons: data.stock_sales_cartons ?? null,
   }
   if (Object.values(qc).some(v => v != null)) {
-    const { data: plan } = await supabase
-      .from('packaging_splits').select('id').eq('brew_id', data.brew_id).maybeSingle()
-    const { error: qcError } = plan
-      ? await supabase.from('packaging_splits').update({ ...qc, updated_at: now }).eq('id', plan.id)
-      : await supabase.from('packaging_splits').insert({
-          brew_id: data.brew_id,
-          hop_load: 'medium',
-          qty_24x375: 0, qty_16x440: 0, qty_keg30: 0, qty_keg50: 0,
-          ...qc,
-          updated_at: now,
-        })
+    const { error: qcError } = await supabase
+      .from('packaging_reports')
+      .upsert({ brew_id: data.brew_id, ...qc, notes: data.notes.trim() || null, updated_by: user.email ?? user.id, updated_at: now }, { onConflict: 'brew_id' })
     if (qcError) {
       console.error('[packageBrew] QC save failed:', qcError.message)
       revalidatePath('/')
@@ -472,9 +472,8 @@ export async function packageBrew(data: {
   }
 
   revalidatePath('/')
-  revalidatePath('/packaging')
   revalidatePath('/history')
-  return { ok: true }
+  return { ok: true, note: stockNote || undefined }
 }
 
 // ── COGS ─────────────────────────────────────────────────────

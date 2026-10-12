@@ -131,7 +131,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
                         <span className="tabular-nums text-gray-900 font-semibold">
                           {r.plato != null ? `${r.plato}°P` : ''}{r.plato != null && r.ph != null ? ' · ' : ''}{r.ph != null ? `pH ${r.ph}` : ''}
                         </span>
-                        {r.temperature_c != null && <span className="tabular-nums text-gray-400"> · {r.temperature_c}°C</span>}
+                        {r.temperature_c != null && <span className="tabular-nums text-gray-400"> · {Number(r.temperature_c).toFixed(1)}°C</span>}
                         {r.notes && <span className="block text-xs text-gray-500">{r.notes}</span>}
                       </span>
                     )}

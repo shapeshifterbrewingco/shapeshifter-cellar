@@ -195,7 +195,7 @@ export function ReadingsList({ readings: initial }: Props) {
                       </td>
 
                       <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
-                        {r.temperature_c != null ? `${r.temperature_c}°C` : ''}
+                        {r.temperature_c != null ? `${Number(r.temperature_c).toFixed(1)}°C` : ''}
                       </td>
 
                       <td className="px-4 py-2.5 text-gray-400 text-xs max-w-[100px] truncate">{formatUserName(r.recorded_by)}</td>

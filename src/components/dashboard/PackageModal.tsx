@@ -147,6 +147,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
         stock_sales_cartons: n(salesCartons),
       })
       if (!result.ok) toast.error(result.message, { duration: 10000 })
+      else if (result.note) (result.note.includes('Not added') ? toast.warning : toast.success)(result.note, { duration: 10000 })
       // A QC-only failure still packaged the brew, so the modal closes either way
       // unless the brew is still in tank.
       if (!result.ok && !result.message.startsWith('Packaged')) return

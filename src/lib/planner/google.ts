@@ -12,7 +12,8 @@ export const TZ = 'Australia/Adelaide'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/spreadsheets.readonly',
+  // Read everywhere; the one write is packaged stock into the Sales App (lib/sales-stock.ts)
+  'https://www.googleapis.com/auth/spreadsheets',
 ].join(' ')
 
 let cached: { token: string; exp: number } | null = null
@@ -183,6 +184,14 @@ export async function sheetValues(spreadsheetId: string, range: string, opts: { 
   const qs = opts.unformatted ? '?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER' : ''
   const data = await google(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}${qs}`)
   return data.values || []
+}
+
+/** Append rows below the last row of a tab. The service account must be an Editor on the sheet. */
+export async function sheetAppend(spreadsheetId: string, range: string, rows: (string | number)[][]): Promise<void> {
+  await google(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    { method: 'POST', body: JSON.stringify({ values: rows }) },
+  )
 }
 
 export async function sheetTabs(spreadsheetId: string): Promise<string[]> {

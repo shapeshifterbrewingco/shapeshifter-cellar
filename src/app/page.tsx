@@ -1,92 +1,88 @@
+import { after } from 'next/server'
 import { TankGrid } from '@/components/dashboard/TankGrid'
+import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
 import { getDashboardData } from '@/lib/dashboard'
-import { getUtilityTemps } from '@/lib/frigid'
+import { getFrigidReadings, utilityReadings } from '@/lib/frigid'
+import { recordTemperatures } from '@/lib/temperature-log'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/app/settings/actions'
-import { DEFAULT_SETTINGS } from '@/types'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
 import type { FrigidReading } from '@/lib/frigid'
-import type { AppSettings } from '@/types'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
+
+const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString()
 
 export default async function DashboardPage() {
-  let tanks: import('@/types').TankDashboardData[] = []
-  let recipes: RecipeOption[] = []
-  let currentUser = 'Unknown'
-  let utilityTemps: FrigidReading[] = []
-  let settings = DEFAULT_SETTINGS
+  const supabase = await createClient()
 
-  try {
-    const [supabase, frigidTemps, fetchedSettings] = await Promise.all([
-      createClient(),
-      getUtilityTemps(),
-      getSettings(),
-    ])
-    settings = fetchedSettings
-    utilityTemps = frigidTemps
+  // Everything that does not depend on anything else, in one round trip.
+  // A failure here is thrown to error.tsx: an empty cellar must never be shown
+  // because a query failed.
+  const [frigid, settings, { data: { user } }, recipesResult, utilityRowsResult] = await Promise.all([
+    getFrigidReadings(),
+    getSettings(),
+    supabase.auth.getUser(),
+    supabase
+      .from('recipes')
+      .select('id, name, style, target_og_plato, brew_volume_l')
+      .is('deleted_at', null)
+      .order('name'),
+    supabase
+      .from('tanks')
+      .select('id, frigid_tank_name')
+      .eq('is_utility', true),
+  ])
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      currentUser = user.email ?? user.id
+  if (recipesResult.error) throw recipesResult.error
 
-      // Run dashboard data and recipes fetch in parallel
-      const [dashboardTanks, recipesResult] = await Promise.all([
-        getDashboardData(supabase),
-        supabase
-          .from('recipes')
-          .select('id, name, style, target_og_plato, brew_volume_l')
-          .is('deleted_at', null)
-          .order('name'),
-      ])
-      tanks = dashboardTanks
-      recipes = (recipesResult.data ?? []) as RecipeOption[]
+  const utilityIdByName = new Map(
+    (utilityRowsResult.data ?? []).map(t => [t.frigid_tank_name as string, t.id as string])
+  )
+  const utilityIds = [...utilityIdByName.values()]
+  const since = hoursAgo(25)
 
-      // Fetch 24h temp history + tank IDs for utility vessels (HLT, CLT, Glycol)
-      if (frigidTemps.length > 0) {
-        const { data: utilityTankRows } = await supabase
-          .from('tanks')
-          .select('id, frigid_tank_name')
-          .in('frigid_tank_name', frigidTemps.map(f => f.name))
+  const [tanks, historyResult] = await Promise.all([
+    getDashboardData(supabase, frigid),
+    utilityIds.length > 0
+      ? supabase
+          .from('temperature_readings')
+          .select('tank_id, recorded_at, temperature_c')
+          .in('tank_id', utilityIds)
+          .gte('recorded_at', since)
+          .order('recorded_at', { ascending: true })
+      : Promise.resolve({ data: [] as { tank_id: string; recorded_at: string; temperature_c: number }[] }),
+  ])
 
-        const tankIdByName = new Map(
-          (utilityTankRows ?? []).map(t => [t.frigid_tank_name as string, t.id as string])
-        )
-        const utilityIds = [...tankIdByName.values()]
-
-        let histByTankId = new Map<string, { recorded_at: string; temperature_c: number }[]>()
-        if (utilityIds.length > 0) {
-          const since = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
-          const { data: histReadings } = await supabase
-            .from('temperature_readings')
-            .select('tank_id, recorded_at, temperature_c')
-            .in('tank_id', utilityIds)
-            .gte('recorded_at', since)
-            .order('recorded_at', { ascending: true })
-
-          for (const r of histReadings ?? []) {
-            if (!histByTankId.has(r.tank_id)) histByTankId.set(r.tank_id, [])
-            histByTankId.get(r.tank_id)!.push(r)
-          }
-        }
-
-        utilityTemps = utilityTemps.map(ft => ({
-          ...ft,
-          tankId: tankIdByName.get(ft.name) ?? null,
-          history: tankIdByName.has(ft.name)
-            ? (histByTankId.get(tankIdByName.get(ft.name)!) ?? [])
-            : [],
-        }))
-      }
-    }
-  } catch {
-    // Fall back to mock data if DB isn't reachable
+  const historyByTankId = new Map<string, { recorded_at: string; temperature_c: number }[]>()
+  for (const r of historyResult.data ?? []) {
+    if (!historyByTankId.has(r.tank_id)) historyByTankId.set(r.tank_id, [])
+    historyByTankId.get(r.tank_id)!.push(r)
   }
+
+  const utilityTemps: FrigidReading[] = utilityReadings(frigid).map(ft => {
+    const tankId = utilityIdByName.get(ft.name) ?? null
+    return { ...ft, tankId, history: tankId ? (historyByTankId.get(tankId) ?? []) : [] }
+  })
+
+  // Keep the temperature history filling in while anyone has the cellar open.
+  // Runs after the page is sent, so it costs the brewer nothing.
+  after(async () => {
+    const result = await recordTemperatures(frigid)
+    if (result.error) console.error('[dashboard] temperature log failed:', result.error)
+  })
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="px-4 py-2">
-        <TankGrid tanks={tanks} recipes={recipes} currentUser={currentUser} utilityTemps={utilityTemps} settings={settings} />
+        <AutoRefresh seconds={60} />
+        <TankGrid
+          tanks={tanks}
+          recipes={(recipesResult.data ?? []) as RecipeOption[]}
+          currentUser={user?.email ?? user?.id ?? 'Unknown'}
+          utilityTemps={utilityTemps}
+          settings={settings}
+        />
       </div>
     </main>
   )

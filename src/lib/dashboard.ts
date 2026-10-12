@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TankDashboardData, PackagingSplit, NextScheduledBrew } from '@/types'
-import { differenceInDays } from 'date-fns'
+import type { FrigidReading } from '@/lib/frigid'
+import { breweryToday, daysBetweenISO } from '@/lib/dates'
 
-export async function getDashboardData(supabase: SupabaseClient): Promise<TankDashboardData[]> {
+export async function getDashboardData(supabase: SupabaseClient, live: FrigidReading[] = []): Promise<TankDashboardData[]> {
   // ── Tier 1: independent queries run in parallel ────────────────────────────
   const [
     { data: tanks, error: tanksError },
@@ -29,7 +30,7 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
 
   const tankIds = (tanks ?? []).map((t: { id: string }) => t.id)
   const brewIds = (brews ?? []).map((b: { id: string }) => b.id)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = breweryToday()
 
   const none = Promise.resolve({ data: [] as never[] })
 
@@ -86,9 +87,18 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
     (beerStyles ?? []).map((s: { name: string; hex_colour: string }) => [s.name, s.hex_colour])
   )
 
+  // Stage changes and transfers are logged as readings with no numbers in
+  // them. The card wants the last real measurement, and the latest gravity and
+  // the latest pH are not always on the same row.
   const latestGravity: Record<string, { plato: number | null; ph: number | null; recorded_at: string; recorded_by: string }> = {}
   for (const r of readings ?? []) {
-    if (!latestGravity[r.brew_id]) latestGravity[r.brew_id] = r
+    if (r.plato == null && r.ph == null) continue
+    const seen = latestGravity[r.brew_id]
+    if (!seen) latestGravity[r.brew_id] = { ...r }
+    else {
+      if (seen.plato == null && r.plato != null) seen.plato = r.plato
+      if (seen.ph == null && r.ph != null) seen.ph = r.ph
+    }
   }
 
   const splitsByBrew: Record<string, PackagingSplit> = {}
@@ -119,6 +129,8 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
     if (!latestTemp[t.tank_id]) latestTemp[t.tank_id] = t
   }
 
+  const liveByName = new Map(live.map((r) => [r.name, r]))
+
   // ── Build output ───────────────────────────────────────────────────────────
   type BrewRow = { id: string; recipe_id: string | null; tank_id: string; brew_day: string; volume_l: number; og_plato: number | null; stage: string; beer_name: string; style: string | null; notes: string | null; batch_code: string | null }
   type TankRow = { id: string; name: string; type: 'fermenter' | 'brite'; frigid_tank_name: string | null; frigid_asset_id: string | null; sort_order: number; desired_set_point_c: number | null }
@@ -128,7 +140,15 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
   return (tanks as TankRow[] ?? []).map((tank) => {
     const brew = brewByTank.get(tank.id) ?? null
     const gravity = brew ? latestGravity[brew.id] ?? null : null
-    const temp = latestTemp[tank.id] ?? null
+    // Live from the controller when it answers; the stored reading is the fallback
+    const liveReading = tank.frigid_tank_name ? liveByName.get(tank.frigid_tank_name) : undefined
+    const temp = liveReading?.temperature != null
+      ? {
+          temperature_c: liveReading.temperature,
+          set_point_c: liveReading.setPoint,
+          recorded_at: liveReading.lastTemperatureReading ?? new Date().toISOString(),
+        }
+      : latestTemp[tank.id] ?? null
 
     return {
       tank,
@@ -156,9 +176,11 @@ export async function getDashboardData(supabase: SupabaseClient): Promise<TankDa
         notes: null,
       } : null,
       temperature: temp?.temperature_c ?? null,
-      set_point_c: tank.desired_set_point_c ?? temp?.set_point_c ?? null,
+      // What the controller says wins. The saved value only fills in when it is silent,
+      // otherwise a change made at the panel would never show here.
+      set_point_c: liveReading?.setPoint ?? tank.desired_set_point_c ?? temp?.set_point_c ?? null,
       temperature_recorded_at: temp?.recorded_at ?? null,
-      days_in_tank: brew?.brew_day ? differenceInDays(new Date(), new Date(brew.brew_day)) : null,
+      days_in_tank: brew?.brew_day ? daysBetweenISO(brew.brew_day.slice(0, 10), today) : null,
       style_colour: brew?.style ? (styleColourMap.get(brew.style) ?? null) : null,
       latest_vdk: brew ? (latestVdk[brew.id] as import('@/types').TankDashboardData['latest_vdk'] ?? null) : null,
       packaging_split: brew ? (splitsByBrew[brew.id] ?? null) : null,

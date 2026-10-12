@@ -48,7 +48,7 @@ export function PackagingReportList({ items }: Props) {
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-gray-400">
-          <p className="text-sm">No results for "{search}"</p>
+          <p className="text-sm">No results for &ldquo;{search}&rdquo;</p>
         </div>
       )}
 

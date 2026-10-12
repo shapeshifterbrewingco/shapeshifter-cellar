@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { PACKAGE_FORMATS } from '@/types'
+import { breweryInstant, breweryYearMonth } from '@/lib/dates'
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 export type ReportPeriod = 'this_month' | 'last_month' | 'ytd_calendar' | 'ytd_financial'
 
@@ -9,39 +12,34 @@ export interface PeriodRange {
   end: Date
 }
 
+// Month and year boundaries are the brewery's, not the server's. On a UTC
+// server a run packaged before 10:30am on the 1st would otherwise fall in the
+// previous month.
 export function getPeriodRange(period: ReportPeriod, now = new Date()): PeriodRange {
-  const y = now.getFullYear()
-  const m = now.getMonth() // 0-indexed
+  const { year: y, month: m } = breweryYearMonth(now)
+  const monthLabel = (yy: number, mm: number) => `${MONTH_NAMES[mm]} ${yy}`
 
   switch (period) {
     case 'this_month':
-      return {
-        label: now.toLocaleString('en-AU', { month: 'long', year: 'numeric' }),
-        start: new Date(y, m, 1),
-        end: new Date(now),
-      }
+      return { label: monthLabel(y, m), start: breweryInstant(y, m, 1), end: new Date(now) }
     case 'last_month': {
       const lm = m === 0 ? 11 : m - 1
       const ly = m === 0 ? y - 1 : y
       return {
-        label: new Date(ly, lm, 1).toLocaleString('en-AU', { month: 'long', year: 'numeric' }),
-        start: new Date(ly, lm, 1),
-        end: new Date(ly, lm + 1, 0, 23, 59, 59),
+        label: monthLabel(ly, lm),
+        start: breweryInstant(ly, lm, 1),
+        // One second before this month starts
+        end: new Date(breweryInstant(y, m, 1).getTime() - 1000),
       }
     }
     case 'ytd_calendar':
-      return {
-        label: `Calendar YTD ${y}`,
-        start: new Date(y, 0, 1),
-        end: new Date(now),
-      }
+      return { label: `Calendar YTD ${y}`, start: breweryInstant(y, 0, 1), end: new Date(now) }
     case 'ytd_financial': {
       // Australian financial year: 1 Jul – 30 Jun
-      const fyStart = m >= 6 ? new Date(y, 6, 1) : new Date(y - 1, 6, 1)
-      const fyEndYear = fyStart.getFullYear() + 1
+      const fyStartYear = m >= 6 ? y : y - 1
       return {
-        label: `FY ${fyStart.getFullYear()}/${String(fyEndYear).slice(2)} YTD`,
-        start: fyStart,
+        label: `FY ${fyStartYear}/${String(fyStartYear + 1).slice(2)} YTD`,
+        start: breweryInstant(fyStartYear, 6, 1),
         end: new Date(now),
       }
     }
@@ -87,6 +85,7 @@ export async function getPackagingReport(
   // Aggregate by beer_name + style + format
   const map = new Map<string, ReportRow>()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const run of data as any[]) {
     const brew = Array.isArray(run.brews) ? run.brews[0] : run.brews
     const beer_name: string = brew?.beer_name ?? 'Unknown'

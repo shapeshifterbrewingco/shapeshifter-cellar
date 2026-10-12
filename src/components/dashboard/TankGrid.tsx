@@ -35,6 +35,7 @@ export function TankGrid({ tanks, recipes, currentUser, utilityTemps, settings }
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as ViewMode | null
       if (saved && ['small', 'medium', 'large', 'list'].includes(saved)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
         setView(saved)
       }
     } catch {}

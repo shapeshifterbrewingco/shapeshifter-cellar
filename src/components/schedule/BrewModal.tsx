@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { X, Trash2 } from 'lucide-react'
 import { createScheduledBrew, updateScheduledBrew, deleteScheduledBrew } from '@/app/schedule/actions'
 import { DEFAULT_SETTINGS } from '@/types'
+import { addDaysISO, transferDateFor } from '@/lib/dates'
 import type { ScheduledBrew, ScheduledBrewStatus, ScheduledBrewEventType, ScheduledBrewType, AppSettings } from '@/types'
 
 export interface RecipeOption { id: string; name: string; style: string | null }
@@ -13,19 +14,6 @@ export interface ModalState   { mode: 'create' | 'edit'; brew?: ScheduledBrew; d
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function addDays(dateStr: string, n: number) {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
-}
-function transferDate(packDate: string) {
-  const d = new Date(packDate + 'T00:00:00')
-  d.setDate(d.getDate() - 3)
-  const dow = d.getDay()
-  if (dow === 6) d.setDate(d.getDate() - 1)
-  else if (dow === 0) d.setDate(d.getDate() - 2)
-  return d.toISOString().slice(0, 10)
-}
 function fmtDate(dateStr: string) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
 }
@@ -90,7 +78,7 @@ export function BrewModal({ state, recipes, tanks, settings = DEFAULT_SETTINGS, 
     })
 
   const packDate = eventType === 'brew' && brewType && date
-    ? addDays(date, brewType === 'ale' ? settings.ale_weeks * 7 : settings.lager_weeks * 7)
+    ? addDaysISO(date, brewType === 'ale' ? settings.ale_weeks * 7 : settings.lager_weeks * 7)
     : null
 
   function handleSubmit(e: React.FormEvent) {
@@ -192,7 +180,7 @@ export function BrewModal({ state, recipes, tanks, settings = DEFAULT_SETTINGS, 
               {packDate && (
                 <div className="mt-1.5 space-y-0.5">
                   <p className="text-xs text-purple-600 font-medium">
-                    🔄 Transfer: {fmtDate(transferDate(packDate))}
+                    🔄 Transfer: {fmtDate(transferDateFor(packDate))}
                   </p>
                   <p className="text-xs text-blue-600 font-medium">
                     📦 Pack: {fmtDate(packDate)}

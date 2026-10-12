@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { X, Loader2, Trash2, Check } from 'lucide-react'
 import { updateBrewHistory, deletePackagingRun, updatePackagingRun } from './actions'
 import { PACKAGE_FORMATS } from '@/types'
@@ -49,7 +50,8 @@ export function EditBrewModal({ item, onClose }: Props) {
     const volume_l = fmt ? qty * fmt.volume_l : p.volume_l
     setSavingRunId(p.id)
     startTransition(async () => {
-      await updatePackagingRun(p.id, qty, volume_l)
+      try { await updatePackagingRun(p.id, qty, volume_l) }
+      catch { toast.error('Could not save that packaging run.') }
       setSavingRunId(null)
     })
   }
@@ -58,7 +60,13 @@ export function EditBrewModal({ item, onClose }: Props) {
     if (!confirm('Delete this packaging run?')) return
     setDeletingRunId(runId)
     startTransition(async () => {
-      await deletePackagingRun(runId)
+      try {
+        await deletePackagingRun(runId)
+      } catch {
+        toast.error('Could not delete that packaging run.')
+        setDeletingRunId(null)
+        return
+      }
       setDeletingRunId(null)
       onClose()
     })

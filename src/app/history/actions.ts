@@ -26,9 +26,12 @@ export async function updateBrewHistory(
 
 export async function deleteBrewHistory(brew_id: string) {
   const supabase = await createClient()
-  await supabase.from('gravity_readings').delete().eq('brew_id', brew_id)
-  await supabase.from('packaging_runs').delete().eq('brew_id', brew_id)
-  await supabase.from('transfers').delete().eq('brew_id', brew_id)
+  // Packaging runs, transfers and stage history hold a reference to the brew,
+  // so they go first. Readings, VDK and splits cascade with the brew row.
+  for (const table of ['packaging_runs', 'transfers', 'tank_stage_history'] as const) {
+    const { error } = await supabase.from(table).delete().eq('brew_id', brew_id)
+    if (error) throw error
+  }
   const { error } = await supabase.from('brews').delete().eq('id', brew_id)
   if (error) throw error
   revalidatePath('/history')
@@ -36,17 +39,20 @@ export async function deleteBrewHistory(brew_id: string) {
 
 export async function deletePackagingRun(run_id: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from('packaging_runs').delete().eq('id', run_id)
+  const { data, error } = await supabase.from('packaging_runs').delete().eq('id', run_id).select('id')
   if (error) throw error
+  if (!data?.length) throw new Error('Packaging run was not deleted (no permission or already gone)')
   revalidatePath('/history')
 }
 
 export async function updatePackagingRun(run_id: string, qty: number, volume_l: number) {
   const supabase = await createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('packaging_runs')
     .update({ qty, volume_l })
     .eq('id', run_id)
+    .select('id')
   if (error) throw error
+  if (!data?.length) throw new Error('Packaging run was not updated (no permission or already gone)')
   revalidatePath('/history')
 }

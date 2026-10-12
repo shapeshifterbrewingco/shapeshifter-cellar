@@ -3,8 +3,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+const MIN_TARGET_C = -5
+const MAX_TARGET_C = 40
+
 export async function setTankTarget(tankId: string, targetTemp: number): Promise<{ success: boolean; message: string }> {
+  // Same limits as the manual set point field. This goes to a live glycol
+  // controller, so a slip of the finger must not get through.
+  if (!Number.isFinite(targetTemp) || targetTemp < MIN_TARGET_C || targetTemp > MAX_TARGET_C) {
+    return { success: false, message: `Set point must be between ${MIN_TARGET_C} and ${MAX_TARGET_C}°C` }
+  }
+
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: 'You are signed out. Sign in again and retry.' }
 
   const { data: tank, error } = await supabase
     .from('tanks')
@@ -44,10 +55,11 @@ export async function setTankTarget(tankId: string, targetTemp: number): Promise
 
   // Store the desired setpoint on the tank row itself so the frigid-poll cron
   // (which inserts new temperature_readings rows) can never overwrite it.
-  await supabase
+  const { error: saveError } = await supabase
     .from('tanks')
     .update({ desired_set_point_c: targetTemp })
     .eq('id', tankId)
+  if (saveError) console.error('[setTankTarget] set point sent to Frigid but not saved:', saveError.message)
 
   revalidatePath('/')
   return { success: true, message: `Setpoint updated to ${targetTemp}°C` }

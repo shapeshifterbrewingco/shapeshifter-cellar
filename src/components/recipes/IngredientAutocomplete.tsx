@@ -26,9 +26,11 @@ export function IngredientAutocomplete({ value, onChange, ingredients, placehold
   const [, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  const [seenIngredients, setSeenIngredients] = useState(ingredients)
+  if (seenIngredients !== ingredients) {
+    setSeenIngredients(ingredients)
     setLocalIngredients(ingredients)
-  }, [ingredients])
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

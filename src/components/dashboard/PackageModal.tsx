@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { toast } from 'sonner'
 import { X, Package, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { packageBrew, getBrewCogs } from '@/app/brews/actions'
 import { PACKAGE_FORMATS } from '@/types'
@@ -91,6 +92,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
   const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the fetch below
     setCogsLoading(true)
     getBrewCogs(brew.id).then(setCogs).finally(() => setCogsLoading(false))
   }, [brew.id])
@@ -124,7 +126,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
         volume_l: parseInt(qtys[f.format]) * f.volume_l,
       }))
     startTransition(async () => {
-      await packageBrew({
+      const result = await packageBrew({
         brew_id: brew.id,
         tank_id: tank.id,
         packages,
@@ -144,6 +146,10 @@ export function PackageModal({ brew, tank, onClose }: Props) {
         stock_sales_kegs: n(salesKegs),
         stock_sales_cartons: n(salesCartons),
       })
+      if (!result.ok) toast.error(result.message, { duration: 10000 })
+      // A QC-only failure still packaged the brew, so the modal closes either way
+      // unless the brew is still in tank.
+      if (!result.ok && !result.message.startsWith('Packaged')) return
       onClose()
     })
   }

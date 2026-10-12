@@ -168,6 +168,9 @@ export const HOP_LOAD_LABELS: Record<HopLoad, string> = {
 
 export type ExciseCategory = 'standard' | 'rtd' | 'mid_strength'
 
+// Beer excise is charged on alcohol above this strength, not on all of it
+export const BEER_EXCISE_FREE_ABV = 1.15
+
 export const EXCISE_CATEGORY_LABELS: Record<ExciseCategory, string> = {
   standard: 'Standard beer',
   rtd: 'RTD',

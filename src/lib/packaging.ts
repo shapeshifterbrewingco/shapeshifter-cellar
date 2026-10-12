@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { PACKAGE_FORMATS } from '@/types'
+import { calcAbv } from '@/lib/utils'
 
 export interface PackagingReportRun {
   id: string
@@ -57,6 +58,7 @@ export async function getPackagingReports(supabase: SupabaseClient): Promise<Pac
   // Group runs by brew
   const byBrew = new Map<string, PackagingReportItem>()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const run of runs as any[]) {
     const brew = Array.isArray(run.brews) ? run.brews[0] : run.brews
     if (!brew) continue
@@ -79,7 +81,7 @@ export async function getPackagingReports(supabase: SupabaseClient): Promise<Pac
       const finalPlato = lastGravityByBrew.get(run.brew_id) ?? null
       const abv =
         brew.og_plato != null && finalPlato != null
-          ? Math.round(((brew.og_plato - finalPlato) / 7.75) * 10) / 10
+          ? Math.round(calcAbv(brew.og_plato, finalPlato) * 10) / 10
           : null
 
       byBrew.set(run.brew_id, {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { X, ArrowRight, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { transferBrew } from '@/app/brews/actions'
 import type { Brew, Tank, TankDashboardData } from '@/types'
@@ -98,7 +99,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
     const vol = parseFloat(volumeOut)
     if (!destTankId || isNaN(vol) || vol <= 0) return
     startTransition(async () => {
-      await transferBrew({
+      const result = await transferBrew({
         brew_id: brew.id,
         source_tank_id: sourceTank.id,
         dest_tank_id: destTankId,
@@ -119,6 +120,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
         initial_carb_performed: initialCarb,
         fv_cooling_off: fvCoolingOff,
       })
+      if (!result.ok) { toast.error(result.message); return }
       onClose()
     })
   }

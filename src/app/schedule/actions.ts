@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { transferDateFor } from '@/lib/dates'
 import type { ScheduledBrewStatus, ScheduledBrewEventType, ScheduledBrewType } from '@/types'
 
 export async function createScheduledBrew(data: {
@@ -30,12 +31,7 @@ export async function createScheduledBrew(data: {
 
   if (pack_date && brewRow) {
     // Transfer: 3 days before pack, slide back to Friday if weekend
-    const td = new Date(pack_date + 'T00:00:00')
-    td.setDate(td.getDate() - 3)
-    const dow = td.getDay()
-    if (dow === 6) td.setDate(td.getDate() - 1)      // Sat → Fri
-    else if (dow === 0) td.setDate(td.getDate() - 2) // Sun → Fri
-    const transfer_date = td.toISOString().slice(0, 10)
+    const transfer_date = transferDateFor(pack_date)
 
     await supabase.from('scheduled_brews').insert([
       {

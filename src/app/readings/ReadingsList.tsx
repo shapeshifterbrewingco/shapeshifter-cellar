@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
+import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { Search, Pencil, Trash2, Check, X } from 'lucide-react'
 import { formatUserName } from '@/lib/utils'
@@ -68,16 +69,24 @@ export function ReadingsList({ readings: initial }: Props) {
     setReadings(prev => prev.map(r =>
       r.id === id ? { ...r, plato, ph, notes: editState.notes.trim() || null } : r
     ))
+    const before = readings
     setEditingId(null)
     setEditState(null)
-    startTransition(() => updateReading(id, { plato, ph, notes: editState.notes }))
+    startTransition(async () => {
+      try { await updateReading(id, { plato, ph, notes: editState.notes }) }
+      catch { setReadings(before); toast.error('Could not save that reading. It has been put back.') }
+    })
   }
 
   function handleDelete(r: ReadingRow) {
     const label = r.beer_name !== '—' ? `${r.beer_name} @ ${format(parseISO(r.recorded_at), 'd MMM HH:mm')}` : r.notes
     if (!confirm(`Delete reading "${label}"? This cannot be undone.`)) return
+    const before = readings
     setReadings(prev => prev.filter(x => x.id !== r.id))
-    startTransition(() => deleteReading(r.id))
+    startTransition(async () => {
+      try { await deleteReading(r.id) }
+      catch { setReadings(before); toast.error('Could not delete that reading. It has been put back.') }
+    })
   }
 
   return (

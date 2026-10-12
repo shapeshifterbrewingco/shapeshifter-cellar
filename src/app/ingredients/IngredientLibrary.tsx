@@ -72,6 +72,7 @@ function toEditState(ing: IngredientWithPrices): EditState {
 
 export function IngredientLibrary({ ingredients: initial }: { ingredients: IngredientWithPrices[] }) {
   const [ingredients, setIngredients] = useState(initial)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- server data replaces the optimistic copy
   useEffect(() => { setIngredients(initial) }, [initial])
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<FilterTab>('all')
@@ -270,7 +271,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
         <div className="px-5 py-10 text-center">
           <p className="text-sm text-gray-400">No ingredients yet.</p>
           <p className="text-xs text-gray-400 mt-1">
-            They'll appear here as you create recipes or import a price list.
+            They&apos;ll appear here as you create recipes or import a price list.
           </p>
         </div>
       ) : (

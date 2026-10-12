@@ -6,7 +6,9 @@ import { isStaffEmail } from '@/lib/auth-domain'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  // Only ever redirect to a path on this site
+  const requested = searchParams.get('next') ?? '/'
+  const next = requested.startsWith('/') && !requested.startsWith('//') ? requested : '/'
 
   if (code) {
     const cookieStore = await cookies()

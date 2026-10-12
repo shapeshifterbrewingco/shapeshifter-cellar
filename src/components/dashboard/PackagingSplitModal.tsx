@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { toast } from 'sonner'
 import { X } from 'lucide-react'
 import { savePackagingSplit, getPackagingSplit, getScheduledSplit } from '@/app/brews/actions'
-import { PACKAGE_FORMATS, HOP_LOAD_LOSS, HOP_LOAD_LABELS, EXCISE_CATEGORY_LABELS, DEFAULT_SETTINGS } from '@/types'
+import { PACKAGE_FORMATS, HOP_LOAD_LOSS, HOP_LOAD_LABELS, EXCISE_CATEGORY_LABELS, DEFAULT_SETTINGS, BEER_EXCISE_FREE_ABV } from '@/types'
 import type { HopLoad, PackagingSplit, ExciseCategory, AppSettings } from '@/types'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ export function PackagingSplitModal({
   const [decalsOnSite, setDecalsOnSite] = useState('0')
 
   const [notes, setNotes] = useState('')
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
     const fetch = brewId
@@ -105,8 +106,12 @@ export function PackagingSplitModal({
   // ── Excise calculations ───────────────────────────────────────────────────────
   const abvNum    = parseFloat(abv)
   const hasAbv    = !isNaN(abvNum) && abvNum > 0
-  const canLaL    = hasAbv && canVol > 0 ? canVol  * abvNum / 100 : null
-  const kegLaL    = hasAbv && kegVol > 0 ? kegVol  * abvNum / 100 : null
+  // Beer pays excise only on alcohol above 1.15% ABV. RTDs pay on all of it.
+  const beerAbv   = Math.max(0, abvNum - BEER_EXCISE_FREE_ABV)
+  const canAbv    = exciseCat === 'rtd' ? abvNum : beerAbv
+  const kegAbv    = exciseCat === 'rtd' ? abvNum : beerAbv
+  const canLaL    = hasAbv && canVol > 0 ? canVol  * canAbv / 100 : null
+  const kegLaL    = hasAbv && kegVol > 0 ? kegVol  * kegAbv / 100 : null
   const canRate   = exciseCat === 'rtd' ? rates.rtd : rates.canStd
   const kegRate   = exciseCat === 'mid_strength' ? rates.kegMid : rates.kegStd
   const canExcise = canLaL != null ? canLaL * canRate : null
@@ -142,8 +147,10 @@ export function PackagingSplitModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (isPending) return
     startTransition(async () => {
-      await savePackagingSplit({
+      try {
+        await savePackagingSplit({
         brew_id: brewId ?? null,
         scheduled_brew_id: scheduledBrewId ?? null,
         hop_load: hopLoad,
@@ -157,7 +164,11 @@ export function PackagingSplitModal({
         clip_colour: clipColour || null,
         collars_on_site: collarsOnSiteN,
         decals_on_site:  decalsOnSiteN,
-      })
+        })
+      } catch {
+        toast.error('Packaging plan did not save. Try again.')
+        return
+      }
       onClose()
     })
   }
@@ -463,9 +474,9 @@ export function PackagingSplitModal({
                 className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50">
                 Cancel
               </button>
-              <button type="submit"
-                className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-xl hover:opacity-90">
-                Save plan
+              <button type="submit" disabled={isPending}
+                className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-xl hover:opacity-90 disabled:opacity-50">
+                {isPending ? 'Saving…' : 'Save plan'}
               </button>
             </div>
           </form>

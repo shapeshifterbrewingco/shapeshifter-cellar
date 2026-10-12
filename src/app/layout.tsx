@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { SiteNav } from "@/components/layout/SiteNav";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Shapeshifter Cellar",
@@ -19,6 +20,7 @@ export default function RootLayout({
         <div className="md:pl-44 pt-20 md:pt-0 min-h-full">
           {children}
         </div>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

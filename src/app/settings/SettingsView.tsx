@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Check, AlertCircle } from 'lucide-react'
 import { updateSettings } from './actions'
 import { HOP_LOAD_LABELS } from '@/types'
@@ -121,7 +122,8 @@ export function SettingsView({ settings }: Props) {
       sa_canning_rate_per_end: parseFloat(canningPerEnd) || 0.069,
     }
     startTransition(async () => {
-      await updateSettings(parsed)
+      try { await updateSettings(parsed) }
+      catch { toast.error('Settings did not save. Check the connection and try again.'); return }
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     })

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition, useRef, useEffect } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Plus, Calendar, List, Package } from 'lucide-react'
 import { updateScheduledBrew } from './actions'
 import { PackagingSplitModal } from '@/components/dashboard/PackagingSplitModal'
 import { BrewModal } from '@/components/schedule/BrewModal'
 import type { ScheduledBrew, ScheduledBrewStatus, ScheduledBrewEventType, AppSettings } from '@/types'
 import { DEFAULT_SETTINGS } from '@/types'
+import { breweryToday } from '@/lib/dates'
 
 interface RecipeOption { id: string; name: string; style: string | null }
 interface TankOption  { id: string; name: string }
@@ -52,22 +53,6 @@ function brewPillClass(b: ScheduledBrew): string {
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
-function addDays(dateStr: string, n: number) {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
-}
-function transferDate(packDate: string) {
-  const d = new Date(packDate + 'T00:00:00')
-  d.setDate(d.getDate() - 3)
-  const dow = d.getDay()
-  if (dow === 6) d.setDate(d.getDate() - 1)
-  else if (dow === 0) d.setDate(d.getDate() - 2)
-  return d.toISOString().slice(0, 10)
-}
-function fmtDate(dateStr: string) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
-}
 function monthOffset(year: number, month: number, offset: number) {
   const d = new Date(year, month + offset, 1)
   return { year: d.getFullYear(), month: d.getMonth() }
@@ -209,7 +194,7 @@ function CalendarView({ year, month, brews, onDayClick, onBrewClick, onSplitClic
 
 function ListView({ brews, onBrewClick, onSplitClick }: { brews: ScheduledBrew[]; onBrewClick: (b: ScheduledBrew) => void; onSplitClick: (b: ScheduledBrew) => void }) {
   const sorted = [...brews].sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
-  const today  = new Date().toISOString().slice(0, 10)
+  const today  = breweryToday()
 
   if (sorted.length === 0) {
     return (
@@ -308,6 +293,7 @@ export function ScheduleView({ brews: initialBrews, recipes, tanks, settings = D
   const [modal, setModal] = useState<ModalState | null>(null)
 
   const [brews, setBrews] = useState(initialBrews)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- server data replaces the optimistic copy
   useEffect(() => { setBrews(initialBrews) }, [initialBrews])
 
   const [splitBrew, setSplitBrew] = useState<ScheduledBrew | null>(null)
@@ -365,7 +351,7 @@ export function ScheduleView({ brews: initialBrews, recipes, tanks, settings = D
             </button>
           </div>
           <button
-            onClick={() => setModal({ mode: 'create', date: today.toISOString().slice(0, 10) })}
+            onClick={() => setModal({ mode: 'create', date: breweryToday() })}
             className="flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-medium px-3 py-1.5 rounded-lg hover:opacity-90">
             <Plus className="h-4 w-4" /> Schedule
           </button>

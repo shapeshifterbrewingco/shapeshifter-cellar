@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { assignBrew } from '@/app/brews/actions'
 import type { Tank } from '@/types'
+import { breweryToday } from '@/lib/dates'
 
 export interface RecipeOption {
   id: string
@@ -20,9 +21,7 @@ interface Props {
   onClose: () => void
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10)
-}
+const today = () => breweryToday()
 
 export function AssignBrewModal({ tank, recipes, defaultVolumeL, onClose }: Props) {
   const [recipeId, setRecipeId] = useState('')
@@ -54,7 +53,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, onClose }: Prop
     setError(null)
     startTransition(async () => {
       try {
-        await assignBrew({
+        const result = await assignBrew({
           tank_id: tank.id,
           recipe_id: recipeId || null,
           beer_name: beerName,
@@ -65,6 +64,7 @@ export function AssignBrewModal({ tank, recipes, defaultVolumeL, onClose }: Prop
           initial_ph: ph ? parseFloat(ph) : null,
           notes,
         })
+        if (!result.ok) { setError(result.message); return }
         onClose()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to assign brew.')

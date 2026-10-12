@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
+import { toast } from 'sonner'
 import { ChevronDown, ChevronRight, Package, Pencil, Trash2, Search } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { deleteBrewHistory } from './actions'
@@ -44,7 +45,10 @@ export function HistoryList({ items }: Props) {
 
   function handleDelete(item: BrewHistoryItem) {
     if (!confirm(`Permanently delete "${item.beer_name}"${item.batch_code ? ` (${item.batch_code})` : ''}? This cannot be undone.`)) return
-    startTransition(() => deleteBrewHistory(item.id))
+    startTransition(async () => {
+      try { await deleteBrewHistory(item.id) }
+      catch { toast.error(`Could not delete ${item.beer_name}. Nothing was removed.`) }
+    })
     if (expanded === item.id) setExpanded(null)
   }
 
@@ -72,7 +76,7 @@ export function HistoryList({ items }: Props) {
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-gray-400">
-          <p className="text-sm">No results for "{search}"</p>
+          <p className="text-sm">No results for &ldquo;{search}&rdquo;</p>
         </div>
       )}
 

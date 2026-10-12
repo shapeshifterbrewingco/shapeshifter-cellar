@@ -2,24 +2,42 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { setTankTarget } from '@/app/tanks/actions'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
 
-// ── Batch code ────────────────────────────────────────────────
+// Actions that move a brew return a result instead of throwing: Next strips
+// error messages in production, so a thrown error reaches the brewer as a
+// generic crash screen with no reason on it.
+export type ActionResult = { ok: true } | { ok: false; message: string }
 
-async function generateBatchCode(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
-  const year = new Date().getFullYear()
-  const prefix = `${year}-`
+const fail = (message: string): ActionResult => ({ ok: false, message })
+
+type Db = Awaited<ReturnType<typeof createClient>>
+
+const LIVE_STAGES_FILTER = '(empty,transferred,packaged)'
+
+/** The live brew in a tank, if any. A tank holds one beer at a time. */
+async function brewInTank(supabase: Db, tankId: string, exceptBrewId?: string) {
+  let q = supabase
+    .from('brews')
+    .select('id, beer_name')
+    .eq('tank_id', tankId)
+    .is('deleted_at', null)
+    .not('stage', 'in', LIVE_STAGES_FILTER)
+  if (exceptBrewId) q = q.neq('id', exceptBrewId)
+  const { data } = await q.limit(1).maybeSingle()
+  return data
+}
+
+async function batchCodeTaken(supabase: Db, batchCode: string, exceptBrewId: string) {
   const { data } = await supabase
     .from('brews')
-    .select('batch_code')
-    .like('batch_code', `${prefix}%`)
-    .order('batch_code', { ascending: false })
+    .select('id, beer_name')
+    .eq('batch_code', batchCode)
+    .neq('id', exceptBrewId)
     .limit(1)
     .maybeSingle()
-  const lastNum = data?.batch_code ? parseInt(data.batch_code.split('-')[1], 10) : 0
-  return `${prefix}${String(lastNum + 1).padStart(3, '0')}`
+  return data
 }
 
 // ── Assign ────────────────────────────────────────────────────
@@ -34,10 +52,16 @@ export async function assignBrew(data: {
   og_plato: number | null
   initial_ph: number | null
   notes: string
-}) {
+}): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+
+  if (!data.beer_name.trim()) return fail('Give the brew a name.')
+  if (!(data.volume_l > 0)) return fail('Volume must be more than zero.')
+
+  const occupant = await brewInTank(supabase, data.tank_id)
+  if (occupant) return fail(`That tank already holds ${occupant.beer_name}. Refresh the page.`)
 
   const { data: brew, error } = await supabase.from('brews').insert({
     tank_id: data.tank_id,
@@ -50,10 +74,10 @@ export async function assignBrew(data: {
     stage: 'active_ferment',
     notes: data.notes.trim() || null,
   }).select('id').single()
-  if (error) throw error
+  if (error || !brew) return fail(`Could not save the brew: ${error?.message ?? 'no row returned'}`)
 
   if (data.og_plato != null || data.initial_ph != null) {
-    await supabase.from('gravity_readings').insert({
+    const { error: readingError } = await supabase.from('gravity_readings').insert({
       brew_id: brew.id,
       tank_id: data.tank_id,
       plato: data.og_plato,
@@ -61,6 +85,7 @@ export async function assignBrew(data: {
       recorded_by: user.email ?? user.id,
       notes: 'Initial reading',
     })
+    if (readingError) console.error('[assignBrew] initial reading failed:', readingError.message)
   }
 
   // Auto-link any pre-planned packaging split from a scheduled pack event for this tank
@@ -83,9 +108,13 @@ export async function assignBrew(data: {
   }
 
   revalidatePath('/')
+  return { ok: true }
 }
 
 // ── Log reading ───────────────────────────────────────────────
+
+// 0.0 is a real reading (hard lemonade finishes there), so only drop blanks and NaN
+const num = (v: number | null | undefined) => (typeof v === 'number' && !Number.isNaN(v) ? v : null)
 
 export async function logGravityReading(data: {
   brew_id: string
@@ -99,8 +128,8 @@ export async function logGravityReading(data: {
   const { error } = await supabase.from('gravity_readings').insert({
     brew_id: data.brew_id,
     tank_id: data.tank_id,
-    plato: data.plato || null,
-    ph: data.ph || null,
+    plato: num(data.plato),
+    ph: num(data.ph),
     notes: data.notes.trim() || null,
     recorded_by: data.recorded_by,
   })
@@ -121,7 +150,7 @@ export async function updateBrewStage(brew_id: string, tank_id: string, stage: T
     .eq('id', brew_id)
   if (error) throw error
 
-  await supabase.from('gravity_readings').insert({
+  const { error: noteError } = await supabase.from('gravity_readings').insert({
     brew_id,
     tank_id,
     plato: null,
@@ -129,6 +158,7 @@ export async function updateBrewStage(brew_id: string, tank_id: string, stage: T
     recorded_by: user.email ?? user.id,
     notes: `→ ${STAGE_LABELS[stage]}`,
   })
+  if (noteError) console.error('[updateBrewStage] stage note failed:', noteError.message)
 
   revalidatePath('/')
 }
@@ -155,12 +185,44 @@ export async function transferBrew(data: {
   brite_pressure_psi?: number | null
   initial_carb_performed?: boolean
   fv_cooling_off?: boolean
-}) {
+}): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  if (!user) return fail('You are signed out. Sign in again and retry.')
 
-  await supabase.from('transfers').insert({
+  if (!(data.volume_out_l > 0)) return fail('Volume into the tank must be more than zero.')
+  if (data.source_tank_id === data.dest_tank_id) return fail('Pick a different tank to transfer into.')
+
+  const { data: before } = await supabase
+    .from('brews')
+    .select('tank_id, volume_l, stage, batch_code')
+    .eq('id', data.brew_id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!before) return fail('That brew is no longer in a tank. Refresh the page.')
+  if (before.tank_id !== data.source_tank_id) return fail('That brew has already been moved. Refresh the page.')
+
+  const occupant = await brewInTank(supabase, data.dest_tank_id, data.brew_id)
+  if (occupant) return fail(`The destination tank already holds ${occupant.beer_name}.`)
+
+  const batchCode = data.batch_code?.trim() || null
+  if (batchCode) {
+    const clash = await batchCodeTaken(supabase, batchCode, data.brew_id)
+    if (clash) return fail(`Batch code ${batchCode} is already used by ${clash.beer_name}.`)
+  }
+
+  // Move the brew first: it is the write that can be refused. If the transfer
+  // record then fails, the move is undone so the two never disagree.
+  const { error: moveError } = await supabase.from('brews').update({
+    tank_id: data.dest_tank_id,
+    volume_l: data.volume_out_l,
+    stage: 'on_chill',
+    batch_code: batchCode,
+    updated_at: new Date().toISOString(),
+  }).eq('id', data.brew_id)
+  if (moveError) return fail(`Could not move the brew: ${moveError.message}`)
+
+  const { error: transferError } = await supabase.from('transfers').insert({
     brew_id: data.brew_id,
     source_tank_id: data.source_tank_id,
     dest_tank_id: data.dest_tank_id,
@@ -180,16 +242,18 @@ export async function transferBrew(data: {
     initial_carb_performed: data.initial_carb_performed ?? null,
     fv_cooling_off: data.fv_cooling_off ?? null,
   })
+  if (transferError) {
+    await supabase.from('brews').update({
+      tank_id: before.tank_id,
+      volume_l: before.volume_l,
+      stage: before.stage,
+      batch_code: before.batch_code,
+      updated_at: new Date().toISOString(),
+    }).eq('id', data.brew_id)
+    return fail(`Could not record the transfer, so nothing was moved: ${transferError.message}`)
+  }
 
-  await supabase.from('brews').update({
-    tank_id: data.dest_tank_id,
-    volume_l: data.volume_out_l,
-    stage: 'on_chill',
-    batch_code: data.batch_code || null,
-    updated_at: new Date().toISOString(),
-  }).eq('id', data.brew_id)
-
-  await supabase.from('gravity_readings').insert({
+  const { error: noteError } = await supabase.from('gravity_readings').insert({
     brew_id: data.brew_id,
     tank_id: data.dest_tank_id,
     plato: null,
@@ -197,8 +261,10 @@ export async function transferBrew(data: {
     recorded_by: user.email ?? user.id,
     notes: `→ Transferred (${data.volume_out_l}L)`,
   })
+  if (noteError) console.error('[transferBrew] transfer note failed:', noteError.message)
 
   revalidatePath('/')
+  return { ok: true }
 }
 
 // ── Package ───────────────────────────────────────────────────
@@ -224,15 +290,42 @@ export async function packageBrew(data: {
   stock_options_cartons?: number | null
   stock_sales_kegs?: number | null
   stock_sales_cartons?: number | null
-}) {
+}): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+
+  const packages = data.packages.filter(p => p.qty > 0)
+  const batchCode = data.batch_code.trim()
+  if (packages.length === 0) return fail('Enter a quantity for at least one format.')
+  if (!batchCode) return fail('Enter a batch code.')
+
+  const { data: before } = await supabase
+    .from('brews')
+    .select('stage, batch_code')
+    .eq('id', data.brew_id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!before) return fail('That brew has already been packaged. Refresh the page.')
+
+  const clash = await batchCodeTaken(supabase, batchCode, data.brew_id)
+  if (clash) return fail(`Batch code ${batchCode} is already used by ${clash.beer_name}.`)
 
   const now = new Date().toISOString()
 
-  for (const pkg of data.packages.filter(p => p.qty > 0)) {
-    await supabase.from('packaging_runs').insert({
+  // Close the brew first: it is the write that can be refused, and doing it
+  // first means a second tap finds nothing left to package. If the runs then
+  // fail, the brew is reopened so a retry cannot double up the packaged litres.
+  const { error: closeError } = await supabase.from('brews').update({
+    stage: 'packaged',
+    batch_code: batchCode,
+    deleted_at: now,
+    updated_at: now,
+  }).eq('id', data.brew_id)
+  if (closeError) return fail(`Could not close the brew: ${closeError.message}`)
+
+  const { error: runsError } = await supabase.from('packaging_runs').insert(
+    packages.map(pkg => ({
       brew_id: data.brew_id,
       tank_id: data.tank_id,
       packaged_by: user.email ?? user.id,
@@ -241,48 +334,58 @@ export async function packageBrew(data: {
       qty: pkg.qty,
       volume_l: pkg.volume_l,
       notes: data.notes.trim() || null,
-    })
+    }))
+  )
+  if (runsError) {
+    await supabase.from('brews').update({
+      stage: before.stage,
+      batch_code: before.batch_code,
+      deleted_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', data.brew_id)
+    return fail(`Could not record the packaging run, so the brew is still in tank: ${runsError.message}`)
   }
 
-  // Upsert QC + stock data into packaging_splits (create if no plan existed)
-  const hasQcData = data.best_before_date || data.bbt_temp_c != null || data.bbt_co2_vol != null ||
-    data.bbt_do_ppb != null || data.can_co2_vol != null || data.can_do_ppb != null ||
-    data.unders_sor || data.stock_venue_kegs != null || data.stock_options_kegs != null || data.stock_sales_kegs != null
-  if (hasQcData) {
-    await supabase.from('packaging_splits').upsert({
-      brew_id: data.brew_id,
-      // Required fields with safe defaults for new rows
-      hop_load: 'medium',
-      qty_24x375: 0,
-      qty_16x440: 0,
-      qty_keg30: 0,
-      qty_keg50: 0,
-      // QC fields
-      best_before_date: data.best_before_date || null,
-      bbt_temp_c: data.bbt_temp_c ?? null,
-      bbt_co2_vol: data.bbt_co2_vol ?? null,
-      bbt_do_ppb: data.bbt_do_ppb ?? null,
-      can_co2_vol: data.can_co2_vol ?? null,
-      can_do_ppb: data.can_do_ppb ?? null,
-      unders_sor: data.unders_sor || null,
-      stock_venue_kegs: data.stock_venue_kegs ?? null,
-      stock_venue_cartons: data.stock_venue_cartons ?? null,
-      stock_options_kegs: data.stock_options_kegs ?? null,
-      stock_options_cartons: data.stock_options_cartons ?? null,
-      stock_sales_kegs: data.stock_sales_kegs ?? null,
-      stock_sales_cartons: data.stock_sales_cartons ?? null,
-      updated_at: now,
-    }, { onConflict: 'brew_id', ignoreDuplicates: false })
+  // QC readings and stock distribution live on the packaging split. Only those
+  // columns are written, so an existing plan keeps its quantities and hop load.
+  const qc = {
+    best_before_date: data.best_before_date || null,
+    bbt_temp_c: data.bbt_temp_c ?? null,
+    bbt_co2_vol: data.bbt_co2_vol ?? null,
+    bbt_do_ppb: data.bbt_do_ppb ?? null,
+    can_co2_vol: data.can_co2_vol ?? null,
+    can_do_ppb: data.can_do_ppb ?? null,
+    unders_sor: data.unders_sor || null,
+    stock_venue_kegs: data.stock_venue_kegs ?? null,
+    stock_venue_cartons: data.stock_venue_cartons ?? null,
+    stock_options_kegs: data.stock_options_kegs ?? null,
+    stock_options_cartons: data.stock_options_cartons ?? null,
+    stock_sales_kegs: data.stock_sales_kegs ?? null,
+    stock_sales_cartons: data.stock_sales_cartons ?? null,
   }
-
-  await supabase.from('brews').update({
-    stage: 'packaged',
-    batch_code: data.batch_code,
-    deleted_at: now,
-    updated_at: now,
-  }).eq('id', data.brew_id)
+  if (Object.values(qc).some(v => v != null)) {
+    const { data: plan } = await supabase
+      .from('packaging_splits').select('id').eq('brew_id', data.brew_id).maybeSingle()
+    const { error: qcError } = plan
+      ? await supabase.from('packaging_splits').update({ ...qc, updated_at: now }).eq('id', plan.id)
+      : await supabase.from('packaging_splits').insert({
+          brew_id: data.brew_id,
+          hop_load: 'medium',
+          qty_24x375: 0, qty_16x440: 0, qty_keg30: 0, qty_keg50: 0,
+          ...qc,
+          updated_at: now,
+        })
+    if (qcError) {
+      console.error('[packageBrew] QC save failed:', qcError.message)
+      revalidatePath('/')
+      return fail(`Packaged, but the QC and stock figures did not save: ${qcError.message}`)
+    }
+  }
 
   revalidatePath('/')
+  revalidatePath('/packaging')
+  revalidatePath('/history')
+  return { ok: true }
 }
 
 // ── COGS ─────────────────────────────────────────────────────
@@ -482,8 +585,6 @@ export async function savePackagingSplit(data: {
   }
 
   const payload = {
-    brew_id: data.brew_id ?? null,
-    scheduled_brew_id: data.scheduled_brew_id ?? null,
     hop_load: data.hop_load,
     qty_24x375: data.qty_24x375,
     qty_16x440: data.qty_16x440,
@@ -499,10 +600,20 @@ export async function savePackagingSplit(data: {
   }
 
   if (existingId) {
-    const { error } = await supabase.from('packaging_splits').update(payload).eq('id', existingId)
+    // A split is reachable from the tank card (brew_id) and from the schedule
+    // (scheduled_brew_id). Each caller knows only its own link, so an edit sets
+    // the link it has and leaves the other one alone.
+    const links: { brew_id?: string; scheduled_brew_id?: string } = {}
+    if (data.brew_id) links.brew_id = data.brew_id
+    if (data.scheduled_brew_id) links.scheduled_brew_id = data.scheduled_brew_id
+    const { error } = await supabase.from('packaging_splits').update({ ...payload, ...links }).eq('id', existingId)
     if (error) throw error
   } else {
-    const { error } = await supabase.from('packaging_splits').insert(payload)
+    const { error } = await supabase.from('packaging_splits').insert({
+      ...payload,
+      brew_id: data.brew_id ?? null,
+      scheduled_brew_id: data.scheduled_brew_id ?? null,
+    })
     if (error) throw error
   }
 

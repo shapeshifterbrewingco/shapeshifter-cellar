@@ -27,11 +27,11 @@ const SUBTITLES: Record<string, string> = {
 
 function MiniSparkline({ history, colour }: { history: FrigidReading['history']; colour: string }) {
   const w = 200, h = 36
+  const [now] = useState(() => Date.now())
   if (!history?.length) {
     return <div style={{ width: w, height: h }} className="flex items-center"><span className="text-[10px] text-gray-300">No data</span></div>
   }
 
-  const now = Date.now()
   const buckets: { sum: number; count: number }[] = Array.from({ length: 24 }, () => ({ sum: 0, count: 0 }))
   for (const r of history) {
     const ageH = (now - new Date(r.recorded_at).getTime()) / 3_600_000
@@ -86,7 +86,7 @@ function ExpandedModal({ reading, onClose }: { reading: FrigidReading; onClose: 
   const tempColour = TEMP_COLOURS[reading.name] ?? 'text-gray-700'
   const w = 440, h = 180
 
-  const now = Date.now()
+  const [now] = useState(() => Date.now())
   const buckets: { sum: number; count: number }[] = Array.from({ length: 24 }, () => ({ sum: 0, count: 0 }))
   for (const r of reading.history ?? []) {
     const ageH = (now - new Date(r.recorded_at).getTime()) / 3_600_000

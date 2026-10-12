@@ -23,7 +23,7 @@ import { BrewModal } from '@/components/schedule/BrewModal'
 import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume } from '@/app/brews/actions'
 import { setTankTarget } from '@/app/tanks/actions'
 import { calcAbv } from '@/lib/utils'
-import { PACKAGE_FORMATS, HOP_LOAD_LOSS } from '@/types'
+import { toast } from 'sonner'
 import type { TankDashboardData, TankStage, AppSettings } from '@/types'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
 
@@ -45,7 +45,7 @@ const STAGE_TRANSITIONS: { label: string; stage: TankStage }[] = [
 ]
 
 export function TankCard({ data, recipes, currentUser, allTanks, settings, cardSize = 'medium', listMode = false }: TankCardProps) {
-  const { tank, brew, latest_gravity, temperature, set_point_c, temperature_recorded_at, days_in_tank, style_colour, latest_vdk, packaging_split, next_scheduled_brew } = data
+  const { tank, brew, latest_gravity, temperature, set_point_c, days_in_tank, style_colour, latest_vdk, packaging_split, next_scheduled_brew } = data
   const isEmpty = !brew || brew.stage === 'empty'
   const stage = brew?.stage ?? 'empty'
   const vdkPassed = stage === 'vdk_pass' || latest_vdk?.result === 'pass'
@@ -71,7 +71,38 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const [setpointStatus, setSetpointStatus] = useState<'idle' | 'confirming' | 'saving' | 'done' | 'error'>('idle')
   const [setpointMsg, setSetpointMsg] = useState('')
   const [listExpanded, setListExpanded] = useState(false)
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
+
+  // Every card action goes through here: one at a time, and a failure is said
+  // out loud instead of landing on the crash screen.
+  function run(action: () => Promise<unknown>, failure: string) {
+    if (isPending) return
+    startTransition(async () => {
+      try { await action() } catch { toast.error(failure) }
+    })
+  }
+
+  // Sends a set point to the glycol controller after a stage change. Returns
+  // false if the number typed is not a usable temperature.
+  function validTarget(input: string): number | null {
+    const temp = parseFloat(input)
+    if (isNaN(temp) || temp < -5 || temp > 40) {
+      toast.error('Enter a temperature between -5 and 40°C')
+      return null
+    }
+    return temp
+  }
+
+  function changeStageAndTarget(newStage: TankStage, temp: number) {
+    if (!brew) return
+    run(async () => {
+      await updateBrewStage(brew.id, tank.id, newStage)
+      if (!tank.frigid_asset_id) return
+      const res = await setTankTarget(tank.id, temp)
+      if (res.success) toast.success(`${tank.name} set to ${temp}°C`)
+      else toast.error(`Stage changed, but ${tank.name} was NOT set to ${temp}°C: ${res.message}`, { duration: 15000 })
+    }, `Could not change the stage on ${tank.name}. Check the connection and try again.`)
+  }
 
   // Illustration size based on cardSize
   const illW = cardSize === 'small' ? 60 : cardSize === 'large' ? 100 : 80
@@ -119,40 +150,29 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       setShowChillModal(true)
       return
     }
-    startTransition(() => updateBrewStage(brew.id, tank.id, newStage))
+    run(() => updateBrewStage(brew.id, tank.id, newStage), `Could not change the stage on ${tank.name}. Check the connection and try again.`)
   }
 
   function handleChillConfirm() {
-    if (!brew) return
-    const temp = parseFloat(chillTemp)
+    const temp = validTarget(chillTemp)
+    if (temp == null) return
     setShowChillModal(false)
-    startTransition(async () => {
-      await updateBrewStage(brew.id, tank.id, 'on_chill')
-      if (!isNaN(temp) && tank.frigid_asset_id) {
-        await setTankTarget(tank.id, temp)
-      }
-    })
+    changeStageAndTarget('on_chill', temp)
   }
 
   function handleDiacetylConfirm() {
-    if (!brew) return
-    const temp = parseFloat(diacetylTemp)
+    const temp = validTarget(diacetylTemp)
+    if (temp == null) return
     setShowDiacetylModal(false)
-    startTransition(async () => {
-      await updateBrewStage(brew.id, tank.id, 'diacetyl_rest')
-      if (!isNaN(temp) && tank.frigid_asset_id) {
-        await setTankTarget(tank.id, temp)
-      }
-    })
+    changeStageAndTarget('diacetyl_rest', temp)
   }
 
   function handleCip() {
     if (!brew) return
     if (!confirm(`Empty ${tank.name} for CIP? This will free the tank.`)) return
-    startTransition(() => endBrew(brew.id, 'cleaning'))
+    run(() => endBrew(brew.id, 'cleaning'), `Could not empty ${tank.name}. Try again.`)
   }
 
-  const showOg = brew?.og_plato != null
   const showGravity = latest_gravity?.plato != null
   const showPh = latest_gravity?.ph != null
   const abv =
@@ -591,7 +611,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowEditBatch(false)}
                   className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="button" onClick={() => { startTransition(() => updateBatchCode(brew.id, batchInput)); setShowEditBatch(false) }}
+                <button type="button" onClick={() => { run(() => updateBatchCode(brew.id, batchInput), 'Could not save the batch code. It may already be in use.'); setShowEditBatch(false) }}
                   className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90">Save</button>
               </div>
             </div>
@@ -612,7 +632,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                   className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancel</button>
                 <button type="button" onClick={() => {
                   const v = parseFloat(volumeInput)
-                  if (!isNaN(v) && v > 0) startTransition(() => updateBrewVolume(brew.id, v))
+                  if (!isNaN(v) && v > 0) run(() => updateBrewVolume(brew.id, v), 'Could not save the volume. Try again.')
                   setShowEditVolume(false)
                 }} className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90">Save</button>
               </div>
@@ -1128,7 +1148,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               <button
                 type="button"
                 onClick={() => {
-                  startTransition(() => updateBatchCode(brew.id, batchInput))
+                  run(() => updateBatchCode(brew.id, batchInput), 'Could not save the batch code. It may already be in use.')
                   setShowEditBatch(false)
                 }}
                 className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90"
@@ -1167,7 +1187,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 type="button"
                 onClick={() => {
                   const v = parseFloat(volumeInput)
-                  if (!isNaN(v) && v > 0) startTransition(() => updateBrewVolume(brew.id, v))
+                  if (!isNaN(v) && v > 0) run(() => updateBrewVolume(brew.id, v), 'Could not save the volume. Try again.')
                   setShowEditVolume(false)
                 }}
                 className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2 rounded-lg hover:opacity-90"

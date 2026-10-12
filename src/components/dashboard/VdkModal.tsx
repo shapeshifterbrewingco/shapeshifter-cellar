@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { toast } from 'sonner'
 import { X, Loader2 } from 'lucide-react'
 import { logVdkReading, getBrewVdkReadings } from '@/app/brews/actions'
 import { format, parseISO } from 'date-fns'
@@ -42,13 +43,18 @@ export function VdkModal({ brew, tank, currentUser, onClose, onVdkPass }: Props)
 
   function handleLog(result: VdkResult) {
     startTransition(async () => {
-      await logVdkReading({
-        brew_id: brew.id,
-        tank_id: tank.id,
-        result,
-        recorded_by: currentUser,
-        notes,
-      })
+      try {
+        await logVdkReading({
+          brew_id: brew.id,
+          tank_id: tank.id,
+          result,
+          recorded_by: currentUser,
+          notes,
+        })
+      } catch {
+        toast.error('VDK result did not save. Try again.')
+        return
+      }
       if (result === 'pass') {
         onVdkPass()
         return
@@ -82,7 +88,7 @@ export function VdkModal({ brew, tank, currentUser, onClose, onVdkPass }: Props)
         <div className="p-5 space-y-4">
           {/* Result buttons */}
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">Log today's result</p>
+            <p className="text-xs font-medium text-gray-500 mb-2">Log today&apos;s result</p>
             <div className="grid grid-cols-4 gap-2">
               {RESULTS.map(({ result, label, bg, text, border }) => (
                 <button

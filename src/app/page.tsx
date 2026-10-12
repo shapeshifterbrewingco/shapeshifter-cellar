@@ -94,7 +94,7 @@ export default async function DashboardPage() {
           </p>
         )}
         <p className="md:hidden px-1 pt-1 pb-2 text-lg font-semibold tracking-tight text-gray-900">{hello}</p>
-        <QuickLog tanks={tanks} />
+        <QuickLog tanks={tanks} currentUser={user?.email ?? user?.id ?? 'Unknown'} />
         <TankGrid
           tanks={tanks}
           recipes={(recipesResult.data ?? []) as RecipeOption[]}

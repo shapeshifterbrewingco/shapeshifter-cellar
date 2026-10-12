@@ -15,6 +15,7 @@ import {
 import { TankIllustration } from './TankIllustration'
 import { VDK_STYLE } from '@/lib/vdk'
 import { BEER_COLOURS } from '@/types'
+import { AdditionsDialog, additionsLabel } from './AdditionsDialog'
 import { StageBadge } from './StageBadge'
 import { TankDetailSheet } from './TankDetailSheet'
 import { TempTap } from './SetPoint'
@@ -54,7 +55,7 @@ const STAGE_TRANSITIONS: { label: string; stage: TankStage }[] = [
 ]
 
 export function TankCard({ data, recipes, currentUser, allTanks, settings, cardSize = 'medium', listMode = false, compact = false }: TankCardProps) {
-  const { tank, brew, latest_gravity, temperature, set_point_c, days_in_tank, style_colour, latest_vdk, packaging_split, next_scheduled_brew } = data
+  const { tank, brew, latest_gravity, temperature, set_point_c, days_in_tank, style_colour, latest_vdk, packaging_split, next_scheduled_brew, additions } = data
   const isEmpty = !brew || brew.stage === 'empty'
   const stage = brew?.stage ?? 'empty'
   const vdkPassed = stage === 'vdk_pass' || latest_vdk?.result === 'pass'
@@ -67,6 +68,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const [showTransferModal, setShowTransferModal] = useState(false)
   const [showPackageModal, setShowPackageModal] = useState(false)
   const [showVdkModal, setShowVdkModal] = useState(false)
+  const [showAdditions, setShowAdditions] = useState(false)
   const [showSplitModal, setShowSplitModal] = useState(false)
   const [showEditBatch, setShowEditBatch] = useState(false)
   const [batchInput, setBatchInput] = useState(brew?.batch_code ?? '')
@@ -218,6 +220,19 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     url.searchParams.delete('tank')
     window.history.replaceState(null, '', url.pathname + url.search)
   }, [tank.id, hasBrew])
+
+  // Dry hops, fruit and cellar additions: a pill that says where they are up to
+  // and opens the list to tick them off. Not shown while the brew day is still running.
+  const additionsInfo = brew && !isEmpty && !inProduction(brew) ? additionsLabel(additions) : null
+  const additionsPill = additionsInfo ? (
+    <button type="button" onClick={(e) => { e.stopPropagation(); setShowAdditions(true) }}
+      className={`self-start rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${additionsInfo.className}`}>
+      {additionsInfo.text}
+    </button>
+  ) : null
+  const additionsDialog = showAdditions && brew && additions ? (
+    <AdditionsDialog key={brew.id} brewId={brew.id} beer={brew.beer_name} tank={tank.name} additions={additions} onClose={() => setShowAdditions(false)} />
+  ) : null
 
   const sheetStages: StageOption[] = STAGE_TRANSITIONS
     .filter((t) => t.stage !== stage)
@@ -382,6 +397,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             {look.label}
           </span>
           {vdkLine}
+          {additionsPill}
         </div>
       </div>
       <dl className="grid grid-cols-4 mt-3 pt-2.5 border-t border-gray-100">
@@ -612,6 +628,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       {brew.style && <p className="text-xs text-gray-500 mt-0.5">{brew.style}</p>}
                     </div>
                     <StageBadge stage={stage} inProduction={inProduction(brew)} />
+                    {additionsPill}
                     {stage === 'diacetyl_rest' && (() => {
                       const VDK_STYLES: Record<string, string> = {
                         high: 'bg-red-50 text-red-700 border-red-200', medium: 'bg-malt/15 text-malt-dark border-malt/40',
@@ -921,6 +938,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             volume_l={brew.volume_l} defaultHopLoad={settings.default_hop_load} settings={settings} onClose={() => setShowSplitModal(false)} />
         )}
         {renameDialog}
+        {additionsDialog}
         {showEditBatch && brew && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-4">
@@ -1054,6 +1072,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
               {/* Stage badge */}
               <StageBadge stage={stage} inProduction={inProduction(brew)} />
+              {additionsPill}
 
               {/* Latest VDK result — diacetyl rest only */}
               {stage === 'diacetyl_rest' && (() => {
@@ -1427,6 +1446,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         />
       )}
       {renameDialog}
+        {additionsDialog}
       {showEditBatch && brew && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-4">

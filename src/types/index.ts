@@ -250,6 +250,8 @@ export interface TankDashboardData {
   days_in_tank: number | null
   style_colour?: string | null
   latest_vdk?: { result: VdkResult; recorded_at: string } | null
+  /** Dry hops, fruit and cellar additions still to go in. Null when the beer has none. */
+  additions?: import('@/lib/brew-sheet').AdditionStatus | null
   packaging_split?: PackagingSplit | null
   next_scheduled_brew?: NextScheduledBrew | null
 }

@@ -272,3 +272,29 @@ export function recipeChanges(recipe: BrewSheetData, sheet: BrewSheetData): stri
   scalar('Set temp', recipe.yeast.set_temp_c, sheet.yeast.set_temp_c, '°C')
   return out
 }
+
+// Enzymes, finings and process aids share the cellar additions list with the hops and fruit
+const NOT_HOP_OR_FRUIT = /aldc|enzyme|zinc|antifoam|hop ?aid|biofine|finings|nutrient|tetra|sorbate|spirit|servomyces|whirlfloc|poly ?gel/i
+
+/** One thing that goes in after brew day. `index` is its place in the sheet's dry hop list. */
+export interface AdditionLine { index: number; name: string; amount: string; when: string; done: boolean; note: string }
+
+/** Where a beer is up to with what goes in after brew day: dry hops, fruit, finings. */
+export interface AdditionStatus {
+  lines: AdditionLine[]
+  /** How many are still to go in */
+  todo: number
+  /** True while a hop or fruit addition is still to go, as opposed to only finings and the like */
+  hopsOrFruitToGo: boolean
+}
+
+/** Works from the after-brew-day lines only: Day 0 additions belong to the brew day. */
+export function additionStatus(dryHops: SheetLine[]): AdditionStatus | null {
+  const lines = dryHops
+    .map((l, index) => ({ l, index }))
+    .filter(({ l }) => l.name.trim() && !isDayZero(l))
+    .map(({ l, index }) => ({ index, name: l.name.trim(), amount: [l.amount, l.unit].filter(Boolean).join(' '), when: l.when, done: l.done, note: l.note }))
+  if (!lines.length) return null
+  const todo = lines.filter((l) => !l.done)
+  return { lines, todo: todo.length, hopsOrFruitToGo: todo.some((l) => !NOT_HOP_OR_FRUIT.test(l.name)) }
+}

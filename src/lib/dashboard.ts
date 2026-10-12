@@ -1,3 +1,4 @@
+import { additionStatus, sanitiseSheet, sheetFromRecipe } from '@/lib/brew-sheet'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TankDashboardData, PackagingSplit, NextScheduledBrew } from '@/types'
 import type { FrigidReading } from '@/lib/frigid'
@@ -44,6 +45,7 @@ export async function getDashboardData(
 
   const tankIds = (tanks ?? []).map((t: { id: string }) => t.id)
   const brewIds = (brews ?? []).map((b: { id: string }) => b.id)
+  const recipeIds = [...new Set((brews ?? []).map((b: { recipe_id: string | null }) => b.recipe_id).filter((x): x is string => !!x))]
   const today = breweryToday()
 
   const none = Promise.resolve({ data: [] as never[] })
@@ -54,6 +56,8 @@ export async function getDashboardData(
     { data: splits },
     { data: vdkReadings },
     { data: temps },
+    { data: sheetRows },
+    { data: recipeLines },
   ] = await Promise.all([
     brewIds.length > 0
       ? supabase
@@ -83,6 +87,13 @@ export async function getDashboardData(
           .in('tank_id', tankIds)
           .order('recorded_at', { ascending: false })
           .limit(tankIds.length * 5)
+      : none,
+    // What still has to go into each beer: its brew sheet if one is started, otherwise its recipe
+    brewIds.length > 0
+      ? supabase.from('brew_sheets').select('brew_id, dry_hops:data->dry_hops').in('brew_id', brewIds)
+      : none,
+    recipeIds.length > 0
+      ? supabase.from('recipe_ingredients').select('recipe_id, name, addition_stage, quantity, unit, time_minutes, trigger').in('recipe_id', recipeIds).in('addition_stage', ['dry_hop', 'process']).order('sort_order')
       : none,
   ])
 
@@ -125,6 +136,14 @@ export async function getDashboardData(
   // ── Build output ───────────────────────────────────────────────────────────
   type BrewRow = { id: string; recipe_id: string | null; tank_id: string; brew_day: string; volume_l: number; og_plato: number | null; stage: string; beer_name: string; style: string | null; notes: string | null; batch_code: string | null; colour: string | null }
   type TankRow = { id: string; name: string; type: 'fermenter' | 'brite'; frigid_tank_name: string | null; frigid_asset_id: string | null; sort_order: number; desired_set_point_c: number | null }
+
+  const sheetDryHops = new Map(((sheetRows ?? []) as { brew_id: string; dry_hops: unknown }[]).map((r) => [r.brew_id, r.dry_hops]))
+  const additionsFor = (brew: BrewRow) => {
+    if (sheetDryHops.has(brew.id)) return additionStatus(sanitiseSheet({ dry_hops: sheetDryHops.get(brew.id) }).dry_hops)
+    if (!brew.recipe_id) return null
+    const lines = ((recipeLines ?? []) as { recipe_id: string }[]).filter((l) => l.recipe_id === brew.recipe_id)
+    return additionStatus(sheetFromRecipe(lines as never).dry_hops)
+  }
 
   const brewByTank = new Map((brews as BrewRow[] ?? []).map((b) => [b.tank_id, b]))
 
@@ -174,6 +193,7 @@ export async function getDashboardData(
       days_in_tank: brew?.brew_day ? daysBetweenISO(brew.brew_day.slice(0, 10), today) : null,
       // A colour picked for this beer wins over its style's
       style_colour: brew?.colour ?? (brew?.style ? (styleColourMap.get(brew.style) ?? null) : null),
+      additions: brew ? additionsFor(brew) : null,
       latest_vdk: brew ? (latestVdk[brew.id] as import('@/types').TankDashboardData['latest_vdk'] ?? null) : null,
       packaging_split: brew ? (splitsByBrew[brew.id] ?? null) : null,
       next_scheduled_brew: !brew ? (nextBrews[tank.name] ?? null) : null,

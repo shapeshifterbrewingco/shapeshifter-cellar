@@ -284,3 +284,54 @@ export async function applySheetToRecipe(brew_id: string): Promise<{ ok: true; v
   revalidatePath(`/recipes/${recipe.id}`)
   return { ok: true, version }
 }
+
+/**
+ * Tick a dry hop or cellar addition off (or back on) from the tank card. The
+ * brew sheet is the record, so this writes to it, starting one from the recipe
+ * if the brew does not have a sheet yet.
+ */
+export async function recordAddition(input: { brew_id: string; index: number; name: string; done: boolean }): Promise<Result> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+
+  const { data: brew } = await supabase.from('brews').select('id, beer_name, tank_id, recipe_id, deleted_at').eq('id', input.brew_id).maybeSingle()
+  if (!brew || brew.deleted_at) return fail('That brew is no longer in tank.')
+  const { data: row } = await supabase.from('brew_sheets').select('data, unchecked').eq('brew_id', input.brew_id).maybeSingle()
+
+  let sheet = row ? sanitiseSheet(row.data) : null
+  if (!sheet) {
+    const { data: lines } = brew.recipe_id
+      ? await supabase.from('recipe_ingredients').select('name, addition_stage, quantity, unit, time_minutes, trigger').eq('recipe_id', brew.recipe_id).order('sort_order')
+      : { data: [] }
+    sheet = sheetFromRecipe(lines ?? [])
+  }
+  const line = sheet.dry_hops[input.index]
+  // The card may be a moment behind the sheet: the name has to match too
+  if (!line || line.name.trim() !== input.name.trim()) return fail('That list has changed. Refresh and try again.')
+  if (line.done === input.done) return { ok: true }
+
+  const stamp = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Adelaide', day: 'numeric', month: 'short' }).format(new Date())
+  sheet.dry_hops[input.index] = {
+    ...line, done: input.done,
+    note: input.done ? `Added ${stamp} by ${who(user.email)}` : line.note.replace(/^Added .* by .*$/, ''),
+  }
+  const { error } = await supabase.from('brew_sheets').upsert({
+    brew_id: input.brew_id, data: sheet, unchecked: row?.unchecked ?? [],
+    updated_at: new Date().toISOString(), updated_by: user.email ?? user.id,
+  }, { onConflict: 'brew_id' })
+  if (error) return fail(`Not saved: ${error.message}`)
+
+  if (input.done) {
+    const what = [line.name.trim(), [line.amount, line.unit].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    // On the ferment log too, so the chart shows when it went in
+    const { error: noteError } = await supabase.from('gravity_readings').insert({
+      brew_id: input.brew_id, tank_id: brew.tank_id, plato: null, ph: null,
+      recorded_by: user.email ?? user.id, notes: `Added ${what}`,
+    })
+    if (noteError) console.error('[recordAddition] log note failed:', noteError.message)
+    logActivity(`${who(user.email)} added ${esc(what)} to *${esc(brew.beer_name)}*.`)
+  }
+  revalidatePath('/')
+  return { ok: true }
+}

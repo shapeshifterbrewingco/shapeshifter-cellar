@@ -360,7 +360,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                   <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c} className="text-left leading-tight">
                     <span className="block">{value}</span>
                     <span className="block text-[11px] font-normal text-gray-400 whitespace-nowrap">
-                      {set_point_c != null && set_point_c !== 200 ? `Set ${set_point_c.toFixed(1)}°` : 'No set point'}
+                      {set_point_c != null && set_point_c !== 200 ? `Set to ${set_point_c.toFixed(1)}°` : 'No set point'}
                     </span>
                   </TempTap>
                 )
@@ -413,7 +413,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       <div className="flex items-center gap-2">
         <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c} className="flex-shrink-0 leading-tight">
           <span className="block text-base font-semibold tabular-nums text-gray-900">{temperature != null ? `${temperature.toFixed(1)}°C` : '-'}</span>
-          <span className="block text-[11px] text-gray-400 tabular-nums">{set_point_c != null && set_point_c !== 200 ? `Set ${set_point_c.toFixed(1)}°C` : 'No set point'}</span>
+          <span className="block text-[11px] text-gray-400 tabular-nums">{set_point_c != null && set_point_c !== 200 ? `Set to ${set_point_c.toFixed(1)}°C` : 'No set point'}</span>
         </TempTap>
         <div className="ml-auto flex items-center gap-2">
           {isEmpty || !brew ? (

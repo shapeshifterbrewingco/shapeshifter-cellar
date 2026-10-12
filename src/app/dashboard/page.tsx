@@ -242,12 +242,9 @@ export default async function DashboardPage() {
       <AutoRefresh seconds={60} />
       <div className="px-4 md:px-6 py-5 max-w-[1500px] mx-auto space-y-4">
         {/* Same greeting line as the Cellar page */}
-        <div className="md:flex md:items-baseline md:justify-between">
-          <h1 className="px-1 md:px-0 text-lg font-semibold md:text-2xl md:font-bold tracking-tight text-gray-900">
-            <Hello text={hello} name={firstName} special={!!specialGreeting(firstName, { birthday })} />
-          </h1>
-          <p className="px-1 md:px-0 text-sm text-gray-500">Dashboard · {fmtDay(today)}</p>
-        </div>
+        <h1 className="px-1 md:px-0 text-lg font-semibold md:text-2xl md:font-bold tracking-tight text-gray-900">
+          <Hello text={hello} name={firstName} special={!!specialGreeting(firstName, { birthday })} />
+        </h1>
 
         {/* Headline numbers */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

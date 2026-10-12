@@ -3,9 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { saveBrewSheet, importSheetReadings } from '@/app/brews/sheet-actions'
+import { importSheetReadings } from '@/app/brews/sheet-actions'
 import { sheetProgress, bagsLabel } from '@/lib/brew-sheet'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
+
+type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean }
+
+/** Save through a plain request, so the page is never re-rendered under the brewer's thumbs. */
+async function postSheet(input: SaveInput): Promise<{ ok: true } | { ok: false; message: string }> {
+  const res = await fetch('/api/brew-sheet', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), keepalive: true,
+  })
+  // Signed out: the login page comes back instead of an answer
+  if (!(res.headers.get('content-type') ?? '').includes('json')) return { ok: false, message: 'You are signed out. Sign in again and your changes will save.' }
+  return res.json()
+}
 
 interface BrewInfo { id: string; beer_name: string; style: string | null; brew_day: string; tank_id: string; tank_name: string }
 
@@ -101,7 +113,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       const snap = latest.current
       let ok = false
       try {
-        const res = await saveBrewSheet({ brew_id: brew.id, data: snap.data, unchecked: snap.unchecked, source: snap.source })
+        const res = await postSheet({ brew_id: brew.id, data: snap.data, unchecked: snap.unchecked, source: snap.source })
         ok = res.ok
         if (!res.ok) toast.error(res.message)
       } catch {
@@ -340,7 +352,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     setFinishing(true)
     try {
       const snap = latest.current
-      const res = await saveBrewSheet({ brew_id: brew.id, data: snap.data, unchecked: snap.unchecked, source: snap.source, finish: true })
+      const res = await postSheet({ brew_id: brew.id, data: snap.data, unchecked: snap.unchecked, source: snap.source, finish: true })
       if (!res.ok) { toast.error(res.message); return }
       setDone(true)
       setStatus('saved')

@@ -154,14 +154,13 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
           <YAxis
             yAxisId="plato"
             orientation="left"
-            // Whole-number bounds, so the ticks are round numbers and not 12.799999
+            // Whole-number bounds and one fixed decimal, so a tick reads 12.8 and never 12.799999
             domain={[Math.max(0, Math.floor(platoMin - platoPad)), Math.ceil(platoMax + platoPad)]}
-            allowDecimals={false}
             tick={{ fontSize: 10, fill: '#0d9488' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `${Math.round(Number(v) * 10) / 10}°P`}
-            width={40}
+            tickFormatter={(v) => `${Number(v).toFixed(1)}°P`}
+            width={46}
           />
 
           {/* Right: Temperature °C */}

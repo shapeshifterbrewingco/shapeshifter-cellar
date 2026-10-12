@@ -724,7 +724,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           </div>
         )}
         {showAssignModal && (
-          <AssignBrewModal tank={tank} recipes={recipes} defaultVolumeL={settings.default_brew_volume_l} onClose={() => setShowAssignModal(false)} />
+          <AssignBrewModal tank={tank} recipes={recipes} defaultVolumeL={settings.default_brew_volume_l}
+            plannedName={next_scheduled_brew?.recipe?.name ?? next_scheduled_brew?.recipe_name}
+            onClose={() => setShowAssignModal(false)} />
         )}
         {showLogModal && brew && (
           <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />
@@ -1230,7 +1232,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         </div>
       )}
       {showAssignModal && (
-        <AssignBrewModal tank={tank} recipes={recipes} defaultVolumeL={settings.default_brew_volume_l} onClose={() => setShowAssignModal(false)} />
+        <AssignBrewModal tank={tank} recipes={recipes} defaultVolumeL={settings.default_brew_volume_l}
+            plannedName={next_scheduled_brew?.recipe?.name ?? next_scheduled_brew?.recipe_name}
+            onClose={() => setShowAssignModal(false)} />
       )}
       {showLogModal && brew && (
         <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />

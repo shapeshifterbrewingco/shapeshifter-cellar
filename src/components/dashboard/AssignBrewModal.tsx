@@ -18,18 +18,52 @@ interface Props {
   tank: Tank
   recipes: RecipeOption[]
   defaultVolumeL?: number | null
+  /** The brew booked for this tank on the calendar, e.g. "Party Shirt KEGS (PROPOSED)". Pre-fills the form. */
+  plannedName?: string | null
   onClose: () => void
 }
 
 const today = () => breweryToday()
 
-export function AssignBrewModal({ tank, recipes, defaultVolumeL, onClose }: Props) {
-  const [recipeId, setRecipeId] = useState('')
-  const [beerName, setBeerName] = useState('')
-  const [style, setStyle] = useState('')
+/**
+ * A calendar title carries planning shorthand after the beer name: the pack
+ * format and whether it is confirmed. "Party Shirt KEGS (PROPOSED)" is a brew
+ * of Party Shirt.
+ */
+function beerFromPlan(title: string | null | undefined): string {
+  if (!title) return ''
+  return title
+    .replace(/\((proposed|tbc|tentative)\)/gi, ' ')
+    .replace(/\b(kegs?|cans?|cartons?|split|only)\b\s*$/i, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s-]+$/, '')
+    .trim()
+}
+
+export function AssignBrewModal({ tank, recipes, defaultVolumeL, plannedName, onClose }: Props) {
+  // Start from what the calendar says is going in this tank. Everything stays
+  // editable: the plan is a starting point, not a lock.
+  const planned = beerFromPlan(plannedName)
+  const plannedRecipe = (() => {
+    if (!planned) return null
+    const want = planned.toLowerCase()
+    const exact = recipes.find((r) => r.name.toLowerCase() === want)
+    if (exact) return exact
+    // The calendar shortens names ("Findon's" for Findon's Finest). Take a
+    // recipe that starts the same way only if exactly one does.
+    const starts = want.length >= 4 ? recipes.filter((r) => r.name.toLowerCase().startsWith(want)) : []
+    return starts.length === 1 ? starts[0] : null
+  })()
+
+  const [recipeId, setRecipeId] = useState(plannedRecipe?.id ?? '')
+  const [beerName, setBeerName] = useState(plannedRecipe?.name ?? planned)
+  const [style, setStyle] = useState(plannedRecipe?.style ?? '')
   const [brewDay, setBrewDay] = useState(today())
-  const [volumeL, setVolumeL] = useState(defaultVolumeL != null ? String(defaultVolumeL) : '')
-  const [ogPlato, setOgPlato] = useState('')
+  const [volumeL, setVolumeL] = useState(
+    plannedRecipe?.brew_volume_l != null ? String(plannedRecipe.brew_volume_l)
+      : defaultVolumeL != null ? String(defaultVolumeL) : ''
+  )
+  const [ogPlato, setOgPlato] = useState(plannedRecipe?.target_og_plato != null ? String(plannedRecipe.target_og_plato) : '')
   const [ph, setPh] = useState('5.4')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)

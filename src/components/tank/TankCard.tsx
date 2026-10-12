@@ -289,7 +289,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   ]
 
   const mobileRow = isEmpty || !brew ? (
-    <div className="md:hidden flex items-center gap-3 rounded-2xl bg-white/60 ring-1 ring-black/5 px-4 py-3">
+    <div className="tank-empty md:hidden flex items-center gap-3 rounded-2xl bg-white/60 ring-1 ring-black/5 px-4 py-3">
       <span className="w-12 flex-shrink-0 text-[15px] font-semibold text-gray-400 tabular-nums">{tank.name}</span>
       <div className="flex-1 min-w-0">
         {next_scheduled_brew ? (
@@ -311,7 +311,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   ) : (
     <div onClick={handleCardTap} role="button" tabIndex={0} aria-label={`${tank.name}, ${brew.beer_name}. Open details`}
       onKeyDown={(e) => { if (e.key === 'Enter') setShowDetail(true) }}
-      className="md:hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 pt-3.5 pb-3 active:bg-gray-50 transition-colors">
+      className="tank-full md:hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 pt-3.5 pb-3 active:bg-gray-50 transition-colors">
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-semibold tracking-wide text-gray-400">
@@ -345,7 +345,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   // ── Compact desktop card ──────────────────────────────────────────────────
   // Everything the full card says, in half the height: no drawing, one line each.
   const compactCard = (
-    <div className="hidden md:flex flex-1 min-h-0 flex-col justify-between gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 py-3">
+    <div className={`${isEmpty ? 'tank-empty' : 'tank-full'} hidden md:flex flex-1 min-h-0 flex-col justify-between gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 py-3`}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-lg font-semibold text-gray-900 tracking-tight leading-none whitespace-nowrap">{tank.name}</span>
         {isEmpty || !brew
@@ -883,7 +883,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       {detailSheet}
       {mobileRow}
       {compact && compactCard}
-      <div className={`${compact ? 'hidden' : 'hidden md:flex'} flex-col rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden w-full`}>
+      <div className={`${compact ? 'hidden' : 'hidden md:flex'} ${isEmpty ? 'tank-empty' : 'tank-full'} flex-col rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden w-full`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">

@@ -255,3 +255,11 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 
 /* Hairline card edges are black-on-white in day mode; at night they need to be light */
 .dark [class*="ring-black/"] { --tw-ring-color: rgb(255 255 255 / 0.07); }
+
+/* At night every card is nearly the same dark, so a tank with beer in it is
+   lifted a shade and an empty one sits back, and the cellar reads at a glance. */
+.dark .tank-full { --color-white: #24353a; --color-gray-50: #2b3e44; --color-gray-100: #2b3e44; --color-gray-200: #3a5057; }
+.dark .tank-empty { --color-white: #121a1c; }
+.dark .tank-full[class*="ring-black/"] { --tw-ring-color: rgb(255 255 255 / 0.14); }
+/* Buttons on those cards keep white text */
+.dark :is(.tank-full, .tank-empty) :is(.bg-primary, .bg-hops, [class*="text-white"]) { --color-white: #ffffff; }

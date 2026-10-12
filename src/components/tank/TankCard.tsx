@@ -25,6 +25,7 @@ import { PackagingSplitModal } from '@/components/dashboard/PackagingSplitModal'
 import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume, renameBrew } from '@/app/brews/actions'
 import { setTankTarget } from '@/app/tanks/actions'
 import { calcAbv } from '@/lib/utils'
+import { stageStyle } from '@/lib/stage-style'
 import { toast } from 'sonner'
 import type { TankDashboardData, TankStage, AppSettings } from '@/types'
 import type { RecipeOption } from '@/components/dashboard/AssignBrewModal'
@@ -250,32 +251,13 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       : null
 
   // ── Left-border colour for list mode ──────────────────────────────────────
-  const listBorderColour =
-    stage === 'active_ferment' ? 'border-l-amber-400' :
-    stage === 'diacetyl_rest'  ? 'border-l-violet-400' :
-    stage === 'on_chill'       ? 'border-l-blue-600' :
-    stage === 'vdk_pass'       ? 'border-l-orange-400' :
-    'border-l-gray-200'
+  const listBorderColour = stageStyle(stage).accent
 
   // ── Phone layout ──────────────────────────────────────────────────────────
   // One calm white card per tank: name and stage on top, four numbers below.
   // No buttons: tapping the card opens the detail screen, which has them all.
   // Stage is the only thing that carries colour.
-  const stagePill: Record<string, string> = {
-    active_ferment: 'bg-amber-50 text-amber-700',
-    diacetyl_rest:  'bg-violet-50 text-violet-700',
-    vdk_pass:       'bg-orange-50 text-orange-700',
-    on_chill:       'bg-sky-50 text-sky-700',
-  }
-  const stageDot: Record<string, string> = {
-    active_ferment: 'bg-amber-400',
-    diacetyl_rest:  'bg-violet-400',
-    vdk_pass:       'bg-orange-400',
-    on_chill:       'bg-sky-500',
-  }
-  const phoneStageLabel: Record<string, string> = {
-    active_ferment: 'Fermenting', diacetyl_rest: 'Diacetyl rest', vdk_pass: 'VDK pass', on_chill: 'On chill',
-  }
+  const look = stageStyle(stage)
   const phoneStats: [string, string][] = [
     ['Gravity', latest_gravity?.plato != null ? `${latest_gravity.plato}°P` : '-'],
     ['pH', latest_gravity?.ph != null ? String(latest_gravity.ph) : '-'],
@@ -317,9 +299,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             {[brew.style, `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`].filter(Boolean).join(' · ')}
           </p>
         </div>
-        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${stagePill[stage] ?? 'bg-gray-100 text-gray-600'}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${stageDot[stage] ?? 'bg-gray-400'}`} />
-          {phoneStageLabel[stage] ?? stage}
+        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${look.pill}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${look.dot}`} />
+          {look.label}
         </span>
       </div>
       <dl className="grid grid-cols-4 mt-3 pt-2.5 border-t border-gray-100">

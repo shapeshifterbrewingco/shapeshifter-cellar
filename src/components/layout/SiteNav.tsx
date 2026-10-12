@@ -60,9 +60,19 @@ function Logo({ size = 'md', onNavigate }: { size?: 'sm' | 'md'; onNavigate?: ()
       <img
         src="/wolf.svg"
         alt="Shapeshifter Cellar"
-        className={size === 'sm' ? 'h-10 w-10' : 'h-24 w-24'}
+        className={size === 'sm' ? 'h-9 w-9' : 'h-16 w-16'}
         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
       />
+    </Link>
+  )
+}
+
+// The Shapeshifter horizontal logo from the brand pack. Also a way home.
+function Wordmark({ className = '' }: { className?: string }) {
+  return (
+    <Link href="/" aria-label="Shapeshifter Cellar home" className={`block ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo-horizontal.png" alt="Shapeshifter" className="block w-full h-auto" />
     </Link>
   )
 }
@@ -119,7 +129,7 @@ export function SiteNav() {
       <aside className="hidden md:flex flex-col w-44 bg-primary fixed top-0 left-0 bottom-0 z-30">
         <div className="px-4 py-5 border-b border-white/10 flex flex-col items-center gap-1">
           <Logo />
-          <p className="text-white font-bold text-xs text-center leading-tight">Shapeshifter Brewing Co</p>
+          <Wordmark className="w-full mt-2" />
         </div>
         <div className="flex-1 flex flex-col overflow-y-auto py-2">
           <NavLinks />
@@ -132,6 +142,8 @@ export function SiteNav() {
       {/* ── Mobile top bar ───────────────────────────────────── */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-primary flex items-center justify-between px-4 h-14">
         <Logo size="sm" />
+        {/* Centred on the bar itself, whatever sits either side */}
+        <Wordmark className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[46%] max-w-[210px]" />
         <button
           onClick={() => setOpen(true)}
           className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"

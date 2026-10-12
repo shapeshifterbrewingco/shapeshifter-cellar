@@ -157,7 +157,7 @@ function BriteTank({ fillColour, isDark, empty, stage, volume_l, temperature, wi
           <path d={BBT_INTERIOR} />
         </clipPath>
       </defs>
-      <path d={BBT_DARK} fill="#94a3b8" />
+      <path d={BBT_DARK} fill="#09434D" />
       <path d={BBT_INTERIOR} fill={fillColour} opacity={empty ? 1 : 0.85} />
       {showAnim && (
         <g clipPath={`url(#${clipId})`}>
@@ -189,7 +189,7 @@ function FermenterTank({ fillColour, isDark, empty, stage, volume_l, temperature
           <path d={FV_INTERIOR} />
         </clipPath>
       </defs>
-      <path d={FV_DARK} fill="#94a3b8" />
+      <path d={FV_DARK} fill="#09434D" />
       <path d={FV_INTERIOR} fill={fillColour} opacity={empty ? 1 : 0.85} />
       {showAnim && (
         <g clipPath={`url(#${clipId})`}>

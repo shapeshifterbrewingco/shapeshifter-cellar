@@ -91,11 +91,11 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
               onClick={() => setTankId(t.tank.id)}
               aria-pressed={on}
               className={`min-h-14 rounded-xl border px-2 py-2 text-left transition-colors ${
-                on ? 'bg-primary border-primary text-white' : 'bg-gray-50 border-gray-200 text-gray-900 active:bg-gray-100'
+                on ? 'bg-yeast border-yeast text-charcoal' : 'bg-background border-black/5 text-charcoal active:bg-black/5'
               }`}
             >
               <span className="block text-sm font-bold leading-tight">{t.tank.name}</span>
-              <span className={`block text-[11px] leading-tight truncate ${on ? 'text-white/80' : 'text-gray-500'}`}>{t.brew!.beer_name}</span>
+              <span className={`block text-[11px] leading-tight truncate ${on ? 'text-charcoal/70' : 'text-gray-500'}`}>{t.brew!.beer_name}</span>
             </button>
           )
         })}

@@ -9,6 +9,7 @@ import { stockForecast } from '@/lib/planner/forecast'
 import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
 import { calcAbv, formatUserName } from '@/lib/utils'
 import { daysBetweenISO } from '@/lib/dates'
+import { stageStyle } from '@/lib/stage-style'
 import type { TankDashboardData } from '@/types'
 import type { CalEvent } from '@/lib/planner/google'
 
@@ -18,12 +19,6 @@ export const dynamic = 'force-dynamic'
 
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
 
-const STAGE: Record<string, { label: string; pill: string; dot: string }> = {
-  active_ferment: { label: 'Fermenting',    pill: 'bg-amber-50 text-amber-700',   dot: 'bg-amber-400' },
-  diacetyl_rest:  { label: 'Diacetyl rest', pill: 'bg-violet-50 text-violet-700', dot: 'bg-violet-400' },
-  vdk_pass:       { label: 'VDK pass',      pill: 'bg-orange-50 text-orange-700', dot: 'bg-orange-400' },
-  on_chill:       { label: 'On chill',      pill: 'bg-sky-50 text-sky-700',       dot: 'bg-sky-500' },
-}
 
 function Panel({ title, action, children, className = '' }: {
   title: string; action?: React.ReactNode; children: React.ReactNode; className?: string
@@ -269,7 +264,7 @@ export default async function DashboardPage() {
                 <tbody>
                   {tanks.map((t) => {
                     const { tank, brew } = t
-                    const stage = brew ? STAGE[brew.stage] : null
+                    const stage = brew ? stageStyle(brew.stage) : null
                     const abv = brew?.og_plato != null && t.latest_gravity?.plato != null ? calcAbv(brew.og_plato, t.latest_gravity.plato) : null
                     const lastDay = t.latest_gravity?.recorded_at?.slice(0, 10)
                     const since = lastDay ? daysBetweenISO(lastDay, today) : null

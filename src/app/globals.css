@@ -139,3 +139,14 @@
 .planner-md th, .planner-md td { border: 1px solid var(--border); padding: 0.25rem 0.45rem; text-align: left; white-space: nowrap; }
 .planner-md th { background: oklch(0.97 0 0); font-weight: 600; }
 .planner-md code { font-size: 0.8em; background: oklch(0.96 0 0); padding: 0 0.25rem; border-radius: 0.25rem; }
+
+/* iPhone zooms the whole page in when you tap into a field with text smaller
+   than 16px, and leaves it zoomed, so the screen ends up wider than the phone
+   and slides left and right. Keeping every field at 16px on touch screens stops
+   the zoom at the source. Deliberately outside @layer so it beats text-sm etc. */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px; }
+}
+
+/* Nothing in this app is meant to scroll sideways as a whole page */
+html, body { overflow-x: clip; }

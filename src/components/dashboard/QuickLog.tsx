@@ -15,34 +15,33 @@ const parse = (s: string) => {
 }
 
 /**
- * The phone's front door: pick a tank, type what the sample says, save.
- * The time and who logged it are stamped on the server. Everything else about
- * a brew lives on the tank card further down.
+ * The phone's front door: pick a tank, type gravity and pH, save. The time,
+ * who logged it and the tank's temperature (from its Frigid probe) are stamped
+ * on the server. Everything else about a brew lives on the tank card below.
  */
 export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
   const live = tanks.filter((t) => t.brew && t.brew.stage !== 'empty')
   const [tankId, setTankId] = useState<string | null>(live.length === 1 ? live[0].tank.id : null)
   const [gravity, setGravity] = useState('')
   const [ph, setPh] = useState('')
-  const [temp, setTemp] = useState('')
   const [isPending, startTransition] = useTransition()
 
   if (live.length === 0) return null
 
   const selected = live.find((t) => t.tank.id === tankId) ?? null
-  const hasValue = !!(gravity.trim() || ph.trim() || temp.trim())
+  const hasValue = !!(gravity.trim() || ph.trim())
 
   function save(e: React.FormEvent) {
     e.preventDefault()
     if (!selected?.brew || isPending) return
-    const plato = parse(gravity), phN = parse(ph), tempN = parse(temp)
-    if ([plato, phN, tempN].some((v) => Number.isNaN(v))) { toast.error('One of those is not a number.'); return }
+    const plato = parse(gravity), phN = parse(ph)
+    if ([plato, phN].some((v) => Number.isNaN(v))) { toast.error('One of those is not a number.'); return }
     startTransition(async () => {
       let result
       try {
         result = await quickLogReading({
           brew_id: selected.brew!.id, tank_id: selected.tank.id,
-          plato, ph: phN, temperature_c: tempN,
+          plato, ph: phN,
         })
       } catch {
         toast.error('Not saved. Check the connection and try again.')
@@ -50,7 +49,7 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
       }
       if (!result.ok) { toast.error(result.message); return }
       toast.success(`${selected.tank.name} logged`)
-      setGravity(''); setPh(''); setTemp('')
+      setGravity(''); setPh('')
       setTankId(live.length === 1 ? live[0].tank.id : null)
     })
   }
@@ -82,7 +81,7 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
         })}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mt-3">
+      <div className="grid grid-cols-2 gap-2 mt-3">
         <label className="block">
           <span className="block text-xs font-medium text-gray-500 mb-1 text-center">Gravity °P</span>
           <input inputMode="decimal" enterKeyHint="next" autoComplete="off" value={gravity} onChange={(e) => setGravity(e.target.value)}
@@ -90,17 +89,16 @@ export function QuickLog({ tanks }: { tanks: TankDashboardData[] }) {
         </label>
         <label className="block">
           <span className="block text-xs font-medium text-gray-500 mb-1 text-center">pH</span>
-          <input inputMode="decimal" enterKeyHint="next" autoComplete="off" value={ph} onChange={(e) => setPh(e.target.value)}
+          <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={ph} onChange={(e) => setPh(e.target.value)}
             placeholder={last?.ph != null ? String(last.ph) : '-'} className={field} />
-        </label>
-        <label className="block">
-          <span className="block text-xs font-medium text-gray-500 mb-1 text-center">Temp °C</span>
-          <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={temp} onChange={(e) => setTemp(e.target.value)}
-            placeholder={selected?.temperature != null ? selected.temperature.toFixed(1) : '-'} className={field} />
         </label>
       </div>
       <p className="text-[11px] text-gray-400 mt-1.5 text-center">
-        {selected ? 'Grey numbers are the last reading and the tank probe. Fill in what you measured.' : 'Pick a tank first.'}
+        {!selected
+          ? 'Pick a tank first.'
+          : selected.temperature != null
+            ? `Tank is at ${selected.temperature.toFixed(1)}°C. Temperature and time are recorded for you.`
+            : 'No probe reading for this tank, so no temperature will be recorded.'}
       </p>
 
       <button

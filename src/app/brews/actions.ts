@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getFrigidReadings } from '@/lib/frigid'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
 
@@ -113,6 +114,24 @@ export async function assignBrew(data: {
 
 // ── Log reading ───────────────────────────────────────────────
 
+/**
+ * The tank's temperature right now, straight from its Frigid probe, so nobody
+ * has to read it off the panel and type it in. Null if the tank has no probe
+ * or Frigid does not answer: a reading is never refused for want of it.
+ */
+async function liveTankTemp(supabase: Db, tankId: string): Promise<number | null> {
+  try {
+    const [{ data: tank }, readings] = await Promise.all([
+      supabase.from('tanks').select('frigid_tank_name').eq('id', tankId).maybeSingle(),
+      getFrigidReadings(),
+    ])
+    const probe = readings.find((r) => r.name === tank?.frigid_tank_name)
+    return probe?.temperature != null ? Math.round(probe.temperature * 10) / 10 : null
+  } catch {
+    return null
+  }
+}
+
 // 0.0 is a real reading (hard lemonade finishes there), so only drop blanks and NaN
 const num = (v: number | null | undefined) => (typeof v === 'number' && !Number.isNaN(v) ? v : null)
 
@@ -130,6 +149,7 @@ export async function logGravityReading(data: {
     tank_id: data.tank_id,
     plato: num(data.plato),
     ph: num(data.ph),
+    temperature_c: await liveTankTemp(supabase, data.tank_id),
     notes: data.notes.trim() || null,
     recorded_by: data.recorded_by,
   })
@@ -137,23 +157,21 @@ export async function logGravityReading(data: {
   revalidatePath('/')
 }
 
-/** The phone quick-log: a sample's gravity, pH and temperature in one tap. Time and user are stamped here. */
+/** The phone quick-log: gravity and pH in one tap. Time, user and tank temperature are stamped here. */
 export async function quickLogReading(data: {
   brew_id: string
   tank_id: string
   plato: number | null
   ph: number | null
-  temperature_c: number | null
 }): Promise<ActionResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return fail('You are signed out. Sign in again and retry.')
 
-  const plato = num(data.plato), ph = num(data.ph), temp = num(data.temperature_c)
-  if (plato == null && ph == null && temp == null) return fail('Enter at least one reading.')
+  const plato = num(data.plato), ph = num(data.ph)
+  if (plato == null && ph == null) return fail('Enter a gravity or a pH.')
   if (plato != null && (plato < -5 || plato > 40)) return fail(`Gravity of ${plato}°P does not look right.`)
   if (ph != null && (ph < 0 || ph > 14)) return fail(`pH of ${ph} does not look right.`)
-  if (temp != null && (temp < -10 || temp > 110)) return fail(`Temperature of ${temp}°C does not look right.`)
 
   // The tank on screen may have been emptied or refilled since the page loaded
   const { data: brew } = await supabase
@@ -164,7 +182,7 @@ export async function quickLogReading(data: {
     brew_id: data.brew_id,
     tank_id: data.tank_id,
     plato, ph,
-    temperature_c: temp,
+    temperature_c: await liveTankTemp(supabase, data.tank_id),
     recorded_by: user.email ?? user.id,
   })
   if (error) return fail(`Not saved: ${error.message}`)

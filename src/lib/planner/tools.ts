@@ -163,7 +163,7 @@ export async function runTool(name: string, input: Record<string, unknown>, toda
       return { result: packs.map((p) => ({ date: dayKey(p.date), beer: p.beer, qty: p.qty })) }
     }
     case 'allocate_tanks': {
-      const events = await listEvents(addDaysKey(todayKey, -70), addDaysKey(todayKey, 183))
+      const events = await listEvents(addDaysKey(todayKey, -180), addDaysKey(todayKey, 183))
       const tankEvents: TankEvent[] = events
         .filter((e) => /^\s*(BREW|TRANSFER|PACK)\b/i.test(e.title) && !/^\s*PACK PREP/i.test(e.title))
         .map((e) => [e.date, e.title.trim()])

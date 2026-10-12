@@ -7,7 +7,16 @@ import { SALES_SHEET_ID, sheetValues, sheetTabs, sheetBatch, listEvents } from '
 const DELETED = 'DELETED'
 const liveId = (v) => (v && v !== DELETED ? v : '')
 
+// Optional tabs read soft: a missing one costs detail, not correctness.
 const read = (range) => sheetValues(SALES_SHEET_ID, range).catch(() => [])
+
+// Orders and stock counts ARE the forecast. If either cannot be read the
+// answer would be "nothing is running out", which is the most dangerous thing
+// the planner could say, so the error goes back to the model instead.
+const readRequired = (range, what) =>
+  sheetValues(SALES_SHEET_ID, range).catch((e) => {
+    throw new Error(`Could not read ${what} from the Sales App sheet, so there is no stock forecast. ${e.message}`)
+  })
 
 function rowToOrderLine(row) {
   return {
@@ -27,11 +36,11 @@ function rowToOrderLine(row) {
 }
 
 export async function getOrderLines() {
-  return (await read('orders!A2:M')).map(rowToOrderLine).filter((o) => o.order_id)
+  return (await readRequired('orders!A2:M', 'orders')).map(rowToOrderLine).filter((o) => o.order_id)
 }
 
 export async function getStockEntries() {
-  return (await read('stock!A2:C'))
+  return (await readRequired('stock!A2:C', 'stock counts'))
     .filter((r) => r[0] && r[0] !== DELETED)
     .map((r) => ({ sku: r[0], month: r[1] || '', quantity: r[2] ? parseInt(r[2], 10) : 0 }))
 }

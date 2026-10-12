@@ -45,13 +45,19 @@ async function accessToken(): Promise<string> {
   return cached.token
 }
 
+export class GoogleError extends Error {
+  constructor(public status: number, body: string) {
+    super(`Google API ${status}: ${body}`)
+  }
+}
+
 async function google(url: string, init: RequestInit = {}) {
   const res = await fetch(url, {
     ...init,
     headers: { Authorization: `Bearer ${await accessToken()}`, 'Content-Type': 'application/json', ...init.headers },
     cache: 'no-store',
   })
-  if (!res.ok) throw new Error(`Google API ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  if (!res.ok) throw new GoogleError(res.status, (await res.text()).slice(0, 300))
   return res.status === 204 ? null : res.json()
 }
 
@@ -130,8 +136,10 @@ export async function getEvent(id: string): Promise<CalEvent | null> {
   try {
     const e = await google(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(BREWERY_CALENDAR_ID)}/events/${encodeURIComponent(id)}`)
     return e.status === 'cancelled' ? null : toCalEvent(e)
-  } catch {
-    return null
+  } catch (err) {
+    // Gone is gone. A permissions or rate-limit error is not "no longer exists".
+    if (err instanceof GoogleError && (err.status === 404 || err.status === 410)) return null
+    throw err
   }
 }
 

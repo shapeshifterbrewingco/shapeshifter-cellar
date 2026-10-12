@@ -22,11 +22,12 @@ export const cellar = cellarJson as unknown as Cellar
 const FAR = '2099-01-01'
 const EPOCH = '2000-01-01'
 
-function addWeeks(key: string, w: number) {
+function addDays(key: string, n: number) {
   const [y, m, d] = key.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1, d + 7 * w))
+  const dt = new Date(Date.UTC(y, m - 1, d + n))
   return dt.toISOString().slice(0, 10)
 }
+const addWeeks = (key: string, w: number) => addDays(key, 7 * w)
 
 export function attrsFor(beer: string, c: Cellar = cellar): Attrs {
   let best: Attrs | null = null
@@ -78,6 +79,10 @@ function parse(events: TankEvent[], c: Cellar) {
   const freeFrom: Record<string, string> = {}
   const holder: Record<string, string> = {}
   const unassigned: [string, string][] = []
+  // Beers that have left a fermenter for a brite and not yet been packed. A
+  // later "PACK - <beer>" empties the brite, not whichever fermenter happens to
+  // hold the next batch of the same beer.
+  const inBrite: string[] = []
   const releaseHolderOf = (su: string, d: string) => {
     for (const [v, b] of Object.entries(holder)) {
       if (sameBeer(b, su)) { freeFrom[v] = d; delete holder[v]; break }
@@ -95,8 +100,10 @@ function parse(events: TankEvent[], c: Cellar) {
         const dest = S.includes('>') ? S.split('>').slice(1).join('>') : ''
         const m = /FV\s*(\d+)/.exec(dest)
         if (m) { holder['FV' + m[1]] = su; delete freeFrom['FV' + m[1]] }
+        else inBrite.push(su)
       } else {
         releaseHolderOf(su, d) // e.g. "TRANSFER - Divide by Zero to BBT"
+        inBrite.push(su)
       }
     } else if (S.startsWith('BREW')) {
       const m = /FV\s*(\d+)/.exec(S)
@@ -105,7 +112,11 @@ function parse(events: TankEvent[], c: Cellar) {
     } else if (S.startsWith('PACK')) {
       const m = /\bFV\s*(\d+)/.exec(S)
       if (m) { freeFrom['FV' + m[1]] = d; delete holder['FV' + m[1]] }
-      else releaseHolderOf(su, d)
+      else {
+        const i = inBrite.findIndex((b) => sameBeer(b, su))
+        if (i >= 0) inBrite.splice(i, 1)
+        else releaseHolderOf(su, d)
+      }
     }
   }
   for (const v of fvs) {
@@ -115,9 +126,18 @@ function parse(events: TankEvent[], c: Cellar) {
   return { freeFrom, holder, unassigned }
 }
 
+// Shortest time a beer can be in a fermenter before it moves. A pack or
+// transfer sooner than this belongs to an earlier batch of the same beer.
+const MIN_DAYS_IN_TANK = 10
+const MIN_DAYS_IN_TANK_LEMONADE = 3
+
 function matchRelease(beer: string, brewDate: string, events: TankEvent[], dflt: string) {
+  const earliest = addDays(brewDate, /lemon/i.test(beer) ? MIN_DAYS_IN_TANK_LEMONADE : MIN_DAYS_IN_TANK)
   for (const [d, su] of sortEvents(events)) {
-    if (!/^\s*(PACK|TRANSFER)/i.test(su) || d <= brewDate) continue
+    if (!/^\s*(PACK|TRANSFER)/i.test(su) || d < earliest) continue
+    // This brew has no tank yet, so an event that names a fermenter is about
+    // the batch already sitting in it
+    if (/\bFV\s*\d+/i.test(su.split('>')[0])) continue
     if (sameBeer(beer, su)) return d
   }
   return dflt

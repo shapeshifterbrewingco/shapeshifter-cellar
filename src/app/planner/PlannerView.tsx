@@ -12,7 +12,7 @@ interface CalEvent { id: string; date: string; endDate: string; title: string; d
 
 type ApiMessage = { role: 'user' | 'assistant'; content: unknown }
 
-type PlanStatus = 'pending' | 'applying' | 'applied' | 'dismissed'
+type PlanStatus = 'pending' | 'applying' | 'applied' | 'partial' | 'failed' | 'dismissed'
 type Item =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; tools: string[] }
@@ -190,6 +190,8 @@ function PlanCard({ item, onApply, onDismiss }: { item: Extract<Item, { kind: 'p
         </>}
         {status === 'applying' && <span className="flex items-center gap-2 text-sm text-gray-600"><Loader2 className="h-4 w-4 animate-spin" />Writing to the calendar...</span>}
         {status === 'applied' && <span className="text-sm font-medium text-emerald-700">Applied</span>}
+        {status === 'partial' && <span className="text-sm font-medium text-amber-700">Partly applied - check the lines marked Failed</span>}
+        {status === 'failed' && <span className="text-sm font-medium text-red-700">Nothing was applied - calendar unchanged</span>}
         {status === 'dismissed' && <span className="text-sm text-gray-500">Dismissed - calendar unchanged</span>}
       </div>
     </div>
@@ -209,8 +211,17 @@ function Chat({ email, draft, setDraft, onApplied }: { email: string; draft: str
 
   useEffect(() => {
     // Read after mount: localStorage doesn't exist during the server render
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    try { const raw = localStorage.getItem(storeKey); if (raw) setState(JSON.parse(raw)) } catch { /* fresh start */ }
+    try {
+      const raw = localStorage.getItem(storeKey)
+      if (raw) {
+        const saved = JSON.parse(raw) as Saved
+        // A page reload mid-apply leaves the outcome unknown. Hand the card back:
+        // applying it again is safe, the server skips anything already written.
+        saved.items = saved.items.map((it) => (it.kind === 'plan' && it.status === 'applying' ? { ...it, status: 'pending' } : it))
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setState(saved)
+      }
+    } catch { /* fresh start */ }
     loaded.current = true
   }, [storeKey])
 
@@ -289,7 +300,8 @@ function Chat({ email, draft, setDraft, onApplied }: { email: string; draft: str
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || res.statusText)
       const results = data.results as { ok: boolean; message: string }[]
-      setPlan(plan.id, { status: 'applied', results })
+      const okCount = results.filter((r) => r.ok).length
+      setPlan(plan.id, { status: okCount === results.length ? 'applied' : okCount === 0 ? 'failed' : 'partial', results })
       setState((s) => ({ ...s, notes: [...s.notes, `User pressed Apply on plan ${plan.id}. Results: ${results.map((r) => (r.ok ? 'OK ' : 'FAILED ') + r.message).join('; ')}`] }))
       onApplied()
     } catch (e) {

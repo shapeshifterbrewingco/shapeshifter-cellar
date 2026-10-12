@@ -3,6 +3,7 @@
 // behaves the same whether or not Slack is connected.
 
 import { after } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 const APP_URL = 'https://shapeshifter-cellar.vercel.app'
 
@@ -39,6 +40,65 @@ export function logActivity(text: string) {
     // Outside a request (a script, a test): send it directly
     void postSlack(text)
   }
+}
+
+// How long a message waits for a second action on the same tank before it is
+// sent on its own, and how close together two actions must be to be joined.
+const HOLD_MS = 20_000
+const JOIN_WINDOW_MS = 45_000
+
+/**
+ * Log something that often comes in pairs, like putting a tank on chill and
+ * then dropping its set point. The first message is held for a few seconds; if
+ * a second arrives for the same key, the two go to Slack as one sentence.
+ *
+ * @param key   What groups the pair, e.g. the tank and the person
+ * @param text  The full sentence, sent as is when nothing follows it
+ * @param tail  The same action as a clause that can follow "and", e.g. "set it to -0.5°C"
+ */
+export function logGroupedActivity(key: string, text: string, tail: string) {
+  if (!slackConfigured()) return
+  const run = async () => {
+    try {
+      const db = createServiceClient()
+      const since = new Date(Date.now() - JOIN_WINDOW_MS).toISOString()
+      // Claim a message already waiting on this key. Marking it sent is what claims it.
+      const { data: waiting } = await db
+        .from('slack_outbox').update({ sent_at: new Date().toISOString() })
+        .eq('group_key', key).is('sent_at', null).gte('created_at', since)
+        .select('body')
+      if (waiting?.length) {
+        await postSlack(`${waiting[0].body.replace(/\.$/, '')} and ${tail}.`)
+        return
+      }
+      const { data: mine, error } = await db.from('slack_outbox').insert({ group_key: key, body: text }).select('id').single()
+      if (error || !mine) { await postSlack(text); return }
+      await new Promise((r) => setTimeout(r, HOLD_MS))
+      // Still unclaimed after the wait: nothing followed, so it goes on its own
+      const { data: still } = await db
+        .from('slack_outbox').update({ sent_at: new Date().toISOString() })
+        .eq('id', mine.id).is('sent_at', null).select('id')
+      if (still?.length) await postSlack(text)
+    } catch (err) {
+      console.error('[slack] grouped send failed:', err instanceof Error ? err.message : err)
+      await postSlack(text)
+    }
+  }
+  try { after(run) } catch { void run() }
+}
+
+/** Send anything left waiting, e.g. if the server stopped mid-hold. Run by the poller. */
+export async function flushSlackOutbox(): Promise<number> {
+  if (!slackConfigured()) return 0
+  const db = createServiceClient()
+  const { data } = await db
+    .from('slack_outbox').update({ sent_at: new Date().toISOString() })
+    .is('sent_at', null).lt('created_at', new Date(Date.now() - 2 * 60_000).toISOString())
+    .select('body')
+  for (const row of data ?? []) await postSlack(row.body)
+  // Keep the table small
+  await db.from('slack_outbox').delete().lt('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
+  return data?.length ?? 0
 }
 
 /** "carla@shapeshifterbrewing.com.au" -> "Carla" */

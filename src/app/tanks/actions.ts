@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getFrigidReadings, FRIGID_OFF_SET_POINT } from '@/lib/frigid'
-import { logActivity, who } from '@/lib/slack'
+import { logGroupedActivity, who } from '@/lib/slack'
 
 // [lowest, highest] set point allowed, by Frigid vessel name
 const LIMITS: Record<string, [number, number]> = {
@@ -75,7 +75,8 @@ export async function setTankTarget(tankId: string, targetTemp: number): Promise
     .eq('id', tankId)
   if (saveError) console.error('[setTankTarget] set point sent to Frigid but not saved:', saveError.message)
 
-  logActivity(`${who(user.email)} set ${tank.name} to ${targetTemp}°C${previous != null ? ` (was ${previous}°C)` : ''}.`)
+  const change = `${targetTemp}°C${previous != null ? ` (was ${previous}°C)` : ''}`
+  logGroupedActivity(`${tankId}:${user.email ?? user.id}`, `${who(user.email)} set ${tank.name} to ${change}.`, `set it to ${change}`)
 
   revalidatePath('/')
   revalidatePath('/dashboard')

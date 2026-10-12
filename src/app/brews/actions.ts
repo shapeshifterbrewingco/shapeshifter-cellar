@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getFrigidReadings } from '@/lib/frigid'
-import { logActivity, who, esc } from '@/lib/slack'
+import { logActivity, who, esc, logGroupedActivity } from '@/lib/slack'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
 
@@ -226,7 +226,11 @@ export async function updateBrewStage(brew_id: string, tank_id: string, stage: T
   if (noteError) console.error('[updateBrewStage] stage note failed:', noteError.message)
 
   const { data: moved } = await supabase.from('brews').select('beer_name').eq('id', brew_id).maybeSingle()
-  logActivity(`${who(user.email)} moved ${await tankName(supabase, tank_id)}${moved?.beer_name ? ` (${esc(moved.beer_name)})` : ''} to *${STAGE_LABELS[stage]}*.`)
+  logGroupedActivity(
+    `${tank_id}:${user.email ?? user.id}`,
+    `${who(user.email)} moved ${await tankName(supabase, tank_id)}${moved?.beer_name ? ` (${esc(moved.beer_name)})` : ''} to *${STAGE_LABELS[stage]}*.`,
+    `moved it to *${STAGE_LABELS[stage]}*`,
+  )
 
   revalidatePath('/')
 }

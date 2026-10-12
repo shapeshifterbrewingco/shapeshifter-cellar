@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getFrigidReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
 import { runAlerts } from '@/lib/alerts'
+import { flushSlackOutbox } from '@/lib/slack'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
   const readings = await getFrigidReadings()
 
   // Alarms first, and before the early exit below: Frigid going quiet is itself an alarm
+  await flushSlackOutbox().catch(() => 0)
   const alerts = await runAlerts(readings).catch((e) => ({ skipped: e instanceof Error ? e.message : 'alert check failed' }))
 
   if (readings.length === 0) {

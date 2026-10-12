@@ -1,318 +1,303 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
-import { toast } from 'sonner'
+import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ChevronDown, ChevronRight, ClipboardList, Package, Pencil, Trash2, Search } from 'lucide-react'
+import { toast } from 'sonner'
+import { ChevronDown, ClipboardList, Loader2, Pencil, Search, Trash2, X } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
-import { deleteBrewHistory } from './actions'
+import { deleteBrewHistory, loadBrewDetail } from './actions'
 import { EditBrewModal } from './EditBrewModal'
-import type { BrewHistoryItem } from '@/lib/history'
+import type { BrewHistoryItem, BrewReading, PackagingRun } from '@/lib/history'
 import { PACKAGE_FORMATS } from '@/types'
 import { formatUserName } from '@/lib/utils'
 
-const STAGE_LABELS: Record<string, string> = {
-  transferred: 'Transferred',
-  packaged: 'Packaged',
-  cleaning: 'CIP',
+const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
+
+const OUTCOME: Record<string, { label: string; pill: string }> = {
+  packaged:    { label: 'Packaged',    pill: 'bg-water text-hops' },
+  transferred: { label: 'Transferred', pill: 'bg-water/30 text-hops' },
+  cleaning:    { label: 'Emptied',     pill: 'bg-charcoal/8 text-charcoal/70' },
 }
 
-const STAGE_COLOURS: Record<string, string> = {
-  transferred: 'bg-water/30 text-hops',
-  packaged: 'bg-[#09434d]/10 text-[#09434d]',
-  cleaning: 'bg-malt/15 text-malt-dark',
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const monthLabel = (key: string) => `${MONTHS[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`
+const litres = (n: number) => `${Math.round(n).toLocaleString('en-AU')} L`
+const day = (iso: string) => format(parseISO(iso), 'd MMM yyyy')
+
+type Detail = { readings: BrewReading[]; packaging_runs: PackagingRun[] }
+
+/** Which part of a batch matched the search, so a hop search says which hop. */
+function matchReason(item: BrewHistoryItem, q: string): string | null {
+  const has = (s: string | null | undefined) => !!s && s.toLowerCase().includes(q)
+  if (has(item.beer_name) || has(item.batch_code)) return ''
+  const hop = item.hops.find(has)
+  if (hop) return `Hop: ${hop}`
+  const yeast = item.yeast.find(has)
+  if (yeast) return `Yeast: ${yeast}`
+  if (has(item.style)) return ''
+  if (has(item.tank_name)) return ''
+  if (has(item.notes)) return 'In the notes'
+  return null
 }
 
-interface Props {
-  items: BrewHistoryItem[]
-}
-
-export function HistoryList({ items }: Props) {
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [editItem, setEditItem] = useState<BrewHistoryItem | null>(null)
+export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
   const [search, setSearch] = useState('')
+  // The newest month starts open; the rest wait to be tapped
+  const [openMonths, setOpenMonths] = useState<Set<string>>(() => new Set(items[0] ? [items[0].month] : []))
+  const [openBrew, setOpenBrew] = useState<string | null>(null)
+  const [details, setDetails] = useState<Record<string, Detail | 'loading' | 'error'>>({})
+  const [editItem, setEditItem] = useState<BrewHistoryItem | null>(null)
   const [, startTransition] = useTransition()
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return items
-    return items.filter(item =>
-      item.beer_name.toLowerCase().includes(q) ||
-      (item.batch_code ?? '').toLowerCase().includes(q) ||
-      (item.style ?? '').toLowerCase().includes(q) ||
-      item.tank_name.toLowerCase().includes(q)
-    )
-  }, [items, search])
+  const q = search.trim().toLowerCase()
 
-  function handleDelete(item: BrewHistoryItem) {
+  const months = useMemo(() => {
+    const map = new Map<string, BrewHistoryItem[]>()
+    for (const it of items) map.set(it.month, [...(map.get(it.month) ?? []), it])
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  }, [items])
+
+  const results = useMemo(() => {
+    if (!q) return null
+    return items
+      .map((item) => ({ item, why: matchReason(item, q) }))
+      .filter((r): r is { item: BrewHistoryItem; why: string } => r.why !== null)
+  }, [items, q])
+
+  function loadDetail(id: string) {
+    if (details[id] && details[id] !== 'error') return
+    setDetails((d) => ({ ...d, [id]: 'loading' }))
+    loadBrewDetail(id)
+      .then((detail) => setDetails((d) => ({ ...d, [id]: detail })))
+      .catch(() => setDetails((d) => ({ ...d, [id]: 'error' })))
+  }
+
+  function toggleBrew(id: string) {
+    if (openBrew === id) { setOpenBrew(null); return }
+    setOpenBrew(id)
+    loadDetail(id)
+  }
+
+  function toggleMonth(key: string) {
+    setOpenMonths((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }
+
+  async function edit(item: BrewHistoryItem) {
+    // The edit dialog works on a batch's packaging runs, so make sure they are loaded
+    let detail = details[item.id]
+    if (!detail || detail === 'loading' || detail === 'error') {
+      try {
+        detail = await loadBrewDetail(item.id)
+        setDetails((d) => ({ ...d, [item.id]: detail as Detail }))
+      } catch {
+        toast.error('Could not open that batch. Check the connection and try again.')
+        return
+      }
+    }
+    setEditItem({ ...item, ...(detail as Detail) })
+  }
+
+  function remove(item: BrewHistoryItem) {
     if (!confirm(`Permanently delete "${item.beer_name}"${item.batch_code ? ` (${item.batch_code})` : ''}? This cannot be undone.`)) return
     startTransition(async () => {
       try { await deleteBrewHistory(item.id) }
       catch { toast.error(`Could not delete ${item.beer_name}. Nothing was removed.`) }
     })
-    if (expanded === item.id) setExpanded(null)
+    if (openBrew === item.id) setOpenBrew(null)
   }
 
   if (items.length === 0) {
+    return <p className="text-center py-20 text-sm text-gray-400">No completed brews yet.</p>
+  }
+
+  const batch = (item: BrewHistoryItem, why = '') => {
+    const isOpen = openBrew === item.id
+    const detail = details[item.id]
+    const outcome = OUTCOME[item.stage] ?? { label: item.stage, pill: 'bg-charcoal/8 text-charcoal/70' }
+    const leftAt = item.packed_at ?? item.completed_at
+    const days = differenceInDays(parseISO(leftAt), parseISO(item.brew_day))
+    const stats: [string, string][] = [
+      ['Volume', litres(item.volume_l)],
+      ['OG', item.og_plato != null ? `${item.og_plato}°P` : '-'],
+      ['FG', item.final_plato != null ? `${item.final_plato}°P` : '-'],
+      ['ABV', item.abv != null ? `${item.abv.toFixed(1)}%` : '-'],
+    ]
     return (
-      <div className="text-center py-20 text-gray-400">
-        <p className="text-sm">No completed brews yet.</p>
-      </div>
+      <li key={item.id} className={`${CARD} overflow-hidden`}>
+        <button type="button" onClick={() => toggleBrew(item.id)} aria-expanded={isOpen} className="w-full text-left px-4 pt-3.5 pb-3 active:bg-gray-50">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold tracking-wide text-gray-400 tabular-nums">
+                {item.tank_name}{item.batch_code ? ` · ${item.batch_code}` : ''}
+              </p>
+              <p className="text-[17px] font-semibold leading-snug text-gray-900 break-words">{item.beer_name}</p>
+              <p className="text-[13px] text-gray-500">
+                {[item.style, `${day(item.brew_day)} to ${format(parseISO(leftAt), 'd MMM')}`, `${days} days`].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${outcome.pill}`}>{outcome.label}</span>
+          </div>
+
+          <dl className="grid grid-cols-4 mt-3 pt-2.5 border-t border-gray-100">
+            {stats.map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-[11px] text-gray-400">{label}</dt>
+                <dd className="text-[15px] font-semibold tabular-nums text-gray-900">{value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {(item.hops.length > 0 || item.yeast.length > 0 || why) && (
+            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+              {why && <span className="mr-2 rounded-md bg-yeast/40 px-1.5 py-0.5 font-medium text-charcoal">{why}</span>}
+              {item.hops.length > 0 && <><span className="text-gray-400">Hops </span>{item.hops.join(', ')}</>}
+              {item.hops.length > 0 && item.yeast.length > 0 && <span className="text-gray-300"> · </span>}
+              {item.yeast.length > 0 && <><span className="text-gray-400">Yeast </span>{item.yeast.join(', ')}</>}
+            </p>
+          )}
+        </button>
+
+        {isOpen && (
+          <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3 space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/brews/${item.id}/sheet`} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
+                <ClipboardList className="h-4 w-4" />Brew sheet
+              </Link>
+              <button type="button" onClick={() => void edit(item)} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-white ring-1 ring-black/10 text-sm font-medium text-gray-700">
+                <Pencil className="h-4 w-4" />Edit
+              </button>
+              <button type="button" onClick={() => remove(item)} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-white ring-1 ring-black/10 text-sm font-medium text-red-600 ml-auto">
+                <Trash2 className="h-4 w-4" />Delete
+              </button>
+            </div>
+
+            {item.final_ph != null && <p className="text-sm text-gray-600">Final pH <span className="font-semibold tabular-nums text-gray-900">{item.final_ph}</span></p>}
+            {item.notes && <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">{item.notes}</p>}
+
+            {detail === 'loading' || !detail ? (
+              <p className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="h-4 w-4 animate-spin" />Loading readings…</p>
+            ) : detail === 'error' ? (
+              <p className="text-sm text-red-600">
+                Readings could not be loaded.{' '}
+                <button type="button" onClick={() => loadDetail(item.id)} className="underline font-medium">Try again</button>
+              </p>
+            ) : (
+              <>
+                <section>
+                  <h3 className="text-xs font-semibold text-gray-500 mb-1.5">Packaging</h3>
+                  {detail.packaging_runs.length === 0 ? (
+                    <p className="text-sm text-gray-400">No packaging runs logged.</p>
+                  ) : (
+                    <ul className="rounded-xl bg-white ring-1 ring-black/5 divide-y divide-gray-100 text-sm">
+                      {detail.packaging_runs.map((p) => (
+                        <li key={p.id} className="flex items-baseline gap-3 px-3 py-2">
+                          <span className="flex-1 min-w-0 text-gray-900">
+                            <span className="font-semibold tabular-nums">{p.qty}</span> × {PACKAGE_FORMATS.find((f) => f.format === p.format)?.label ?? p.format}
+                            <span className="block text-xs text-gray-400">{day(p.packaged_at)} · {formatUserName(p.packaged_by)}{p.notes ? ` · ${p.notes}` : ''}</span>
+                          </span>
+                          <span className="flex-shrink-0 tabular-nums text-gray-700">{Number(p.volume_l).toFixed(1)} L</span>
+                        </li>
+                      ))}
+                      <li className="flex items-baseline gap-3 px-3 py-2 font-semibold text-gray-900">
+                        <span className="flex-1">Total packed</span>
+                        <span className="tabular-nums">{detail.packaging_runs.reduce((s, p) => s + Number(p.volume_l), 0).toFixed(1)} L</span>
+                      </li>
+                    </ul>
+                  )}
+                </section>
+
+                <section>
+                  <h3 className="text-xs font-semibold text-gray-500 mb-1.5">Readings</h3>
+                  {detail.readings.length === 0 ? (
+                    <p className="text-sm text-gray-400">No readings logged.</p>
+                  ) : (
+                    <ul className="rounded-xl bg-white ring-1 ring-black/5 divide-y divide-gray-100 text-sm">
+                      {[...detail.readings].reverse().map((r) => {
+                        const noteOnly = r.plato == null && r.ph == null
+                        return (
+                          <li key={r.id} className="flex items-baseline gap-3 px-3 py-2">
+                            <span className="w-[4.75rem] flex-shrink-0 text-xs text-gray-400 tabular-nums">{format(parseISO(r.recorded_at), 'd MMM HH:mm')}</span>
+                            {noteOnly ? (
+                              <span className="text-gray-600 break-words min-w-0">{r.notes}</span>
+                            ) : (
+                              <span className="flex-1 min-w-0">
+                                <span className="font-semibold tabular-nums text-gray-900">
+                                  {[r.plato != null ? `${r.plato}°P` : '', r.ph != null ? `pH ${r.ph}` : ''].filter(Boolean).join(' · ')}
+                                </span>
+                                {r.temperature_c != null && <span className="tabular-nums text-gray-400"> · {r.temperature_c}°C</span>}
+                                {r.notes && <span className="block text-xs text-gray-500 break-words">{r.notes}</span>}
+                              </span>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </section>
+              </>
+            )}
+          </div>
+        )}
+      </li>
     )
   }
 
   return (
     <>
-      {/* Search */}
       <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
         <input
-          type="text"
+          type="search"
           value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name, batch code, style or tank…"
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Beer, batch, style, tank, hop or yeast"
+          aria-label="Search every batch"
+          className="w-full h-12 pl-10 pr-10 rounded-2xl bg-white ring-1 ring-black/5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
+        {search && (
+          <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center text-gray-400">
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <p className="text-sm">No results for &ldquo;{search}&rdquo;</p>
+      {results ? (
+        <>
+          <p className="text-sm text-gray-500 mb-2 px-1">
+            {results.length === 0 ? `Nothing matches “${search.trim()}” in any month.` : `${results.length} batch${results.length === 1 ? '' : 'es'} across every month`}
+          </p>
+          <ul className="space-y-2.5">{results.map((r) => batch(r.item, r.why))}</ul>
+        </>
+      ) : (
+        <div className="space-y-2.5">
+          {months.map(([key, list]) => {
+            const open = openMonths.has(key)
+            const packed = list.reduce((s, i) => s + i.packed_l, 0)
+            return (
+              <section key={key}>
+                <button type="button" onClick={() => toggleMonth(key)} aria-expanded={open}
+                  className={`${CARD} w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50`}>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-base font-semibold text-gray-900">{monthLabel(key)}</h2>
+                    <p className="text-[13px] text-gray-500 truncate">
+                      {list.length} batch{list.length === 1 ? '' : 'es'}{packed > 0 ? ` · ${litres(packed)} packed` : ''}
+                      {!open && <span className="text-gray-400"> · {[...new Set(list.map((i) => i.beer_name))].slice(0, 3).join(', ')}{new Set(list.map((i) => i.beer_name)).size > 3 ? '…' : ''}</span>}
+                    </p>
+                  </div>
+                  <ChevronDown className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                </button>
+                {open && <ul className="mt-2.5 space-y-2.5 md:pl-3">{list.map((item) => batch(item))}</ul>}
+              </section>
+            )
+          })}
         </div>
       )}
 
-      <div className="space-y-2">
-        {filtered.map((item) => {
-          const isOpen = expanded === item.id
-          const days = differenceInDays(parseISO(item.completed_at), parseISO(item.brew_day))
-          const stageColour = STAGE_COLOURS[item.stage] ?? 'bg-gray-100 text-gray-500'
-          const stageLabel = STAGE_LABELS[item.stage] ?? item.stage
-
-          return (
-            <div key={item.id} className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
-              {/* Summary row */}
-              <div className="w-full flex items-center gap-4 px-5 py-4">
-                <button
-                  type="button"
-                  className="text-gray-400 flex-shrink-0"
-                  onClick={() => setExpanded(isOpen ? null : item.id)}
-                >
-                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-
-                {/* Tank + beer — clickable to expand */}
-                <button
-                  type="button"
-                  className="flex items-center gap-4 flex-1 min-w-0 text-left"
-                  onClick={() => setExpanded(isOpen ? null : item.id)}
-                >
-                  <div className="flex-shrink-0 w-16 text-xs font-bold text-gray-700 uppercase tracking-wide">
-                    {item.tank_name}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold text-gray-900 truncate">{item.beer_name}</p>
-                      {item.batch_code && (
-                        <span className="text-xs font-bold text-gray-400 tabular-nums flex-shrink-0">{item.batch_code}</span>
-                      )}
-                    </div>
-                    {item.style && <p className="text-xs text-gray-500 truncate">{item.style}</p>}
-                  </div>
-
-                  {/* Dates */}
-                  <div className="flex-shrink-0 text-right hidden sm:block">
-                    <p className="text-xs font-medium text-gray-600">{format(parseISO(item.brew_day), 'd MMM yyyy')}</p>
-                    <p className="text-xs text-gray-400">{days}d in tank</p>
-                  </div>
-
-                  {/* Volume */}
-                  <div className="flex-shrink-0 text-right w-16 hidden md:block">
-                    <p className="text-xs font-bold text-gray-700">{item.volume_l}L</p>
-                  </div>
-
-                  {/* Gravity */}
-                  <div className="flex-shrink-0 text-right w-28 hidden md:block">
-                    <p className="text-xs tabular-nums text-gray-500">
-                      {item.og_plato != null ? `${item.og_plato}°P` : '—'}
-                      {item.final_plato != null ? ` → ${item.final_plato}°P` : ''}
-                    </p>
-                    {item.abv != null && (
-                      <p className="text-xs font-bold text-hops tabular-nums">{item.abv.toFixed(1)}% ABV</p>
-                    )}
-                  </div>
-
-                  {/* Stage badge */}
-                  <span className={`flex-shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${stageColour}`}>
-                    {stageLabel}
-                  </span>
-
-                  {/* Completion date */}
-                  <div className="flex-shrink-0 text-right w-24 hidden lg:block">
-                    <p className="text-xs font-medium text-gray-500">{format(parseISO(item.completed_at), 'd MMM yyyy')}</p>
-                  </div>
-                </button>
-
-                {/* Edit / delete actions */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Link href={`/brews/${item.id}/sheet`} onClick={e => e.stopPropagation()} title="Brew sheet"
-                    className="p-1.5 text-gray-300 hover:text-primary transition-colors">
-                    <ClipboardList className="h-3.5 w-3.5" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setEditItem(item)}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Edit"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Expanded detail */}
-              {isOpen && (
-                <div className="border-t border-gray-100 px-5 py-4 bg-gray-50/40 space-y-4">
-                  {/* Key stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {[
-                      { label: 'Brew Day', value: format(parseISO(item.brew_day), 'd MMM yyyy') },
-                      { label: 'Completed', value: format(parseISO(item.completed_at), 'd MMM yyyy') },
-                      { label: 'Days in Tank', value: `${days}d` },
-                      { label: 'Volume', value: `${item.volume_l}L` },
-                      { label: 'OG', value: item.og_plato != null ? `${item.og_plato}°P` : '—' },
-                      { label: 'FG', value: item.final_plato != null ? `${item.final_plato}°P` : '—' },
-                      { label: 'ABV', value: item.abv != null ? `${item.abv.toFixed(1)}%` : '—', accent: true },
-                      { label: 'Final pH', value: item.final_ph != null ? String(item.final_ph) : '—' },
-                    ].map(({ label, value, accent }) => (
-                      <div key={label} className="bg-white rounded-lg border border-gray-100 px-3 py-2.5">
-                        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{label}</p>
-                        <p className={`text-base font-bold mt-0.5 tabular-nums ${accent ? 'text-hops' : 'text-gray-900'}`}>{value}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Notes */}
-                  {item.notes && (
-                    <div className="text-xs text-gray-500 bg-white border border-gray-100 rounded-lg px-3 py-2">
-                      <span className="font-medium text-gray-400 uppercase tracking-wide text-[10px] mr-2">Notes</span>
-                      {item.notes}
-                    </div>
-                  )}
-
-                  {/* Packaging runs */}
-                  {item.packaging_runs.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <Package className="h-3 w-3" /> Packaging
-                      </p>
-                      <div className="rounded-lg border border-gray-100 overflow-hidden">
-                        <table className="w-full text-xs">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Date</th>
-                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Format</th>
-                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Qty</th>
-                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Volume</th>
-                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">By</th>
-                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {item.packaging_runs.map((p) => {
-                              const fmt = PACKAGE_FORMATS.find(f => f.format === p.format)
-                              return (
-                                <tr key={p.id} className="border-t border-gray-50">
-                                  <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">
-                                    {format(parseISO(p.packaged_at), 'd MMM yyyy')}
-                                  </td>
-                                  <td className="px-3 py-1.5 text-gray-700">{fmt?.label ?? p.format}</td>
-                                  <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">{p.qty}</td>
-                                  <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">{p.volume_l.toFixed(1)}L</td>
-                                  <td className="px-3 py-1.5 text-gray-400">{formatUserName(p.packaged_by)}</td>
-                                  <td className="px-3 py-1.5 text-gray-400">{p.notes ?? ''}</td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                          <tfoot className="bg-gray-50 border-t border-gray-100">
-                            <tr>
-                              <td colSpan={3} className="px-3 py-1.5 text-gray-400 font-medium">Total</td>
-                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-gray-700">
-                                {item.packaging_runs.reduce((s, p) => s + p.volume_l, 0).toFixed(1)}L
-                              </td>
-                              <td colSpan={2} />
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Readings table */}
-                  {item.readings.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Readings</p>
-                      <div className="rounded-lg border border-gray-100 overflow-hidden">
-                        <table className="w-full text-xs">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Date</th>
-                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Gravity</th>
-                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">pH</th>
-                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">By</th>
-                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[...item.readings].reverse().map((r) => {
-                              const isStage = r.plato == null && r.ph == null && r.notes?.startsWith('→')
-                              return (
-                                <tr key={r.id} className={`border-t border-gray-50 ${isStage ? 'bg-gray-50/60' : ''}`}>
-                                  <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">
-                                    {format(parseISO(r.recorded_at), 'd MMM, HH:mm')}
-                                  </td>
-                                  <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">
-                                    {r.plato != null ? `${r.plato}°P` : isStage ? '' : '—'}
-                                  </td>
-                                  <td className="px-3 py-1.5 text-right tabular-nums text-gray-700">
-                                    {r.ph != null ? r.ph : isStage ? '' : '—'}
-                                  </td>
-                                  <td className="px-3 py-1.5 text-gray-400">{formatUserName(r.recorded_by)}</td>
-                                  <td className="px-3 py-1.5 text-gray-400">
-                                    {isStage ? (
-                                      <span className="inline-block bg-gray-100 text-gray-500 rounded px-2 py-0.5 text-[10px] font-medium">
-                                        {r.notes}
-                                      </span>
-                                    ) : (
-                                      r.notes ?? ''
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {editItem && (
-        <EditBrewModal item={editItem} onClose={() => setEditItem(null)} />
-      )}
+      {editItem && <EditBrewModal item={editItem} onClose={() => setEditItem(null)} />}
     </>
   )
 }

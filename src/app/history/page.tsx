@@ -9,8 +9,8 @@ export default async function HistoryPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
 
-      <div className="px-6 py-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div className="px-4 md:px-6 py-5 max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">Brew History</h1>
             <p className="text-sm text-gray-500 mt-0.5">{items.length} completed batch{items.length !== 1 ? 'es' : ''}</p>

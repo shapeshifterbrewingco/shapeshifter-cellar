@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getBrewHistoryDetail } from '@/lib/history'
 
 export async function updateBrewHistory(
   brew_id: string,
@@ -55,4 +56,10 @@ export async function updatePackagingRun(run_id: string, qty: number, volume_l: 
   if (error) throw error
   if (!data?.length) throw new Error('Packaging run was not updated (no permission or already gone)')
   revalidatePath('/history')
+}
+
+/** Readings and packaging runs for one finished batch. Called when it is opened. */
+export async function loadBrewDetail(brew_id: string) {
+  const supabase = await createClient()
+  return getBrewHistoryDetail(supabase, brew_id)
 }

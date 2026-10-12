@@ -276,11 +276,11 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
               </button>
               <button
                 type="submit"
-                disabled={isPending || available.length === 0}
+                disabled={isPending || available.length === 0 || !briteCoolingOn}
                 className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                {isPending ? 'Transferring…' : 'Transfer'}
+                {isPending ? 'Transferring…' : !briteCoolingOn ? 'Confirm brite cooling on' : 'Transfer'}
               </button>
             </div>
           </div>

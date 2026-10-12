@@ -29,14 +29,18 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       currentUser = user.email ?? user.id
-      tanks = await getDashboardData(supabase)
 
-      const { data } = await supabase
-        .from('recipes')
-        .select('id, name, style, target_og_plato, brew_volume_l')
-        .is('deleted_at', null)
-        .order('name')
-      recipes = (data ?? []) as RecipeOption[]
+      // Run dashboard data and recipes fetch in parallel
+      const [dashboardTanks, recipesResult] = await Promise.all([
+        getDashboardData(supabase),
+        supabase
+          .from('recipes')
+          .select('id, name, style, target_og_plato, brew_volume_l')
+          .is('deleted_at', null)
+          .order('name'),
+      ])
+      tanks = dashboardTanks
+      recipes = (recipesResult.data ?? []) as RecipeOption[]
 
       // Fetch 24h temp history + tank IDs for utility vessels (HLT, CLT, Glycol)
       if (frigidTemps.length > 0) {

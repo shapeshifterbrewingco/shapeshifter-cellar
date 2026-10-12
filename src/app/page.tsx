@@ -4,7 +4,7 @@ import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
 import { QuickLog } from '@/components/dashboard/QuickLog'
 import { BrewDayPanel } from '@/components/dashboard/BrewDayPanel'
 import type { OpenBrewDay } from '@/components/dashboard/BrewDayPanel'
-import { sanitiseSheet, sheetFromRecipe, sheetProgress, LIST_KEYS } from '@/lib/brew-sheet'
+import { sanitiseSheet, sheetFromRecipe, sheetProgress, BREW_DAY_LISTS, bagsLabel } from '@/lib/brew-sheet'
 import { getDashboardData } from '@/lib/dashboard'
 import { getFrigidReadings, utilityReadings } from '@/lib/frigid'
 import { recordTemperatures } from '@/lib/temperature-log'
@@ -119,7 +119,8 @@ export default async function DashboardPage() {
         filled: progress.filled,
         total: progress.total,
         missing: [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.plato.trim() && 'gravity', !sheet.fv.ph.trim() && 'pH'].filter((x): x is string => !!x),
-        next: LIST_KEYS.flatMap((k) => sheet[k]).filter((l) => !l.done).slice(0, 3).map((l) => [l.name, [l.amount, l.unit].filter(Boolean).join(' ')].filter(Boolean).join(' ')),
+        next: BREW_DAY_LISTS.flatMap((k) => sheet[k].map((l) => ({ l, malt: k === 'malt' }))).filter(({ l }) => !l.done).slice(0, 3)
+          .map(({ l, malt }) => [l.name, (malt && bagsLabel(l.amount, l.unit)) || [l.amount, l.unit].filter(Boolean).join(' ')].filter(Boolean).join(' ')),
       }
     })
   }

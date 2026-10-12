@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { saveBrewSheet, importSheetReadings } from '@/app/brews/sheet-actions'
-import { sheetProgress } from '@/lib/brew-sheet'
+import { sheetProgress, bagsLabel } from '@/lib/brew-sheet'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
 interface BrewInfo { id: string; beer_name: string; style: string | null; brew_day: string; tank_id: string; tank_name: string }
@@ -260,23 +260,37 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
       </div>
       <ul className="space-y-1.5">
         {data[listKey].map((l, i) => (
-          <li key={i} className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 ${unsure(`${listKey}.${i}`) ? UNSURE : l.done ? 'border-transparent bg-water/25' : 'border-gray-200 bg-white'}`}>
-            <button type="button" onClick={() => setLine(listKey, i, { done: !l.done })} aria-pressed={l.done} aria-label={`${l.name || 'Line'} done`}
-              className={`h-9 w-9 flex-shrink-0 rounded-lg border flex items-center justify-center ${l.done ? 'bg-hops border-hops text-white' : 'bg-white border-gray-300 text-transparent'}`}>
-              <Check className="h-5 w-5" />
-            </button>
-            <input value={l.name} onChange={(e) => setLine(listKey, i, { name: e.target.value })} placeholder="Name" aria-label="Name"
-              className="flex-1 min-w-0 h-9 bg-transparent text-[15px] text-gray-900 placeholder:text-gray-300 focus:outline-none" />
-            <input value={l.amount} onChange={(e) => setLine(listKey, i, { amount: e.target.value })} inputMode="decimal" placeholder="0" aria-label="Amount"
-              className="w-14 h-9 rounded-lg bg-black/[0.04] px-1.5 text-right text-[15px] tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <input value={l.unit} onChange={(e) => setLine(listKey, i, { unit: e.target.value })} placeholder={unit} aria-label="Unit"
-              className="w-10 h-9 bg-transparent text-xs text-gray-500 placeholder:text-gray-300 focus:outline-none" />
-            <input value={l.when} onChange={(e) => setLine(listKey, i, { when: e.target.value })} placeholder={whenLabel} aria-label={whenLabel}
-              className="w-16 h-9 bg-transparent text-xs text-gray-500 placeholder:text-gray-300 focus:outline-none" />
-            <button type="button" onClick={() => removeLine(listKey, i)} aria-label={`Remove ${data[listKey][i]?.name || 'line'}`}
-              className="h-9 w-7 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500">
-              <X className="h-4 w-4" />
-            </button>
+          <li key={i} className={`rounded-xl border px-2 py-1.5 ${unsure(`${listKey}.${i}`) ? UNSURE : l.done ? 'border-transparent bg-water/25' : 'border-gray-200 bg-white'}`}>
+            {/* Name gets the whole row: on a phone, half a name is no name */}
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setLine(listKey, i, { done: !l.done })} aria-pressed={l.done} aria-label={`${l.name || 'Line'} done`}
+                className={`h-9 w-9 flex-shrink-0 rounded-lg border flex items-center justify-center ${l.done ? 'bg-hops border-hops text-white' : 'bg-white border-gray-300 text-transparent'}`}>
+                <Check className="h-5 w-5" />
+              </button>
+              <input value={l.name} onChange={(e) => setLine(listKey, i, { name: e.target.value })} placeholder="Name" aria-label="Name"
+                className="flex-1 min-w-0 h-9 bg-transparent text-base font-medium text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none" />
+              <button type="button" onClick={() => removeLine(listKey, i)} aria-label={`Remove ${l.name || 'line'}`}
+                className="h-9 w-7 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 pl-11 pr-1 mt-0.5">
+              {listKey === 'malt' && bagsLabel(l.amount, l.unit) && (
+                <span className="text-base font-semibold tabular-nums text-gray-900 whitespace-nowrap">{bagsLabel(l.amount, l.unit)}</span>
+              )}
+              <input value={l.amount} onChange={(e) => setLine(listKey, i, { amount: e.target.value })} inputMode="decimal" placeholder="0" aria-label="Amount"
+                className="w-16 h-9 rounded-lg bg-black/[0.04] px-1.5 text-right text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <input value={l.unit} onChange={(e) => setLine(listKey, i, { unit: e.target.value })} placeholder={unit} aria-label="Unit"
+                className="w-10 h-9 bg-transparent text-base text-gray-500 placeholder:text-gray-300 focus:outline-none" />
+              {listKey === 'malt' ? <span className="flex-1" /> : (
+                <input value={l.when} onChange={(e) => setLine(listKey, i, { when: e.target.value })} placeholder={whenLabel} aria-label={whenLabel}
+                  className="flex-1 min-w-0 h-9 bg-transparent text-base text-gray-500 placeholder:text-gray-300 focus:outline-none" />
+              )}
+              <button type="button" onClick={() => substitute(listKey, i)} className="flex-shrink-0 h-9 px-1 text-xs font-semibold text-primary whitespace-nowrap">
+                Substitute
+              </button>
+            </div>
+            {l.note && <p className="pl-11 pr-1 pb-0.5 text-xs text-malt-dark break-words">{l.note}</p>}
           </li>
         ))}
       </ul>
@@ -300,6 +314,17 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
         {by && <span className="text-sm text-gray-500">{by}</span>}
       </button>
     )
+  }
+
+  // Something else went in instead: the line takes the new name and keeps a note of what it replaced
+  function substitute(listKey: ListKey, index: number) {
+    const line = data[listKey][index]
+    if (!line) return
+    const used = window.prompt(`What was used in place of ${line.name || 'this'}?`)?.trim()
+    if (!used || used === line.name) return
+    // Keep the first original if it is substituted twice
+    const original = /^Substituted for /.test(line.note) ? line.note : line.name ? `Substituted for ${line.name}` : ''
+    setLine(listKey, index, { name: used, note: original })
   }
 
   // Removing a line asks first, and can be undone for a few seconds after
@@ -464,7 +489,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, me }: {
         </div>
       </Section>
 
-      <Section title="Dry hop and cellar additions" hint="Tick each one off when it goes in.">
+      <Section title="After brew day: dry hop and cellar additions" hint="These go in over the following days. They are not needed to finish the brew day.">
         {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "kg" })}
       </Section>
 

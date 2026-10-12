@@ -49,6 +49,17 @@ export interface BrewSheetData {
 
 export const LIST_KEYS = ['malt', 'mash_additions', 'kettle_additions', 'kettle_hops', 'dry_hops'] as const
 export type ListKey = (typeof LIST_KEYS)[number]
+/** The lists that are worked through on brew day itself */
+export const BREW_DAY_LISTS = ['malt', 'mash_additions', 'kettle_additions', 'kettle_hops'] as const
+
+/** Malt comes in 25 kg bags. "200" kg -> "8 bags". Empty when the amount is not a weight in kg. */
+export function bagsLabel(amount: string, unit: string): string {
+  const kg = Number(amount)
+  if (!amount.trim() || !Number.isFinite(kg) || kg <= 0 || (unit.trim() && unit.trim().toLowerCase() !== 'kg')) return ''
+  const bags = kg / 25
+  const text = Number.isInteger(bags) ? String(bags) : bags === 0.5 ? '½' : String(Math.round(bags * 100) / 100)
+  return `${text} bag${bags > 1 ? 's' : ''}`
+}
 
 const emptyRunnings = (): Runnings => ({ time: '', plato: '', ph: '' })
 
@@ -143,7 +154,8 @@ export function sheetFromRecipe(lines: RecipeLine[]): BrewSheetData {
       case 'mash_addition': case 'mash_hop': sheet.mash_additions.push(entry); break
       case 'kettle_addition': sheet.kettle_additions.push(entry); break
       case 'kettle_hop': sheet.kettle_hops.push(entry); break
-      case 'dry_hop': sheet.dry_hops.push(entry); break
+      // Enzymes, finings and the like sit with the dry hops: all of it goes in after brew day
+      case 'dry_hop': case 'process': sheet.dry_hops.push(entry); break
       case 'yeast':
         if (!sheet.yeast.strain) { sheet.yeast.strain = l.name; sheet.yeast.amount = [entry.amount, entry.unit].filter(Boolean).join(' ') }
         break
@@ -159,7 +171,8 @@ export function sheetProgress(s: BrewSheetData): { filled: number; total: number
     s.kettle.volume_l, s.kettle.post_boil_plato, s.fv.volume_l, s.fv.plato, s.fv.ph,
     s.yeast.strain, s.yeast.lot, s.signoffs.aldc, s.signoffs.frigid_set,
   ]
-  const lines = LIST_KEYS.flatMap((k) => s[k])
+  // Dry hops and cellar additions go in days later, so they never count against the brew day
+  const lines = BREW_DAY_LISTS.flatMap((k) => s[k])
   return {
     filled: scalars.filter((v) => v.trim()).length + lines.filter((l) => l.done).length,
     total: scalars.length + lines.length,

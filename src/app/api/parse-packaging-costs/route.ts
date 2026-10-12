@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { staffEmail } from '@/lib/planner/session'
 import {
   fileToContent, createMessageWithPDF, createMessageStreamed, isPDF, extractJsonArray,
 } from '@/lib/claude'
@@ -47,7 +48,25 @@ function sheetCsvUrl(raw: string): string | null {
   return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`
 }
 
+function isPublishedSheet(raw: string): boolean {
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'https:' && u.hostname === 'docs.google.com' && u.pathname.startsWith('/spreadsheets/')
+  } catch {
+    return false
+  }
+}
+
+// Claude can take a few minutes on a long price list
+export const maxDuration = 300
+
+// Bigger than any real brew sheet or price list, small enough to refuse a mistake
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
 export async function POST(request: Request) {
+  if (!(await staffEmail())) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+  }
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
   }
@@ -60,6 +79,12 @@ export async function POST(request: Request) {
   }
 
   const file = formData.get('file') as File | null
+
+  if (file && file.size > MAX_UPLOAD_BYTES) {
+
+    return NextResponse.json({ error: 'That file is over 20 MB. Export a smaller PDF or paste the text.' }, { status: 413 })
+
+  }
   const url = (formData.get('url') as string | null)?.trim()
   const prompt = 'Extract every packaging and per-unit cost line from this document.'
 
@@ -67,8 +92,13 @@ export async function POST(request: Request) {
 
   try {
     if (url) {
-      const csvUrl = sheetCsvUrl(url) ?? url
-      const res = await fetch(csvUrl, { redirect: 'follow' })
+      // Only Google Sheets. Fetching whatever is pasted would let this server be
+      // pointed at any address, including ones only it can reach.
+      const csvUrl = sheetCsvUrl(url) ?? (isPublishedSheet(url) ? url : null)
+      if (!csvUrl) {
+        return NextResponse.json({ error: 'Paste a Google Sheets link (docs.google.com/spreadsheets/...).' }, { status: 400 })
+      }
+      const res = await fetch(csvUrl, { redirect: 'follow', signal: AbortSignal.timeout(20000) })
       const text = await res.text()
 
       // A private sheet returns Google's sign-in page, not CSV.

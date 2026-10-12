@@ -22,9 +22,12 @@ export interface MatchCandidate {
   score: number
 }
 
+// Words that describe the catalogue entry, not the product. "cryo" and
+// "organic" are deliberately NOT here: Mosaic Cryo is a different product at a
+// different price from Mosaic pellets, and must not auto-link as if it were.
 const NOISE = [
-  'malt', 'hops', 'hop', 'pellets', 'pellet', 't-90', 't90', 't45', 't-45',
-  'brand', 'cryo', 'c.v', 'cv', 'organic', 'brewers', 'brewer',
+  'malt', 'hops', 'hop', 'pellets', 'pellet', 't90', 't45',
+  'brand', 'cv', 'brewers', 'brewer',
 ]
 
 /** Strip trademark marks, pack sizes, punctuation and catalogue noise words. */
@@ -34,9 +37,12 @@ export function tokenise(raw: string): string[] {
     .replace(/[®™©]/g, ' ')
     .replace(/\b\d+\s*x\s*\d+\s*(kg|g|l|ml)\b/g, ' ')  // 1x5kg, 4x5kg
     .replace(/\b\d+(\.\d+)?\s*(kg|g|l|ml)\b/g, ' ')     // 500g, 100ml
+    .replace(/\bt[\s-]?(90|45)\b/g, ' ')              // T-90 / T 45 pellet grades
+    .replace(/\bc\.v\b/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .split(/\s+/)
-    .filter((t) => t.length > 1 && !NOISE.includes(t))
+    // A lone digit is kept: it is the whole difference between Carafa Special 1 and 3
+    .filter((t) => (t.length > 1 || /\d/.test(t)) && !NOISE.includes(t))
 }
 
 function trigrams(s: string): Set<string> {

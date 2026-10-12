@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { staffEmail } from '@/lib/planner/session'
 import { fileToContent, createMessageWithPDF, createMessageStreamed, isPDF, extractJsonObject } from '@/lib/claude'
 
 const SYSTEM = `You are a brewing recipe parser. Extract all information from the brew sheet or recipe document.
@@ -73,7 +74,16 @@ export interface ParsedRecipe {
   }[]
 }
 
+// Claude can take a few minutes on a long price list
+export const maxDuration = 300
+
+// Bigger than any real brew sheet or price list, small enough to refuse a mistake
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
 export async function POST(request: Request) {
+  if (!(await staffEmail())) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+  }
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
   }
@@ -86,6 +96,12 @@ export async function POST(request: Request) {
   }
 
   const file = formData.get('file') as File | null
+
+  if (file && file.size > MAX_UPLOAD_BYTES) {
+
+    return NextResponse.json({ error: 'That file is over 20 MB. Export a smaller PDF or paste the text.' }, { status: 413 })
+
+  }
   if (!file || file.size === 0) {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 })
   }

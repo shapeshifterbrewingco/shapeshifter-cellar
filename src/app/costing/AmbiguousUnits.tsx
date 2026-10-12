@@ -5,32 +5,49 @@ import { AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { getAmbiguousUnits, resolveAmbiguousUnits } from './actions'
 import type { AmbiguousLine } from './actions'
 
+const optionsOf = (unit: string) => unit.split('/').map((u) => u.trim()).filter(Boolean)
+
 /**
  * Brew sheets head a column "G/KG", meaning the number is in grams or
  * kilograms. The recipe parser used to take that literally and store "g/kg" as
- * the unit, which cannot be costed. This clears those in one go, proposing the
- * unit the magnitude points to, with a forced option either way.
+ * the unit, which cannot be costed. Each line here starts on the unit its size
+ * and type point to, and a person confirms or flips every one before anything
+ * is saved: a wrong guess is a thousand-fold error in that line's cost.
  */
 export function AmbiguousUnits({ recipeId, onResolved }: {
   recipeId: string
   onResolved: () => void
 }) {
   const [lines, setLines] = useState<AmbiguousLine[] | null>(null)
+  const [choices, setChoices] = useState<Record<string, string>>({})
+  const [error, setError] = useState<string | null>(null)
   const [busy, startTransition] = useTransition()
 
   useEffect(() => {
     let live = true
-    getAmbiguousUnits(recipeId).then((l) => { if (live) setLines(l) })
+    getAmbiguousUnits(recipeId).then((l) => {
+      if (!live) return
+      setLines(l)
+      setChoices(Object.fromEntries(l.map((x) => [x.id, x.proposed])))
+    })
     return () => { live = false }
   }, [recipeId])
 
   if (!lines || lines.length === 0) return null
 
-  const units = Array.from(new Set(lines.flatMap((l) => l.unit.split('/').map((u) => u.trim()))))
+  const units = Array.from(new Set(lines.flatMap((l) => optionsOf(l.unit))))
+  const setAll = (u: string) =>
+    setChoices((c) => Object.fromEntries(lines.map((l) => [l.id, optionsOf(l.unit).includes(u) ? u : c[l.id]])))
 
-  function resolve(force?: string) {
+  function save() {
+    setError(null)
     startTransition(async () => {
-      await resolveAmbiguousUnits(recipeId, force)
+      try {
+        await resolveAmbiguousUnits(recipeId, choices)
+      } catch {
+        setError('Those did not save. Try again.')
+        return
+      }
       setLines([])
       onResolved()
     })
@@ -45,39 +62,49 @@ export function AmbiguousUnits({ recipeId, onResolved }: {
       <p className="text-xs text-amber-700 mb-2">
         These came off a brew sheet column headed{' '}
         <code className="font-medium">{lines[0].unit}</code>, so the amount is in one unit or the
-        other. Nothing can be costed until it is settled.
+        other. Check each one: the highlighted unit is only a guess.
       </p>
 
-      <ul className="text-xs text-amber-800 space-y-0.5 mb-3">
-        {lines.slice(0, 8).map((l) => (
-          <li key={l.id} className="flex items-baseline gap-1.5">
-            <span className="text-gray-800">{l.name}</span>
-            <span className="tabular-nums text-gray-500">{l.quantity ?? '—'}</span>
-            <span className="text-amber-700">
-              {l.unit} &rarr; <span className="font-semibold">{l.proposed}</span>
+      <ul className="text-xs space-y-1 mb-3">
+        {lines.map((l) => (
+          <li key={l.id} className="flex items-center gap-2">
+            <span className="text-gray-800 flex-1 min-w-0 truncate">{l.name}</span>
+            <span className="tabular-nums text-gray-600 w-14 text-right">{l.quantity ?? '-'}</span>
+            <span className="inline-flex rounded-lg border border-amber-300 overflow-hidden bg-white">
+              {optionsOf(l.unit).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setChoices((c) => ({ ...c, [l.id]: u }))}
+                  className={`px-2.5 py-1 font-medium ${choices[l.id] === u ? 'bg-primary text-primary-foreground' : 'text-amber-800 hover:bg-amber-100'}`}
+                >
+                  {u}
+                </button>
+              ))}
             </span>
           </li>
         ))}
-        {lines.length > 8 && <li className="text-amber-600">and {lines.length - 8} more</li>}
       </ul>
+
+      {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
 
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => resolve()}
+          onClick={save}
           disabled={busy}
           className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50"
         >
           {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-          Apply these
+          Save these units
         </button>
         {units.map((u) => (
           <button
             key={u}
-            onClick={() => resolve(u)}
+            onClick={() => setAll(u)}
             disabled={busy}
             className="text-xs font-medium border border-amber-300 bg-white text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-100 disabled:opacity-50"
           >
-            Set all to {u}
+            Mark all as {u}
           </button>
         ))}
       </div>

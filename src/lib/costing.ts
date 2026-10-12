@@ -16,6 +16,7 @@
  * $350k threshold on a 100% rebate, so folding it in would overstate COGS.
  */
 
+import { BEER_EXCISE_FREE_ABV } from '@/types'
 import type { PackageFormat, ExciseCategory } from '@/types'
 
 // ── Format metadata ──────────────────────────────────────────
@@ -199,6 +200,8 @@ export interface CostLine {
   /** Set for recipe lines, so the gap can be fixed from the costing screen. */
   recipeIngredientId: string | null
   ingredientId: string | null
+  /** The amount as written in the recipe, before scaling to the tank. Edits save this, not the scaled figure. */
+  recipeQuantity?: number | null
   /** Set for packaging material lines, for the same reason. */
   materialId?: string | null
 }
@@ -289,7 +292,8 @@ function priceLine(
     gap = 'not-linked'
   } else if (quantity == null) {
     gap = 'no-quantity'
-  } else if (pricePerUnit == null) {
+  } else if (pricePerUnit == null || !(pricePerUnit > 0)) {
+    // A $0 row is a "POA" line or a failed import, never a free ingredient
     gap = 'no-price'
   } else {
     const converted = convertUnits(quantity, unit, priceUnit)
@@ -313,6 +317,11 @@ export const GAP_LABELS: Record<CostGap, string> = {
   'unit-mismatch': 'unit mismatch',
 }
 
+// What a unit cannot leave the brewery without. If one of these is missing
+// from the price book the format is flagged rather than costed as if it were free.
+const REQUIRED_CAN_MATERIALS: string[] = ['can', 'carton']
+const REQUIRED_KEG_MATERIALS: string[] = []
+
 export function calculateCosting(input: CostingInput): CostingResult {
   const {
     recipeVolumeL, volumeIntoTankL, lossPct, scaleToTank,
@@ -331,15 +340,18 @@ export function calculateCosting(input: CostingInput): CostingResult {
   // ── Liquid: recipe ingredients ─────────────────────────────
   const ingredientLines = ingredients.map((ing) => {
     const scaledQty = ing.quantity != null ? ing.quantity * scaleFactor : null
-    return priceLine(
-      ing.name,
-      scaleFactor !== 1 && ing.quantity != null
-        ? `${ing.quantity} ${ing.unit ?? ''} × ${scaleFactor.toFixed(3)}`
-        : 'Recipe',
-      scaledQty, ing.unit, ing.pricePerUnit, ing.priceUnit, ing.supplier,
-      ing.ingredientId != null,
-      ing.recipeIngredientId, ing.ingredientId,
-    )
+    return {
+      ...priceLine(
+        ing.name,
+        scaleFactor !== 1 && ing.quantity != null
+          ? `${ing.quantity} ${ing.unit ?? ''} × ${scaleFactor.toFixed(3)}`
+          : 'Recipe',
+        scaledQty, ing.unit, ing.pricePerUnit, ing.priceUnit, ing.supplier,
+        ing.ingredientId != null,
+        ing.recipeIngredientId, ing.ingredientId,
+      ),
+      recipeQuantity: ing.quantity,
+    }
   })
 
   // ── Liquid: bright / hazy process additives ────────────────
@@ -366,12 +378,21 @@ export function calculateCosting(input: CostingInput): CostingResult {
   }
 
   // ── Volumes ────────────────────────────────────────────────
-  const lossL = volumeIntoTankL * (lossPct / 100)
+  // A loss outside 0-100% is a typo. Cost it at the nearest sane value and say so.
+  const safeLossPct = Math.min(100, Math.max(0, Number.isFinite(lossPct) ? lossPct : 0))
+  if (safeLossPct !== lossPct) gaps.push(`Loss of ${lossPct}% is not possible, costed at ${safeLossPct}%`)
+  if (!(volumeIntoTankL > 0)) gaps.push('Volume into tank is not set')
+  const lossL = volumeIntoTankL * (safeLossPct / 100)
   const packagedVolumeL = Math.max(0, volumeIntoTankL - lossL)
 
   const allocatedVolumeL = FORMAT_ORDER.reduce(
     (t, f) => t + (split[f] ?? 0) * FORMAT_META[f].volumeL, 0)
   const unallocatedL = packagedVolumeL - allocatedVolumeL
+  // Packing more than the tank yields spreads the batch over units that cannot
+  // exist, which makes every one of them look cheaper than it is.
+  if (allocatedVolumeL > packagedVolumeL + 0.5) {
+    gaps.push(`The split packs ${Math.round(allocatedVolumeL - packagedVolumeL)} L more than the batch yields, so unit costs are understated`)
+  }
 
   // Spread the batch cost across the units actually produced. If the split
   // leaves beer unaccounted for, that cost still lands on what was packaged.
@@ -384,6 +405,7 @@ export function calculateCosting(input: CostingInput): CostingResult {
     overheads.chemicalsPerBatch + overheads.waterPerBatch +
     overheads.otherPerL * volumeIntoTankL
   const overheadPerL = costBasisL > 0 ? overheadCost / costBasisL : 0
+  if (!(overheadCost > 0)) gaps.push('No overheads set (labour, energy, chemicals, water), so this is materials only')
 
   // ── Per-format costs ───────────────────────────────────────
   const hasAbv = abv != null && abv > 0
@@ -409,6 +431,10 @@ export function calculateCosting(input: CostingInput): CostingResult {
       for (const l of materialLines) {
         if (l.gap != null) gaps.push(`${l.name} (${meta.label}) has no price on file`)
       }
+      // A format with nothing set up against it is not free to pack
+      const have = new Set(materials.filter((m) => m.format === format).map((m) => m.category))
+      const missing = (meta.isKeg ? REQUIRED_KEG_MATERIALS : REQUIRED_CAN_MATERIALS).filter((c) => !have.has(c))
+      if (missing.length) gaps.push(`${meta.label} has no ${missing.join(', ')} set up in packaging costs`)
     }
 
     const canningCost = !meta.isKeg && meta.unitsPerPack && meta.canMl
@@ -422,7 +448,9 @@ export function calculateCosting(input: CostingInput): CostingResult {
     const rate = meta.isKeg
       ? (exciseCategory === 'mid_strength' ? excise.kegMid : excise.kegStd)
       : (exciseCategory === 'rtd' ? excise.rtd : excise.canStd)
-    const excisePerUnit = hasAbv ? meta.volumeL * (abv! / 100) * rate : null
+    // Beer pays excise only on alcohol above 1.15% ABV. RTDs pay on all of it.
+    const exciseAbv = exciseCategory === 'rtd' ? abv! : Math.max(0, abv! - BEER_EXCISE_FREE_ABV)
+    const excisePerUnit = hasAbv ? meta.volumeL * (exciseAbv / 100) * rate : null
 
     return {
       format,
@@ -459,7 +487,7 @@ export function calculateCosting(input: CostingInput): CostingResult {
     clarity: input.clarity,
 
     volumeIntoTankL,
-    lossPct,
+    lossPct: safeLossPct,
     lossL,
     packagedVolumeL,
     allocatedVolumeL,
@@ -524,18 +552,25 @@ export function ambiguousOptions(unit: string | null | undefined): [string, stri
 }
 
 /**
- * Which of the two an amount is most likely to be, judged on magnitude.
- * Kettle additions, finings and salts are dosed in grams, so 170 is grams and
- * not 170 kg. Anything in the hundreds of the larger unit is implausible for a
- * single addition.
+ * Which of the two an amount is most likely to be. Only ever a starting
+ * suggestion: every line is confirmed by a person before it is saved.
+ *
+ * Grain is bought and weighed by the kilo, so a malt line is kilograms at any
+ * size. Salts, finings and kettle additions are dosed in grams, apart from
+ * sub-one amounts ("0.5") which only make sense as kilograms. Hops go either
+ * way (250 g in the kettle, 5 kg in the dry hop), so they fall back on size.
  */
-export function likelyUnit(unit: string | null | undefined, quantity: number | null): string | null {
+export function likelyUnit(
+  unit: string | null | undefined, quantity: number | null, category?: string | null,
+): string | null {
   const opts = ambiguousOptions(unit)
   if (!opts) return null
   const [small, large] = opts
   if (quantity == null) return small
-  // Over ~10 of the larger unit stops being credible for a single addition.
-  return quantity > 10 ? small : large
+  const cat = (category ?? '').toLowerCase()
+  if (cat === 'malt' || cat === 'grain' || cat === 'adjunct' || cat === 'sugar') return large
+  if (cat === 'hop' || cat === 'hops' || cat === '') return quantity > 10 ? small : large
+  return quantity < 1 ? large : small
 }
 
 export function formatMoney(n: number | null | undefined, dp = 2): string {

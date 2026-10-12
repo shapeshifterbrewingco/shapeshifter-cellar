@@ -41,7 +41,7 @@ async function loadLibrary(
 
   return ((data ?? []) as unknown as Row[]).map((i) => {
     const prices = i.ingredient_prices ?? []
-    const chosen = prices.find((p) => p.is_preferred) ?? prices.find((p) => p.price_per_unit != null) ?? prices[0]
+    const chosen = prices.find((p) => p.is_preferred) ?? prices.find((p) => p.price_per_unit != null && Number(p.price_per_unit) > 0) ?? prices[0]
     return {
       id: i.id,
       name: i.name,

@@ -39,12 +39,15 @@ export function FixLine({ line, onFixed }: { line: CostLine; onFixed: () => void
   const [unit, setUnit] = useState(line.unit && UNITS.includes(line.unit) ? line.unit : 'kg')
   const [supplier, setSupplier] = useState('')
 
-  const [qty, setQty] = useState(line.quantity != null ? String(line.quantity) : '')
+  // The recipe's own figure, not the one scaled up to the tank: this box saves
+  // straight back to the recipe.
+  const recipeQty = line.recipeQuantity !== undefined ? line.recipeQuantity : line.quantity
+  const [qty, setQty] = useState(recipeQty != null ? String(recipeQty) : '')
   // An ambiguous unit like "g/kg" is not a real option, so start on the one
   // the amount most likely means rather than showing an invalid selection.
   const [qtyUnit, setQtyUnit] = useState(
     isAmbiguousUnit(line.unit)
-      ? (likelyUnit(line.unit, line.quantity) ?? 'g')
+      ? (likelyUnit(line.unit, recipeQty) ?? 'g')
       : (line.unit && UNITS.includes(line.unit) ? line.unit : 'kg'),
   )
 

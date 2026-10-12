@@ -50,7 +50,8 @@ async function resolvePrices(
   }
 
   for (const [id, rows] of byIngredient) {
-    const priced = rows.filter((r) => r.price_per_unit != null)
+    // A $0 row is a "POA" line or a failed import. It must never win as the cheapest.
+    const priced = rows.filter((r) => r.price_per_unit != null && Number(r.price_per_unit) > 0)
     if (priced.length === 0) {
       const r = rows[0]
       map.set(id, {
@@ -474,6 +475,7 @@ export interface AmbiguousLine {
   name: string
   quantity: number | null
   unit: string
+  category: string | null
   proposed: string
 }
 
@@ -486,11 +488,11 @@ export async function getAmbiguousUnits(recipeId: string): Promise<AmbiguousLine
   const supabase = await createClient()
   const { data } = await supabase
     .from('recipe_ingredients')
-    .select('id, name, quantity, unit')
+    .select('id, name, quantity, unit, category')
     .eq('recipe_id', recipeId)
     .order('sort_order')
 
-  return ((data ?? []) as { id: string; name: string; quantity: number | null; unit: string | null }[])
+  return ((data ?? []) as { id: string; name: string; quantity: number | null; unit: string | null; category: string | null }[])
     .filter((r) => isAmbiguousUnit(r.unit))
     .map((r) => {
       const qty = r.quantity != null ? Number(r.quantity) : null
@@ -499,29 +501,37 @@ export async function getAmbiguousUnits(recipeId: string): Promise<AmbiguousLine
         name: r.name,
         quantity: qty,
         unit: r.unit as string,
-        proposed: likelyUnit(r.unit, qty) ?? 'g',
+        category: r.category,
+        proposed: likelyUnit(r.unit, qty, r.category) ?? 'g',
       }
     })
 }
 
 /**
- * Resolve every ambiguous unit on a recipe. Pass a unit to force all of them,
- * or leave it out to take the proposal for each line.
+ * Settle ambiguous units on a recipe. `choices` maps a recipe line to the unit
+ * a person picked for it; only those lines are touched, and only with one of
+ * the two units the heading allowed.
  */
 export async function resolveAmbiguousUnits(
-  recipeId: string, force?: string,
+  recipeId: string, choices: Record<string, string>,
 ): Promise<number> {
   const supabase = await createClient()
   const lines = await getAmbiguousUnits(recipeId)
 
+  let saved = 0
   for (const l of lines) {
+    const picked = choices[l.id]
+    if (!picked) continue
+    const allowed = l.unit.split('/').map((u) => u.trim())
+    if (!allowed.includes(picked)) throw new Error(`${picked} is not an option for ${l.name}`)
     const { error } = await supabase
       .from('recipe_ingredients')
-      .update({ unit: force ?? l.proposed })
+      .update({ unit: picked })
       .eq('id', l.id)
     if (error) throw error
+    saved++
   }
 
   revalidatePath('/costing')
-  return lines.length
+  return saved
 }

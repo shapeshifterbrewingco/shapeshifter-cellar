@@ -92,6 +92,9 @@ export async function createRecipe(data: RecipeFormData) {
       unit: ing.unit || null,
       time_minutes: (typeof ing.time_minutes === 'number' && !isNaN(ing.time_minutes)) ? ing.time_minutes : null,
       trigger: ing.trigger || null, sort_order: i,
+      // The link to the priced ingredient. Dropping it sends the line back to
+      // "not linked" and costs it at nothing.
+      ingredient_id: ing.ingredient_id ?? null,
     }))
     const { error: ingError } = await supabase.from('recipe_ingredients').insert(rows)
     if (ingError) {
@@ -146,7 +149,17 @@ export async function updateRecipe(id: string, data: RecipeFormData) {
     throw error
   }
 
-  await supabase.from('recipe_ingredients').delete().eq('recipe_id', id)
+  // Lines are replaced wholesale. Keep a copy so a failed save puts the old
+  // ones back instead of leaving the recipe empty.
+  const { data: previous } = await supabase
+    .from('recipe_ingredients')
+    .select('recipe_id, name, category, addition_stage, quantity, unit, time_minutes, trigger, sort_order, ingredient_id')
+    .eq('recipe_id', id)
+  const { error: clearError } = await supabase.from('recipe_ingredients').delete().eq('recipe_id', id)
+  if (clearError) {
+    console.error('[updateRecipe] recipe_ingredients delete error:', JSON.stringify(clearError))
+    throw clearError
+  }
   if (data.ingredients.length > 0) {
     const rows = data.ingredients.map((ing, i) => ({
       recipe_id: id,
@@ -155,10 +168,14 @@ export async function updateRecipe(id: string, data: RecipeFormData) {
       unit: ing.unit || null,
       time_minutes: (typeof ing.time_minutes === 'number' && !isNaN(ing.time_minutes)) ? ing.time_minutes : null,
       trigger: ing.trigger || null, sort_order: i,
+      // The link to the priced ingredient. Dropping it sends the line back to
+      // "not linked" and costs it at nothing.
+      ingredient_id: ing.ingredient_id ?? null,
     }))
     const { error: ingError } = await supabase.from('recipe_ingredients').insert(rows)
     if (ingError) {
       console.error('[updateRecipe] recipe_ingredients insert error:', JSON.stringify(ingError), 'rows:', JSON.stringify(rows))
+      if (previous?.length) await supabase.from('recipe_ingredients').insert(previous)
       throw ingError
     }
 
@@ -177,10 +194,11 @@ export async function deleteRecipe(id: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  await supabase
+  const { error } = await supabase
     .from('recipes')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
+  if (error) throw error
 
   revalidatePath('/recipes')
   redirect('/recipes')

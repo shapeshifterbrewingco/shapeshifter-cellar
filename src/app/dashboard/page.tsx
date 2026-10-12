@@ -44,6 +44,9 @@ function Panel({ title, action, children, className = '' }: {
 const relDay = (key: string, today: string) =>
   key === today ? 'Today' : key === addDaysISO(today, 1) ? 'Tomorrow' : key === addDaysISO(today, -1) ? 'Yesterday' : fmtDay(key)
 
+/** The Cellar page, opened on this tank's detail screen and ferment chart */
+const tankHref = (tankId: string) => `/?tank=${tankId}`
+
 const more = (href: string, label: string) => (
   <Link href={href} className="text-xs font-medium text-primary hover:underline">{label}</Link>
 )
@@ -228,6 +231,7 @@ export default async function DashboardPage() {
               lead: t.tank.name, title: t.brew.beer_name,
               sub: [stageStyle(t.brew.stage).label, t.brew.style].filter(Boolean).join(' · '),
               right: litres(t.brew.volume_l), rightSub: t.days_in_tank != null ? `day ${t.days_in_tank}` : '',
+              href: tankHref(t.tank.id),
             }
           : {
               lead: t.tank.name, title: 'Empty',
@@ -244,6 +248,7 @@ export default async function DashboardPage() {
         sub: [t.brew ? stageStyle(t.brew.stage).label : '', t.brew?.style].filter(Boolean).join(' · '),
         right: litres(t.brew?.volume_l ?? 0),
         rightSub: inTank > 0 ? `${Math.round(((t.brew?.volume_l ?? 0) / inTank) * 100)}% of the cellar` : '',
+        href: tankHref(t.tank.id),
       })),
     },
     {
@@ -259,6 +264,7 @@ export default async function DashboardPage() {
           sub: [t.brew?.style, litres(t.brew?.volume_l ?? 0), abv != null ? `${abv.toFixed(1)}%` : '', t.days_in_tank != null ? `day ${t.days_in_tank}` : ''].filter(Boolean).join(' · '),
           right: t.temperature != null ? `${t.temperature.toFixed(1)}°C` : '-',
           rightSub: set,
+          href: tankHref(t.tank.id),
         }
       }),
     },
@@ -270,6 +276,7 @@ export default async function DashboardPage() {
         title: e.title.replace(/^\s*BREW\s*/i, '').replace(/^[\s:\-]+/, ''),
         sub: relDay(e.date, today) === fmtDay(e.date) ? new Date(e.date + 'T00:00:00Z').toLocaleDateString('en-AU', { weekday: 'long', timeZone: 'UTC' }) : relDay(e.date, today),
         right: '', rightSub: '',
+        href: '/planner',
       })),
     },
   ]
@@ -332,7 +339,9 @@ export default async function DashboardPage() {
                     return (
                       <tr key={tank.id} className="border-t border-gray-100">
                         {/* Stays put while the rest scrolls sideways on a phone */}
-                        <td className="sticky left-0 z-10 bg-white pl-4 pr-3 md:px-5 py-2 font-semibold tabular-nums text-gray-900 whitespace-nowrap shadow-[6px_0_6px_-6px_rgba(16,24,40,0.12)] md:shadow-none">{tank.name}</td>
+                        <td className="sticky left-0 z-10 bg-white pl-4 pr-3 md:px-5 py-2 font-semibold tabular-nums text-gray-900 whitespace-nowrap shadow-[6px_0_6px_-6px_rgba(16,24,40,0.12)] md:shadow-none">
+                          {brew ? <Link href={tankHref(tank.id)} className="underline decoration-dotted decoration-black/25 underline-offset-4">{tank.name}</Link> : tank.name}
+                        </td>
                         {brew ? (
                           <>
                             <td className="px-2 py-2 max-w-[16rem]">

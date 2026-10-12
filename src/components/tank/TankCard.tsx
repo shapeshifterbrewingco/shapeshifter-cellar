@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FlaskConical, BarChart2, MoreHorizontal, TestTube2, Package, ChevronRight, ChevronDown, ClipboardList } from 'lucide-react'
@@ -201,6 +201,21 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     if ((e.target as HTMLElement).closest('button, a, input, select, textarea, label, [role="menu"], [role="menuitem"], [role="dialog"]')) return
     setShowDetail(true)
   }
+
+  // Arriving from the Dashboard with ?tank=<id>: open this tank's detail and
+  // ferment chart straight away, then tidy the address so a refresh does not reopen it.
+  const hasBrew = !!brew && !isEmpty
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('tank') !== tank.id || !hasBrew) return
+    // The phone has a full detail screen; desktop cards open the chart
+    /* eslint-disable react-hooks/set-state-in-effect -- the address bar is only readable after mount */
+    if (window.matchMedia('(min-width: 768px)').matches) setShowChartModal(true)
+    else setShowDetail(true)
+    /* eslint-enable react-hooks/set-state-in-effect */
+    url.searchParams.delete('tank')
+    window.history.replaceState(null, '', url.pathname + url.search)
+  }, [tank.id, hasBrew])
 
   const sheetStages: StageOption[] = STAGE_TRANSITIONS
     .filter((t) => t.stage !== stage)

@@ -15,6 +15,7 @@ import {
 import { TankIllustration } from './TankIllustration'
 import { StageBadge } from './StageBadge'
 import { TankDetailSheet } from './TankDetailSheet'
+import { TempTap } from './SetPoint'
 import type { SheetAction, StageOption } from './TankDetailSheet'
 import { AssignBrewModal } from '@/components/dashboard/AssignBrewModal'
 import { LogReadingModal } from '@/components/dashboard/LogReadingModal'
@@ -313,7 +314,11 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         {phoneStats.map(([label, value]) => (
           <div key={label}>
             <dt className="text-[11px] text-gray-400">{label}</dt>
-            <dd className="text-[15px] font-semibold tabular-nums text-gray-900">{value}</dd>
+            <dd className="text-[15px] font-semibold tabular-nums text-gray-900">
+              {label === 'Temp'
+                ? <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c}>{value}</TempTap>
+                : value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -809,7 +814,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         {isEmpty ? (
           /* Empty: illustration left, info right */
           <div className="flex items-center gap-0 px-3 pb-2 pt-0.5">
-            <div className="flex items-center justify-center flex-shrink-0">
+            <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c} className="flex items-center justify-center flex-shrink-0 hover:no-underline">
               <TankIllustration
                 type={tank.type}
                 style={null}
@@ -822,7 +827,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 width={illW}
                 height={illH}
               />
-            </div>
+            </TempTap>
             <div className="flex flex-col justify-center flex-1 min-w-0 pl-3 gap-1.5">
               {next_scheduled_brew ? (
                 <div>
@@ -848,7 +853,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         ) : (
           /* Occupied: illustration left, data right */
           <div className="flex items-center gap-0 px-3 pb-2 pt-0.5">
-            <div className="flex items-center justify-center flex-shrink-0">
+            <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c} className="flex items-center justify-center flex-shrink-0 hover:no-underline">
               <TankIllustration
                 type={tank.type}
                 style={brew?.style ?? null}
@@ -861,7 +866,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 width={illW}
                 height={illH}
               />
-            </div>
+            </TempTap>
 
             <div className="flex flex-col justify-center flex-1 min-w-0 pl-3 gap-1.5">
               {/* Beer name + style */}
@@ -1075,9 +1080,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           <div className="border-t border-gray-100 px-4 py-1.5 flex items-center gap-2">
             {!showSetpoint ? (
               <>
-                <span className="text-xs text-gray-500 tabular-nums">
+                <TempTap tankId={tank.id} name={tank.name} temperature={temperature} setPoint={set_point_c} className="text-xs text-gray-500 tabular-nums">
                   <span className="text-gray-400">Set point</span> {set_point_c != null && set_point_c !== 200 ? `${set_point_c.toFixed(1)}°C` : '—'}
-                </span>
+                </TempTap>
                 <button
                   type="button"
                   onClick={handleSetpointOpen}

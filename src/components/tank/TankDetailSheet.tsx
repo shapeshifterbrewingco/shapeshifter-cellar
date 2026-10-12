@@ -5,6 +5,7 @@ import { X, FlaskConical, ArrowRightLeft, MoreHorizontal } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { FermentChart, useBrewChart } from '@/components/dashboard/BrewChartModal'
 import { StageBadge } from './StageBadge'
+import { TempTap } from './SetPoint'
 import { calcAbv } from '@/lib/utils'
 import type { TankDashboardData, TankStage } from '@/types'
 
@@ -88,7 +89,11 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
           {stats.map((s) => (
             <div key={s.label} className="bg-white rounded-2xl px-2 py-2.5 text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               <p className="text-[11px] text-gray-400">{s.label}</p>
-              <p className="text-base font-bold tabular-nums text-gray-900 mt-0.5">{s.value}</p>
+              <p className="text-base font-bold tabular-nums text-gray-900 mt-0.5">
+                {s.label === 'Tank temp' || s.label === 'Set point'
+                  ? <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c}>{s.value}</TempTap>
+                  : s.value}
+              </p>
             </div>
           ))}
         </section>

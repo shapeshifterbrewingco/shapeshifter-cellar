@@ -7,6 +7,7 @@ import { nextBrewsByTank } from '@/lib/planner/next-brews'
 import { listEvents, adelaideNow, dayKey, addDaysKey } from '@/lib/planner/google'
 import { stockForecast } from '@/lib/planner/forecast'
 import { AutoRefresh } from '@/components/dashboard/AutoRefresh'
+import { TempTap } from '@/components/tank/SetPoint'
 import { calcAbv, formatUserName } from '@/lib/utils'
 import { daysBetweenISO } from '@/lib/dates'
 import { stageStyle } from '@/lib/stage-style'
@@ -179,7 +180,7 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const today = dayKey(adelaideNow())
 
-  const [frigid, nextBrews, events, recentResult] = await Promise.all([
+  const [frigid, nextBrews, events, recentResult, utilityRows] = await Promise.all([
     getFrigidReadings(),
     nextBrewsByTank(),
     listEvents(today, addDaysKey(today, 13)).catch((): CalEvent[] | null => null),
@@ -189,7 +190,9 @@ export default async function DashboardPage() {
       .or('plato.not.is.null,ph.not.is.null')
       .order('recorded_at', { ascending: false })
       .limit(6),
+    supabase.from('tanks').select('id, frigid_tank_name').eq('is_utility', true),
   ])
+  const utilityIds = new Map((utilityRows.data ?? []).map((t) => [t.frigid_tank_name as string, t.id as string]))
   const tanks = await getDashboardData(supabase, frigid, nextBrews)
 
   const full = tanks.filter((t) => t.brew)
@@ -295,8 +298,16 @@ export default async function DashboardPage() {
                             Empty{t.next_scheduled_brew ? <span className="text-gray-500"> · next: {t.next_scheduled_brew.recipe_name}, {fmtDay(t.next_scheduled_brew.scheduled_date)}</span> : ''}
                           </td>
                         )}
-                        <td className="px-2 py-2 text-right tabular-nums text-gray-900">{t.temperature != null ? `${t.temperature.toFixed(1)}°` : '-'}</td>
-                        <td className="px-2 py-2 text-right tabular-nums text-gray-500">{cooling ? `${t.set_point_c!.toFixed(1)}°` : 'Off'}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-gray-900">
+                          <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={t.temperature} setPoint={t.set_point_c}>
+                            {t.temperature != null ? `${t.temperature.toFixed(1)}°` : '-'}
+                          </TempTap>
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums text-gray-500">
+                          <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={t.temperature} setPoint={t.set_point_c}>
+                            {cooling ? `${t.set_point_c!.toFixed(1)}°` : 'Off'}
+                          </TempTap>
+                        </td>
                         <td className={`pl-2 pr-5 py-2 text-right tabular-nums whitespace-nowrap ${late ? 'text-malt-dark font-medium' : 'text-gray-500'}`}>
                           {!brew ? '' : since == null ? 'None' : since === 0 ? 'Today' : since === 1 ? 'Yesterday' : `${since} days ago`}
                         </td>
@@ -333,7 +344,11 @@ export default async function DashboardPage() {
                   {utilities.map((u) => (
                     <div key={u.name} className="px-4 py-3">
                       <p className="text-xs text-gray-500">{u.name}</p>
-                      <p className="text-xl font-semibold tabular-nums text-gray-900">{u.temperature != null ? `${u.temperature.toFixed(1)}°` : '-'}</p>
+                      <p className="text-xl font-semibold tabular-nums text-gray-900">
+                        <TempTap tankId={utilityIds.get(u.name)} name={u.name} temperature={u.temperature} setPoint={u.setPoint}>
+                          {u.temperature != null ? `${u.temperature.toFixed(1)}°` : '-'}
+                        </TempTap>
+                      </p>
                       <p className="text-xs text-gray-400 tabular-nums">{u.setPoint != null && u.setPoint !== FRIGID_OFF_SET_POINT ? `Set ${u.setPoint.toFixed(1)}°` : 'No set point'}</p>
                     </div>
                   ))}

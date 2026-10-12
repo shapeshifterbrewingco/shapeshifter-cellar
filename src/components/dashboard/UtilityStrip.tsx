@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { X, Pencil } from 'lucide-react'
 import { setTankTarget } from '@/app/tanks/actions'
 import type { FrigidReading } from '@/lib/frigid'
+import { TempTap } from '@/components/tank/SetPoint'
 
 const TEMP_COLOURS: Record<string, string> = {
   HLT:    'text-malt-dark',
@@ -223,7 +224,7 @@ function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }
             <p className="text-xs text-gray-500">{SUBTITLES[r.name] ?? r.name}</p>
             <div className="mt-0.5">
               {r.temperature != null
-                ? <span className={`text-xl font-semibold tabular-nums text-gray-900`}>{r.temperature.toFixed(1)}°C</span>
+                ? <TempTap tankId={r.tankId} name={SUBTITLES[r.name] ?? r.name} temperature={r.temperature} setPoint={r.setPoint} className="text-xl font-semibold tabular-nums text-gray-900">{r.temperature.toFixed(1)}°C</TempTap>
                 : <span className="text-xl font-semibold tabular-nums text-gray-300">—°C</span>}
             </div>
           </div>
@@ -294,8 +295,8 @@ export function UtilityStrip({ readings }: { readings: FrigidReading[] }) {
         {readings.map(r => {
           const cooling = r.setPoint != null && r.setPoint !== 200
           return (
-            <button key={r.name} type="button" onClick={() => r.history?.length && setExpanded(r.name)}
-              className="rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-3 py-2.5 text-left active:bg-gray-50">
+            <TempTap key={r.name} tankId={r.tankId} name={SUBTITLES[r.name] ?? r.name} temperature={r.temperature} setPoint={r.setPoint}
+              className="block rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-3 py-2.5 hover:no-underline active:bg-gray-50">
               <span className="block text-[11px] text-gray-400 truncate">{SUBTITLES[r.name] ?? r.name}</span>
               <span className="block text-[17px] font-semibold tabular-nums text-gray-900 leading-tight">
                 {r.temperature != null ? `${r.temperature.toFixed(1)}°` : '-'}
@@ -303,7 +304,7 @@ export function UtilityStrip({ readings }: { readings: FrigidReading[] }) {
               <span className="block text-[11px] text-gray-400 tabular-nums">
                 {cooling ? `Set ${r.setPoint!.toFixed(1)}°` : 'No set point'}
               </span>
-            </button>
+            </TempTap>
           )
         })}
       </div>

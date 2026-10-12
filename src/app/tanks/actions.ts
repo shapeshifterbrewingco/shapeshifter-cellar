@@ -3,15 +3,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-const MIN_TARGET_C = -5
-const MAX_TARGET_C = 40
+// [lowest, highest] set point allowed, by Frigid vessel name
+const LIMITS: Record<string, [number, number]> = {
+  default: [-5, 40],  // fermenters and brites
+  HLT: [0, 99],       // hot liquor
+  CLT: [-2, 30],      // cold liquor
+  Glycol: [-10, 20],  // chiller
+}
 
 export async function setTankTarget(tankId: string, targetTemp: number): Promise<{ success: boolean; message: string }> {
-  // Same limits as the manual set point field. This goes to a live glycol
-  // controller, so a slip of the finger must not get through.
-  if (!Number.isFinite(targetTemp) || targetTemp < MIN_TARGET_C || targetTemp > MAX_TARGET_C) {
-    return { success: false, message: `Set point must be between ${MIN_TARGET_C} and ${MAX_TARGET_C}°C` }
-  }
+  if (!Number.isFinite(targetTemp)) return { success: false, message: 'Enter a temperature.' }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -19,12 +20,19 @@ export async function setTankTarget(tankId: string, targetTemp: number): Promise
 
   const { data: tank, error } = await supabase
     .from('tanks')
-    .select('frigid_asset_id, name')
+    .select('frigid_asset_id, name, frigid_tank_name')
     .eq('id', tankId)
     .single()
 
   if (error || !tank) return { success: false, message: 'Tank not found' }
   if (!tank.frigid_asset_id) return { success: false, message: `${tank.name} has no Frigid asset ID configured` }
+
+  // This goes to a live controller, so a slip of the finger must not get
+  // through. Each kind of vessel has its own sane range.
+  const [min, max] = LIMITS[tank.frigid_tank_name ?? ''] ?? LIMITS.default
+  if (targetTemp < min || targetTemp > max) {
+    return { success: false, message: `${tank.name} can be set between ${min} and ${max}°C. Nothing was changed.` }
+  }
 
   const apiKey = process.env.FRIGID_API_KEY
   const apiUrl = process.env.FRIGID_API_URL

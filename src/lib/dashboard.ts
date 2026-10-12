@@ -34,7 +34,7 @@ export async function getDashboardData(
       .select('name, hex_colour'),
     supabase
       .from('brews')
-      .select('id, recipe_id, tank_id, brew_day, volume_l, og_plato, stage, beer_name, style, notes, batch_code')
+      .select('id, recipe_id, tank_id, brew_day, volume_l, og_plato, stage, beer_name, style, notes, batch_code, colour')
       .is('deleted_at', null)
       .not('stage', 'in', '(empty,transferred,packaged)'),
   ])
@@ -123,7 +123,7 @@ export async function getDashboardData(
   const liveByName = new Map(live.map((r) => [r.name, r]))
 
   // ── Build output ───────────────────────────────────────────────────────────
-  type BrewRow = { id: string; recipe_id: string | null; tank_id: string; brew_day: string; volume_l: number; og_plato: number | null; stage: string; beer_name: string; style: string | null; notes: string | null; batch_code: string | null }
+  type BrewRow = { id: string; recipe_id: string | null; tank_id: string; brew_day: string; volume_l: number; og_plato: number | null; stage: string; beer_name: string; style: string | null; notes: string | null; batch_code: string | null; colour: string | null }
   type TankRow = { id: string; name: string; type: 'fermenter' | 'brite'; frigid_tank_name: string | null; frigid_asset_id: string | null; sort_order: number; desired_set_point_c: number | null }
 
   const brewByTank = new Map((brews as BrewRow[] ?? []).map((b) => [b.tank_id, b]))
@@ -172,7 +172,8 @@ export async function getDashboardData(
       set_point_c: liveReading?.setPoint ?? temp?.set_point_c ?? null,
       temperature_recorded_at: temp?.recorded_at ?? null,
       days_in_tank: brew?.brew_day ? daysBetweenISO(brew.brew_day.slice(0, 10), today) : null,
-      style_colour: brew?.style ? (styleColourMap.get(brew.style) ?? null) : null,
+      // A colour picked for this beer wins over its style's
+      style_colour: brew?.colour ?? (brew?.style ? (styleColourMap.get(brew.style) ?? null) : null),
       latest_vdk: brew ? (latestVdk[brew.id] as import('@/types').TankDashboardData['latest_vdk'] ?? null) : null,
       packaging_split: brew ? (splitsByBrew[brew.id] ?? null) : null,
       next_scheduled_brew: !brew ? (nextBrews[tank.name] ?? null) : null,

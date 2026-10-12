@@ -137,6 +137,8 @@ export interface Brew {
   style: string | null
   notes: string | null
   batch_code?: string | null
+  /** Hand-picked colour for this beer on its tank. Null = the style's colour. */
+  colour?: string | null
 }
 
 export interface GravityReading {
@@ -296,6 +298,19 @@ export const STYLE_COLOURS: StyleConfig[] = [
   { name: 'Pastry Stout', hex: '#2A1810' },
   { name: 'Belgian', hex: '#B8651F' },
   { name: 'Other', hex: '#888888' },
+]
+
+/** Beer colours to pick from, pale to dark, then the fruit ones */
+export const BEER_COLOURS: { name: string; hex: string }[] = [
+  { name: 'Straw', hex: '#F6EF6E' },
+  { name: 'Gold', hex: '#F5D547' },
+  { name: 'Hazy', hex: '#E8A040' },
+  { name: 'Amber', hex: '#D67D1F' },
+  { name: 'Red', hex: '#A23E1F' },
+  { name: 'Brown', hex: '#5D3A1F' },
+  { name: 'Black', hex: '#1A0F08' },
+  { name: 'Pink', hex: '#D63E5E' },
+  { name: 'Lemon', hex: '#E9F28A' },
 ]
 
 export function getStyleColour(style: BeerStyle | string | null): string {

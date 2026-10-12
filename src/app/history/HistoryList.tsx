@@ -8,18 +8,25 @@ import { ChevronDown, ClipboardList, Loader2, Pencil, Search, Trash2, X } from '
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { deleteBrewHistory, loadBrewDetail } from './actions'
 import { EditBrewModal } from './EditBrewModal'
-import type { BrewHistoryItem, BrewReading, PackagingRun, VdkEntry } from '@/lib/history'
+import type { BrewHistoryItem, BrewReading, PackagingRun, PackCounts, VdkEntry } from '@/lib/history'
+import { PackReportPanel } from './PackReportPanel'
 import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import { PACKAGE_FORMATS } from '@/types'
 import { formatUserName } from '@/lib/utils'
 
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
 
-const OUTCOME: Record<string, { label: string; pill: string }> = {
-  packaged:    { label: 'Packaged',    pill: 'bg-water text-hops' },
-  transferred: { label: 'Transferred', pill: 'bg-water/30 text-hops' },
-  cleaning:    { label: 'Emptied',     pill: 'bg-charcoal/8 text-charcoal/70' },
+const plural = (n: number, word: string) => `${n.toLocaleString('en-AU')} ${word}${n === 1 ? '' : 's'}`
+
+/** "86 cartons · 12 kegs", or null when nothing was packed. */
+function packedSummary(p: PackCounts): string | null {
+  const cartons = p.c24 + p.c16
+  const kegs = p.keg30 + p.keg50
+  if (!cartons && !kegs) return null
+  return [cartons > 0 && plural(cartons, 'carton'), kegs > 0 && plural(kegs, 'keg')].filter(Boolean).join(' · ')
 }
+
+const daysLabel = (n: number | null) => (n == null ? '-' : n === 1 ? '1 day' : `${n} days`)
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const monthLabel = (key: string) => `${MONTHS[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`
@@ -119,63 +126,60 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
   const batch = (item: BrewHistoryItem, why = '') => {
     const isOpen = openBrew === item.id
     const detail = details[item.id]
-    const outcome = OUTCOME[item.stage] ?? { label: item.stage, pill: 'bg-charcoal/8 text-charcoal/70' }
     const leftAt = item.packed_at ?? item.completed_at
-    const days = differenceInDays(parseISO(leftAt), parseISO(item.brew_day))
+    const summary = packedSummary(item.packed)
+    // Fermenter time runs to the transfer if there was one, otherwise to the day it left
+    const fvDays = differenceInDays(parseISO(item.transferred_at ?? leftAt), parseISO(item.brew_day))
+    const briteDays = item.transferred_at ? Math.max(0, differenceInDays(parseISO(leftAt), parseISO(item.transferred_at))) : null
     const stats: [string, string][] = [
-      ['Volume', litres(item.volume_l)],
+      ['Brew day', day(item.brew_day)],
+      ['Time in FV', daysLabel(fvDays)],
+      ['Time in brite', daysLabel(briteDays)],
       ['OG', item.og_plato != null ? `${item.og_plato}°P` : '-'],
       ['FG', item.final_plato != null ? `${item.final_plato}°P` : '-'],
-      ['ABV', item.abv != null ? `${item.abv.toFixed(1)}%` : '-'],
+      ['Final ABV', item.abv != null ? `${item.abv.toFixed(1)}%` : '-'],
+      ['DO in brite', item.report?.bbt_do_ppb != null ? `${item.report.bbt_do_ppb} ppb` : '-'],
+      ['DO in pack', item.report?.pack_do_ppb != null ? `${item.report.pack_do_ppb} ppb` : '-'],
     ]
     return (
       <li key={item.id} className={`${CARD} overflow-hidden`}>
-        <button type="button" onClick={() => toggleBrew(item.id)} aria-expanded={isOpen} className="w-full text-left px-4 pt-3.5 pb-3 active:bg-gray-50">
+        <button type="button" onClick={() => toggleBrew(item.id)} aria-expanded={isOpen} className="w-full text-left px-4 py-3.5 active:bg-gray-50">
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold tracking-wide text-gray-400 tabular-nums">
-                {item.tank_name}{item.batch_code ? ` · ${item.batch_code}` : ''}
+              <p className="text-xs font-medium text-gray-500 tabular-nums">
+                {day(leftAt)}{item.batch_code ? <span className="text-gray-400"> · {item.batch_code}</span> : ''}
               </p>
-              <p className="text-[17px] font-semibold leading-snug text-gray-900 break-words">{item.beer_name}</p>
-              <p className="text-[13px] text-gray-500">
-                {[item.style, `${day(item.brew_day)} to ${format(parseISO(leftAt), 'd MMM')}`, `${days} days`].filter(Boolean).join(' · ')}
+              <p className="mt-0.5 text-[17px] font-semibold leading-snug text-gray-900 break-words">{item.beer_name}</p>
+              {item.style && <p className="text-[13px] text-gray-500">{item.style}</p>}
+              <p className={`mt-1.5 text-sm tabular-nums ${summary ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
+                {summary ?? (item.stage === 'packaged' ? 'No packaging runs logged' : 'Emptied, not packaged')}
               </p>
+              {why && <p className="mt-1.5 text-xs"><span className="rounded-md bg-yeast/40 px-1.5 py-0.5 font-medium text-charcoal">{why}</span></p>}
             </div>
-            <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${outcome.pill}`}>{outcome.label}</span>
+            <ChevronDown className={`mt-1 h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </div>
-
-          <dl className="grid grid-cols-4 mt-3 pt-2.5 border-t border-gray-100">
-            {stats.map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-[11px] text-gray-400">{label}</dt>
-                <dd className="text-[15px] font-semibold tabular-nums text-gray-900">{value}</dd>
-              </div>
-            ))}
-          </dl>
-
-          {(item.hops.length > 0 || item.yeast.length > 0 || why) && (
-            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
-              {why && <span className="mr-2 rounded-md bg-yeast/40 px-1.5 py-0.5 font-medium text-charcoal">{why}</span>}
-              {item.hops.length > 0 && <><span className="text-gray-400">Hops </span>{item.hops.join(', ')}</>}
-              {item.hops.length > 0 && item.yeast.length > 0 && <span className="text-gray-300"> · </span>}
-              {item.yeast.length > 0 && <><span className="text-gray-400">Yeast </span>{item.yeast.join(', ')}</>}
-            </p>
-          )}
         </button>
 
         {isOpen && (
           <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3 space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Link href={`/brews/${item.id}/sheet`} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
-                <ClipboardList className="h-4 w-4" />Brew sheet
-              </Link>
-              <button type="button" onClick={() => void edit(item)} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-white ring-1 ring-black/10 text-sm font-medium text-gray-700">
-                <Pencil className="h-4 w-4" />Edit
-              </button>
-              <button type="button" onClick={() => remove(item)} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-white ring-1 ring-black/10 text-sm font-medium text-red-600 ml-auto">
-                <Trash2 className="h-4 w-4" />Delete
-              </button>
-            </div>
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2.5">
+              {stats.map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <dt className="text-[11px] text-gray-400">{label}</dt>
+                  <dd className="text-[15px] font-semibold tabular-nums text-gray-900">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <PackReportPanel brewId={item.id} report={item.report} />
+
+            {(item.hops.length > 0 || item.yeast.length > 0) && (
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {item.hops.length > 0 && <><span className="text-gray-400">Hops </span>{item.hops.join(', ')}</>}
+                {item.hops.length > 0 && item.yeast.length > 0 && <span className="text-gray-300"> · </span>}
+                {item.yeast.length > 0 && <><span className="text-gray-400">Yeast </span>{item.yeast.join(', ')}</>}
+              </p>
+            )}
 
             {item.final_ph != null && <p className="text-sm text-gray-600">Final pH <span className="font-semibold tabular-nums text-gray-900">{item.final_ph}</span></p>}
             {item.notes && <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">{item.notes}</p>}
@@ -190,7 +194,7 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
             ) : (
               <>
                 <section>
-                  <h3 className="text-xs font-semibold text-gray-500 mb-1.5">Packaging</h3>
+                  <h3 className="text-xs font-semibold text-gray-500 mb-1.5">Packed</h3>
                   {detail.packaging_runs.length === 0 ? (
                     <p className="text-sm text-gray-400">No packaging runs logged.</p>
                   ) : (
@@ -247,6 +251,18 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
                 </section>
               </>
             )}
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link href={`/brews/${item.id}/sheet`} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
+                <ClipboardList className="h-4 w-4" />Brew sheet
+              </Link>
+              <button type="button" onClick={() => void edit(item)} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-white ring-1 ring-black/10 text-sm font-medium text-gray-700">
+                <Pencil className="h-4 w-4" />Edit batch
+              </button>
+              <button type="button" onClick={() => remove(item)} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl bg-white ring-1 ring-black/10 text-sm font-medium text-red-600 ml-auto">
+                <Trash2 className="h-4 w-4" />Delete
+              </button>
+            </div>
           </div>
         )}
       </li>
@@ -284,16 +300,17 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
           {months.map(([key, list]) => {
             const open = openMonths.has(key)
             const packed = list.reduce((s, i) => s + i.packed_l, 0)
+            const made = packedSummary(list.reduce((t, i) => ({ keg30: t.keg30 + i.packed.keg30, keg50: t.keg50 + i.packed.keg50, c24: t.c24 + i.packed.c24, c16: t.c16 + i.packed.c16 }), { keg30: 0, keg50: 0, c24: 0, c16: 0 }))
             return (
               <section key={key}>
                 <button type="button" onClick={() => toggleMonth(key)} aria-expanded={open}
                   className={`${CARD} w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50`}>
                   <div className="flex-1 min-w-0">
                     <h2 className="text-base font-semibold text-gray-900">{monthLabel(key)}</h2>
-                    <p className="text-[13px] text-gray-500 truncate">
-                      {list.length} batch{list.length === 1 ? '' : 'es'}{packed > 0 ? ` · ${litres(packed)} packed` : ''}
-                      {!open && <span className="text-gray-400"> · {[...new Set(list.map((i) => i.beer_name))].slice(0, 3).join(', ')}{new Set(list.map((i) => i.beer_name)).size > 3 ? '…' : ''}</span>}
+                    <p className="text-[13px] text-gray-500">
+                      {list.length} batch{list.length === 1 ? '' : 'es'}{packed > 0 ? ` · ${litres(packed)}` : ''}{made ? ` · ${made}` : ''}
                     </p>
+                    {!open && <p className="text-[13px] text-gray-400 truncate">{[...new Set(list.map((i) => i.beer_name))].slice(0, 3).join(', ')}{new Set(list.map((i) => i.beer_name)).size > 3 ? '…' : ''}</p>}
                   </div>
                   <ChevronDown className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
                 </button>

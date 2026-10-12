@@ -371,7 +371,7 @@ export default async function DashboardPage() {
               )}
             </Panel>
 
-            <Panel title="Latest readings" action={more('/readings', 'All readings')}>
+            <Panel title="Latest readings">
               {recent.length === 0 ? (
                 <p className="px-5 pb-5 text-sm text-gray-500">Nothing logged yet.</p>
               ) : (
@@ -395,7 +395,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-          <Panel title="Next two weeks" action={more('/planner', 'Open planner')}>
+          <Panel title="Next two weeks" action={more('/planner', 'Open calendar')}>
             {events == null ? (
               <p className="px-5 pb-5 text-sm text-gray-500">The Brewery Schedule calendar could not be read.</p>
             ) : byDay.size === 0 ? (

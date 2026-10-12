@@ -29,7 +29,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
         {([
           { key: 'cellar', href: '/', label: 'Cellar' },
           { key: 'history', href: '/history', label: 'History' },
-          { key: 'readings', href: '/readings', label: 'Readings' },
           { key: 'recipes', href: '/recipes', label: 'Recipes' },
           { key: 'ingredients', href: '/ingredients', label: 'Ingredients' },
         ] as { key: NavSection; href: string; label: string }[]).map(({ key, href, label }) => (

@@ -23,6 +23,36 @@ export interface PackagingRun {
   notes: string | null
 }
 
+/** The packaging report from the back of the paper brew sheet. Every field is optional. */
+export interface PackReport {
+  best_before: string | null
+  bbt_temp_c: number | null
+  bbt_co2_vol: number | null
+  bbt_do_ppb: number | null
+  pack_co2_vol: number | null
+  pack_do_ppb: number | null
+  unders: string | null
+  stock_venue_kegs: number | null
+  stock_venue_cartons: number | null
+  stock_options_kegs: number | null
+  stock_options_cartons: number | null
+  stock_sales_kegs: number | null
+  stock_sales_cartons: number | null
+  notes: string | null
+}
+
+export const PACK_REPORT_FIELDS = [
+  'best_before', 'bbt_temp_c', 'bbt_co2_vol', 'bbt_do_ppb', 'pack_co2_vol', 'pack_do_ppb', 'unders',
+  'stock_venue_kegs', 'stock_venue_cartons', 'stock_options_kegs', 'stock_options_cartons',
+  'stock_sales_kegs', 'stock_sales_cartons', 'notes',
+] as const
+
+/** How many of each pack format a batch made. */
+export type PackCounts = { keg30: number; keg50: number; c24: number; c16: number }
+
+/** One packaging run, trimmed to what the period summary adds up. */
+export interface PackedRun { packaged_at: string; format: string; qty: number; volume_l: number }
+
 export interface BrewHistoryItem {
   id: string
   batch_code: string | null
@@ -42,6 +72,10 @@ export interface BrewHistoryItem {
   /** When the last packaging run was logged, if any */
   packed_at: string | null
   packed_l: number
+  packed: PackCounts
+  /** When it moved from fermenter to brite, if it did */
+  transferred_at: string | null
+  report: PackReport | null
   /** "2026-10": the brewery-local month it left the cellar. Groups the list. */
   month: string
   hops: string[]
@@ -113,7 +147,7 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
 
   const recipeIds = [...new Set(brews.map((b) => b.recipe_id).filter((x): x is string => !!x))]
 
-  const [finals, sheets, recipeLines] = await Promise.all([
+  const [finals, sheets, recipeLines, runs, transfers, reports] = await Promise.all([
     all<{ brew_id: string; final_plato: number | null; final_ph: number | null; reading_count: number; packed_at: string | null; packed_l: number }>((from, to) =>
       supabase.from('brew_finals').select('brew_id, final_plato, final_ph, reading_count, packed_at, packed_l').range(from, to),
     ),
@@ -134,7 +168,30 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
             .range(from, to),
         )
       : Promise.resolve([]),
+    all<{ brew_id: string; format: string; qty: number }>((from, to) =>
+      supabase.from('packaging_runs').select('brew_id, format, qty').range(from, to),
+    ),
+    all<{ brew_id: string; transferred_at: string }>((from, to) =>
+      supabase.from('transfers').select('brew_id, transferred_at').order('transferred_at', { ascending: true }).range(from, to),
+    ),
+    all<PackReport & { brew_id: string }>((from, to) =>
+      supabase.from('packaging_reports').select(`brew_id, ${PACK_REPORT_FIELDS.join(', ')}`).range(from, to),
+    ),
   ])
+
+  const packedBy = new Map<string, PackCounts>()
+  const FORMAT_KEY: Record<string, keyof PackCounts> = { keg30: 'keg30', keg50: 'keg50', '24x375': 'c24', '16x440': 'c16' }
+  for (const r of runs) {
+    const k = FORMAT_KEY[r.format]
+    if (!k) continue
+    const c = packedBy.get(r.brew_id) ?? { keg30: 0, keg50: 0, c24: 0, c16: 0 }
+    c[k] += Number(r.qty)
+    packedBy.set(r.brew_id, c)
+  }
+  // Rows arrive oldest first, so the first one kept is the move out of the fermenter
+  const transferBy = new Map<string, string>()
+  for (const t of transfers) if (!transferBy.has(t.brew_id)) transferBy.set(t.brew_id, t.transferred_at)
+  const reportBy = new Map(reports.map(({ brew_id, ...r }) => [brew_id, r as PackReport]))
 
   const finalBy = new Map(finals.map((f) => [f.brew_id, f]))
   const sheetBy = new Map(sheets.map((s) => [s.brew_id, s]))
@@ -175,6 +232,9 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       reading_count: f?.reading_count ?? 0,
       packed_at: f?.packed_at ?? null,
       packed_l: Number(f?.packed_l ?? 0),
+      packed: packedBy.get(b.id) ?? { keg30: 0, keg50: 0, c24: 0, c16: 0 },
+      transferred_at: transferBy.get(b.id) ?? null,
+      report: reportBy.get(b.id) ?? null,
       month: monthOf(leftAt),
       hops: tidy([...sheetHops, ...(b.recipe_id ? recipeHops.get(b.recipe_id) ?? [] : [])].map((n) => (n ? hopName(n) : n))),
       yeast: tidy([s?.yeast, ...(b.recipe_id ? recipeYeast.get(b.recipe_id) ?? [] : [])]),
@@ -206,4 +266,12 @@ export async function getBrewHistoryDetail(supabase: SupabaseClient, brewId: str
   if (rErr) throw new Error(rErr.message)
   if (pErr) throw new Error(pErr.message)
   return { readings: (readings ?? []) as BrewReading[], packaging_runs: (runs ?? []) as PackagingRun[], vdk: (vdk ?? []) as VdkEntry[] }
+}
+
+/** Every packaging run, light, for the period summary at the top of History. */
+export async function getPackedRuns(supabase: SupabaseClient): Promise<PackedRun[]> {
+  const rows = await all<PackedRun>((from, to) =>
+    supabase.from('packaging_runs').select('packaged_at, format, qty, volume_l').order('packaged_at', { ascending: false }).range(from, to),
+  )
+  return rows.map((r) => ({ ...r, qty: Number(r.qty), volume_l: Number(r.volume_l) }))
 }

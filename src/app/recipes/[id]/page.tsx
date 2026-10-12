@@ -22,7 +22,7 @@ export default async function RecipeDetailPage({ params }: Props) {
   return (
     <main className="min-h-screen bg-background text-foreground">
 
-      <div className="px-6 py-6 max-w-5xl mx-auto">
+      <div className="px-4 md:px-6 py-5 md:py-6 max-w-5xl mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
           <Link href="/recipes" className="hover:text-primary">Recipes</Link>
@@ -31,21 +31,21 @@ export default async function RecipeDetailPage({ params }: Props) {
         </div>
 
         {/* Page header */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
               {recipe.style && (
                 <span
                   className="inline-block w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: getStyleColour(recipe.style) }}
                 />
               )}
-              <h1 className="text-2xl font-bold text-gray-900">{recipe.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 break-words min-w-0">{recipe.name}</h1>
               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">v{recipe.version}</span>
             </div>
             {recipe.style && <p className="text-sm text-gray-500 mt-1">{recipe.style}</p>}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <DeleteButton recipeId={recipe.id} deleteAction={deleteRecipe} />
             <Link
               href={`/recipes/${recipe.id}/edit`}
@@ -57,12 +57,12 @@ export default async function RecipeDetailPage({ params }: Props) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {/* Left: targets + process */}
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-4">Targets</h2>
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-5 gap-1 sm:gap-4">
                 <Stat label="ABV" value={recipe.target_abv != null ? `${recipe.target_abv}%` : null} />
                 <Stat label="OG" value={recipe.target_og_plato != null ? `${recipe.target_og_plato}°P` : null} />
                 <Stat label="FG" value={recipe.target_fg_plato != null ? `${recipe.target_fg_plato}°P` : null} />
@@ -73,7 +73,7 @@ export default async function RecipeDetailPage({ params }: Props) {
 
             <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-4">Process</h2>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                 <StatRow label="Brew Volume" value={recipe.brew_volume_l != null ? `${recipe.brew_volume_l} L` : null} />
                 <StatRow label="Foundation" value={recipe.foundation_l != null ? `${recipe.foundation_l} L` : null} />
                 <StatRow label="Sparge" value={recipe.sparge_l != null ? `${recipe.sparge_l} L` : null} />
@@ -87,7 +87,7 @@ export default async function RecipeDetailPage({ params }: Props) {
             {recipe.notes && (
               <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
                 <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Notes</h2>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{recipe.notes}</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{recipe.notes}</p>
               </div>
             )}
           </div>
@@ -111,14 +111,17 @@ export default async function RecipeDetailPage({ params }: Props) {
                         <tbody>
                           {rows.map((ing) => (
                             <tr key={ing.id} className="border-b border-gray-50 last:border-0">
-                              <td className="py-1.5 text-gray-800">{ing.name}</td>
-                              <td className="py-1.5 text-right tabular-nums text-gray-600 w-20">
+                              <td className="py-1.5 pr-3 text-gray-800 break-words">
+                                {ing.name}
+                                {(ing.time_minutes != null || ing.trigger) && (
+                                  <span className="block text-xs text-gray-400">
+                                    {[ing.time_minutes != null ? `${ing.time_minutes} min` : '', ing.trigger ?? ''].filter(Boolean).join(' · ')}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-1.5 text-right align-top tabular-nums text-gray-600 whitespace-nowrap">
                                 {ing.quantity != null ? ing.quantity : ''}
                                 {ing.unit ? ` ${ing.unit}` : ''}
-                              </td>
-                              <td className="py-1.5 text-right text-gray-400 text-xs w-16">
-                                {ing.time_minutes != null ? `${ing.time_minutes} min` : ''}
-                                {ing.trigger ?? ''}
                               </td>
                             </tr>
                           ))}
@@ -149,7 +152,7 @@ function StatRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-xs text-gray-500">{label}</span>
-      <span className="text-sm font-medium text-gray-800">{value ?? <span className="text-gray-300">—</span>}</span>
+      <span className="text-sm font-medium tabular-nums text-gray-800">{value ?? <span className="text-gray-300">—</span>}</span>
     </div>
   )
 }

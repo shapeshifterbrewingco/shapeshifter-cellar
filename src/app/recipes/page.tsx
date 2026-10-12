@@ -11,19 +11,19 @@ export default async function RecipesPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
 
-      <div className="px-6 py-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="text-xl font-bold text-gray-900">Recipes</h1>
+      <div className="px-4 md:px-6 py-5 md:py-6 max-w-5xl mx-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Recipes</h1>
           <div className="flex items-center gap-2">
             <Link
               href="/recipes/import"
-              className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap hover:bg-gray-50 transition-colors"
             >
               Import from PDF
             </Link>
             <Link
               href="/recipes/new"
-              className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap hover:opacity-90 transition-opacity"
             >
               <Plus className="h-4 w-4" />
               New Recipe

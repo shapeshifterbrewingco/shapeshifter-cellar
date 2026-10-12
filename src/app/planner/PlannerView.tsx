@@ -458,7 +458,7 @@ function Chat({ email, draft, setDraft, onApplied }: { email: string; draft: str
 export function PlannerView({ email, weekStart = 1 }: { email: string; weekStart?: 0 | 1 }) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [draft, setDraft] = useState('')
-  const [tab, setTab] = useState<'calendar' | 'chat'>('chat')
+  const [tab, setTab] = useState<'calendar' | 'chat'>('calendar')
 
   const pick = (e: CalEvent) => {
     setDraft(`${draft ? `${draft} ` : ''}"${e.title}" on ${prettyDate(e.date)}: `)

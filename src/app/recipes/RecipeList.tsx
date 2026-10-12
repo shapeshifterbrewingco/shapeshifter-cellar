@@ -25,7 +25,7 @@ export function RecipeList({ recipes }: Props) {
         <button
           type="button"
           onClick={() => setActiveTag('all')}
-          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${
             activeTag === 'all'
               ? 'bg-gray-800 text-white border-gray-800'
               : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
@@ -41,7 +41,7 @@ export function RecipeList({ recipes }: Props) {
               key={t}
               type="button"
               onClick={() => setActiveTag(activeTag === t ? 'all' : t)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${
                 activeTag === t
                   ? RECIPE_TAG_COLOURS[t]
                   : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
@@ -58,7 +58,47 @@ export function RecipeList({ recipes }: Props) {
           <p className="text-gray-500 text-sm">No {activeTag !== 'all' ? RECIPE_TAG_LABELS[activeTag] + ' ' : ''}recipes yet.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+        <>
+        {/* Phone: one card per recipe. The table needs more width than a phone has. */}
+        <ul className="md:hidden space-y-2.5">
+          {filtered.map((recipe) => (
+            <li key={recipe.id}>
+              <Link href={`/recipes/${recipe.id}`} className="block bg-white rounded-2xl px-4 py-3.5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] active:bg-gray-50">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[17px] font-semibold leading-snug text-gray-900 break-words">{recipe.name}</p>
+                    {recipe.style && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-gray-500">
+                        <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: getStyleColour(recipe.style) }} />
+                        {recipe.style}
+                      </p>
+                    )}
+                  </div>
+                  {recipe.tag && (
+                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium border ${RECIPE_TAG_COLOURS[recipe.tag]}`}>
+                      {RECIPE_TAG_LABELS[recipe.tag]}
+                    </span>
+                  )}
+                </div>
+                <dl className="grid grid-cols-4 mt-3 pt-2.5 border-t border-gray-100">
+                  {([
+                    ['ABV', recipe.target_abv != null ? `${recipe.target_abv}%` : '-'],
+                    ['OG', recipe.target_og_plato != null ? `${recipe.target_og_plato}°P` : '-'],
+                    ['FG', recipe.target_fg_plato != null ? `${recipe.target_fg_plato}°P` : '-'],
+                    ['Volume', recipe.brew_volume_l != null ? `${recipe.brew_volume_l.toLocaleString()} L` : '-'],
+                  ] as [string, string][]).map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="text-[11px] text-gray-400">{label}</dt>
+                      <dd className="text-[15px] font-semibold tabular-nums text-gray-900">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </Link>
+            </li>
+          ))}
+        </ul>
+
+        <div className="hidden md:block bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left">
@@ -141,6 +181,7 @@ export function RecipeList({ recipes }: Props) {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   )

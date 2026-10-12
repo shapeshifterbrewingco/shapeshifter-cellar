@@ -1,7 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { SiteNav } from "@/components/layout/SiteNav";
 import { Toaster } from "@/components/ui/sonner";
+
+// Inter: a modern screen typeface with clear numerals, and the one the sales
+// sheet already uses. Served from our own domain, so nothing loads from Google
+// at runtime.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Shapeshifter Cellar",
@@ -24,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className={`h-full antialiased ${inter.variable}`}>
       <body className="min-h-full">
         <SiteNav />
         <div className="md:pl-44 pt-14 md:pt-0 min-h-full">

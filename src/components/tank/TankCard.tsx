@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { TankIllustration } from './TankIllustration'
+import { VDK_STYLE } from '@/lib/vdk'
 import { StageBadge } from './StageBadge'
 import { TankDetailSheet } from './TankDetailSheet'
 import { TempTap } from './SetPoint'
@@ -217,6 +218,13 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     : doneFermenting ? { label: 'Transfer', run: () => setShowTransferModal(true) }
     : { label: 'Log reading', run: () => setShowLogModal(true) }
 
+  // On diacetyl rest the last VDK result is the thing to know at a glance
+  const vdkLine = !onDiacetylRest ? null : latest_vdk && VDK_STYLE[latest_vdk.result] ? (
+    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${VDK_STYLE[latest_vdk.result].bg} ${VDK_STYLE[latest_vdk.result].text} ${VDK_STYLE[latest_vdk.result].border}`}>
+      VDK {VDK_STYLE[latest_vdk.result].label}
+    </span>
+  ) : <span className="text-[11px] text-gray-400">No VDK logged</span>
+
   const sheetMore: SheetAction[] = [
     { label: 'Brew sheet', onSelect: openBrewSheet },
     onDiacetylRest
@@ -334,10 +342,13 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             {[brew.style, `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`].filter(Boolean).join(' · ')}
           </p>
         </div>
-        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${look.pill}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${look.dot}`} />
-          {look.label}
-        </span>
+        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+          <span className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${look.pill}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${look.dot}`} />
+            {look.label}
+          </span>
+          {vdkLine}
+        </div>
       </div>
       <dl className="grid grid-cols-4 mt-3 pt-2.5 border-t border-gray-100">
         {phoneStats.map(([label, value]) => (
@@ -634,9 +645,14 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                     ) : stage === 'vdk_pass' ? (
                       <>
                         <Button size="sm" variant="outline"
-                          className="flex-1 h-8 text-sm bg-malt/15 border-malt/40 text-malt-dark hover:bg-malt/15 hover:border-malt/40 gap-1.5"
+                          className="flex-1 h-8 text-sm px-2 bg-malt/15 border-malt/40 text-malt-dark hover:bg-malt/15 hover:border-malt/40 gap-1.5"
                           onClick={() => handleStageChange('on_chill')}>
-                          → Move to Chill
+                          → Chill
+                        </Button>
+                        <Button size="sm" variant="outline"
+                          className="flex-1 h-8 text-sm px-2 bg-malt/15 border-malt/40 text-malt-dark hover:bg-malt/15 hover:border-malt/40 gap-1.5"
+                          onClick={nextStep.run}>
+                          {tank.type === 'brite' ? <Package className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />} {nextStep.label}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-malt/40 bg-malt/15 text-malt-dark hover:bg-malt/15 cursor-pointer flex-shrink-0">
@@ -1090,9 +1106,14 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               ) : stage === 'vdk_pass' ? (
                 <>
                   <Button size="sm" variant="outline"
-                    className="flex-1 h-8 text-sm bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
+                    className="flex-1 h-8 text-sm px-2 bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
                     onClick={() => handleStageChange('on_chill')}>
-                    → Move to Chill
+                    → Chill
+                  </Button>
+                  <Button size="sm" variant="outline"
+                    className="flex-1 h-8 text-sm px-2 bg-primary/10 border-transparent text-primary hover:bg-primary/15 hover:text-primary gap-1.5"
+                    onClick={nextStep.run}>
+                    {tank.type === 'brite' ? <Package className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />} {nextStep.label}
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer flex-shrink-0">

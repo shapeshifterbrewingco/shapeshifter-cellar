@@ -3,6 +3,15 @@ import type { TankDashboardData, PackagingSplit, NextScheduledBrew } from '@/typ
 import type { FrigidReading } from '@/lib/frigid'
 import { breweryToday, daysBetweenISO } from '@/lib/dates'
 
+// A stored reading stands in for a live one only while it is recent. Beyond
+// that the card shows a dash: an old temperature presented as current is how a
+// tank gets left warm.
+const STALE_AFTER_MS = 30 * 60 * 1000
+function freshOnly<T extends { recorded_at: string }>(reading: T | undefined): T | null {
+  if (!reading) return null
+  return Date.now() - new Date(reading.recorded_at).getTime() <= STALE_AFTER_MS ? reading : null
+}
+
 export async function getDashboardData(
   supabase: SupabaseClient,
   live: FrigidReading[] = [],
@@ -130,7 +139,7 @@ export async function getDashboardData(
           set_point_c: liveReading.setPoint,
           recorded_at: liveReading.lastTemperatureReading ?? new Date().toISOString(),
         }
-      : latestTemp[tank.id] ?? null
+      : freshOnly(latestTemp[tank.id])
 
     return {
       tank,
@@ -158,9 +167,9 @@ export async function getDashboardData(
         notes: null,
       } : null,
       temperature: temp?.temperature_c ?? null,
-      // What the controller says wins. The saved value only fills in when it is silent,
-      // otherwise a change made at the panel would never show here.
-      set_point_c: liveReading?.setPoint ?? tank.desired_set_point_c ?? temp?.set_point_c ?? null,
+      // Only ever what the controller says now, or said in the last half hour.
+      // A remembered set point is worse than a blank: it looks like the truth.
+      set_point_c: liveReading?.setPoint ?? temp?.set_point_c ?? null,
       temperature_recorded_at: temp?.recorded_at ?? null,
       days_in_tank: brew?.brew_day ? daysBetweenISO(brew.brew_day.slice(0, 10), today) : null,
       style_colour: brew?.style ? (styleColourMap.get(brew.style) ?? null) : null,

@@ -79,6 +79,12 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-background text-foreground">
       <div className="px-4 py-2">
         <AutoRefresh seconds={60} />
+        {frigid.length === 0 && (
+          <p role="alert" className="mb-3 rounded-xl bg-amber-50 ring-1 ring-amber-200 px-4 py-3 text-sm text-amber-900">
+            <strong className="font-semibold">Frigid is not responding.</strong> Tank temperatures and set points are
+            hidden until it does, so check the Frigid panel directly.
+          </p>
+        )}
         <QuickLog tanks={tanks} />
         <TankGrid
           tanks={tanks}

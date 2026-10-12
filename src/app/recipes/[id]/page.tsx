@@ -60,8 +60,8 @@ export default async function RecipeDetailPage({ params }: Props) {
         <div className="grid grid-cols-2 gap-6">
           {/* Left: targets + process */}
           <div className="space-y-4">
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Targets</h2>
+            <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+              <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-4">Targets</h2>
               <div className="grid grid-cols-5 gap-4">
                 <Stat label="ABV" value={recipe.target_abv != null ? `${recipe.target_abv}%` : null} />
                 <Stat label="OG" value={recipe.target_og_plato != null ? `${recipe.target_og_plato}°P` : null} />
@@ -71,8 +71,8 @@ export default async function RecipeDetailPage({ params }: Props) {
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Process</h2>
+            <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+              <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-4">Process</h2>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 <StatRow label="Brew Volume" value={recipe.brew_volume_l != null ? `${recipe.brew_volume_l} L` : null} />
                 <StatRow label="Foundation" value={recipe.foundation_l != null ? `${recipe.foundation_l} L` : null} />
@@ -85,16 +85,16 @@ export default async function RecipeDetailPage({ params }: Props) {
             </div>
 
             {recipe.notes && (
-              <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes</h2>
+              <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+                <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Notes</h2>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{recipe.notes}</p>
               </div>
             )}
           </div>
 
           {/* Right: ingredients */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Ingredients</h2>
+          <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+            <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-4">Ingredients</h2>
             {ingredients.length === 0 ? (
               <p className="text-sm text-gray-400 italic">No ingredients added.</p>
             ) : (

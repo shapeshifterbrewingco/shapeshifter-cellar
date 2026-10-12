@@ -16,14 +16,14 @@ interface TankOption  { id: string; name: string }
 
 const EVENT_PILL: Record<ScheduledBrewEventType, string> = {
   brew:     'bg-red-50 text-red-800 border-red-200',
-  pack:     'bg-blue-50 text-blue-800 border-blue-200',
-  transfer: 'bg-purple-50 text-purple-800 border-purple-200',
+  pack:     'bg-water/30 text-hops border-water',
+  transfer: 'bg-water/30 text-hops border-water',
 }
 const EVENT_LABEL: Record<ScheduledBrewEventType, string> = {
   brew: 'Brew', pack: 'Pack', transfer: 'Transfer',
 }
 const EVENT_DOT: Record<ScheduledBrewEventType, string> = {
-  brew: 'bg-red-400', pack: 'bg-blue-400', transfer: 'bg-purple-400',
+  brew: 'bg-red-400', pack: 'bg-hops', transfer: 'bg-hops',
 }
 const STATUS_LABELS: Record<ScheduledBrewStatus, string> = {
   planned:   'Planned',
@@ -34,9 +34,9 @@ const STATUS_LABELS: Record<ScheduledBrewStatus, string> = {
 }
 const STATUS_PILL: Record<ScheduledBrewStatus, string> = {
   planned:   'bg-gray-100 text-gray-600 border-gray-200',
-  confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  brewing:   'bg-amber-50 text-amber-700 border-amber-200',
-  done:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+  confirmed: 'bg-water/30 text-hops border-water',
+  brewing:   'bg-yeast/30 text-charcoal border-yeast',
+  done:      'bg-water/30 text-hops border-water',
   cancelled: 'bg-red-50 text-red-400 border-red-200',
 }
 
@@ -44,7 +44,7 @@ const STATUS_PILL: Record<ScheduledBrewStatus, string> = {
 function brewPillClass(b: ScheduledBrew): string {
   if ((b.event_type ?? 'brew') === 'brew') {
     return b.status === 'confirmed'
-      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+      ? 'bg-water/30 text-hops border-water'
       : EVENT_PILL.brew
   }
   return EVENT_PILL[b.event_type ?? 'brew']
@@ -85,7 +85,7 @@ function CalendarView({ year, month, brews, onDayClick, onBrewClick, onSplitClic
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b-2 border-gray-300">
         {DAYS.map((d, i) => {
@@ -198,7 +198,7 @@ function ListView({ brews, onBrewClick, onSplitClick }: { brews: ScheduledBrew[]
 
   if (sorted.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+      <div className="bg-white rounded-2xl p-12 text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <p className="text-gray-400 text-sm">No events scheduled yet.</p>
       </div>
     )
@@ -220,8 +220,8 @@ function ListView({ brews, onBrewClick, onSplitClick }: { brews: ScheduledBrew[]
         const label = `${MONTHS[parseInt(m) - 1]} ${y}`
         return (
           <div key={key}>
-            <p className="text-xs font-black text-gray-500 uppercase tracking-wide mb-2 px-1">{label}</p>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-50">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 px-1">{label}</p>
+            <div className="bg-white rounded-2xl overflow-hidden divide-y divide-gray-50 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               {items.map(b => {
                 const et = b.event_type ?? 'brew'
                 const d = new Date(b.scheduled_date + 'T00:00:00')
@@ -231,7 +231,7 @@ function ListView({ brews, onBrewClick, onSplitClick }: { brews: ScheduledBrew[]
                     className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center gap-4 cursor-pointer">
                     <div className="w-10 text-center flex-shrink-0">
                       <p className="text-xs text-gray-400 leading-none">{d.toLocaleDateString('en-AU', { weekday: 'short' })}</p>
-                      <p className={`text-lg font-black leading-tight ${isPast && b.status === 'planned' ? 'text-gray-300' : 'text-gray-900'}`}>
+                      <p className={`text-lg font-bold leading-tight ${isPast && b.status === 'planned' ? 'text-gray-300' : 'text-gray-900'}`}>
                         {d.getDate()}
                       </p>
                     </div>
@@ -261,7 +261,7 @@ function ListView({ brews, onBrewClick, onSplitClick }: { brews: ScheduledBrew[]
                       {et === 'pack' && (
                         <button type="button"
                           onClick={e => { e.stopPropagation(); onSplitClick(b) }}
-                          className="flex items-center gap-1 text-xs text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full font-medium transition-colors">
+                          className="flex items-center gap-1 text-xs text-hops border border-water bg-water/30 hover:bg-water/30 px-2 py-0.5 rounded-full font-medium transition-colors">
                           <Package className="h-3 w-3" />
                           Splits
                         </button>
@@ -364,8 +364,8 @@ export function ScheduleView({ brews: initialBrews, recipes, tanks, settings = D
         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-red-50 text-red-800 border-red-200">
           <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Planned brew
         </span>
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-emerald-50 text-emerald-800 border-emerald-200">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Confirmed brew
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-water/30 text-hops border-water">
+          <span className="w-1.5 h-1.5 rounded-full bg-hops" /> Confirmed brew
         </span>
         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${EVENT_PILL.transfer}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${EVENT_DOT.transfer}`} /> Transfer
@@ -390,7 +390,7 @@ export function ScheduleView({ brews: initialBrews, recipes, tanks, settings = D
             })
             return (
               <div key={`${y}-${m}`}>
-                <p className="text-base font-black text-gray-800 mb-2 px-0.5">{MONTHS[m]} {y}</p>
+                <p className="text-base font-bold text-gray-800 mb-2 px-0.5">{MONTHS[m]} {y}</p>
                 <CalendarView
                   year={y} month={m} brews={monthBrews}
                   onDayClick={date => setModal({ mode: 'create', date })}

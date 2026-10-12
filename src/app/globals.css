@@ -9,6 +9,8 @@
   --color-yeast: #F6EF6E;
   --color-hops: #09434D;
   --color-malt: #CD7B58;
+  /* Malt darkened for small text on white, where the brand tone is too light to read */
+  --color-malt-dark: #A8563A;
   --color-water: #AFDAE5;
   --color-charcoal: #323230;
   --color-background: var(--background);

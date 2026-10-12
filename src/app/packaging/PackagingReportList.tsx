@@ -58,7 +58,7 @@ export function PackagingReportList({ items }: Props) {
           const latestRun = item.runs[0]
 
           return (
-            <div key={item.brew_id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div key={item.brew_id} className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               {/* Summary row */}
               <button
                 type="button"
@@ -69,7 +69,7 @@ export function PackagingReportList({ items }: Props) {
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </span>
 
-                <div className="flex-shrink-0 w-16 text-xs font-black text-gray-700 uppercase tracking-wide">
+                <div className="flex-shrink-0 w-16 text-xs font-bold text-gray-700 uppercase tracking-wide">
                   {item.tank_name}
                 </div>
 
@@ -86,7 +86,7 @@ export function PackagingReportList({ items }: Props) {
                 {/* ABV */}
                 <div className="flex-shrink-0 text-right w-20 hidden sm:block">
                   {item.abv != null
-                    ? <p className="text-xs font-bold text-indigo-600 tabular-nums">{item.abv.toFixed(1)}% ABV</p>
+                    ? <p className="text-xs font-bold text-hops tabular-nums">{item.abv.toFixed(1)}% ABV</p>
                     : null}
                   {item.og_plato != null && (
                     <p className="text-xs text-gray-500 tabular-nums">OG {item.og_plato}°P</p>
@@ -124,8 +124,8 @@ export function PackagingReportList({ items }: Props) {
                       { label: 'ABV', value: item.abv != null ? `${item.abv.toFixed(1)}%` : '—', accent: true },
                     ].map(({ label, value, accent }) => (
                       <div key={label} className="bg-white rounded-lg border border-gray-100 px-3 py-2.5">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{label}</p>
-                        <p className={`text-base font-black mt-0.5 tabular-nums ${accent ? 'text-indigo-600' : 'text-gray-900'}`}>{value}</p>
+                        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{label}</p>
+                        <p className={`text-base font-bold mt-0.5 tabular-nums ${accent ? 'text-hops' : 'text-gray-900'}`}>{value}</p>
                       </div>
                     ))}
                   </div>
@@ -135,12 +135,12 @@ export function PackagingReportList({ items }: Props) {
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Date</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Format</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Qty</th>
-                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Volume</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">By</th>
-                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Notes</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Date</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Format</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Qty</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Volume</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">By</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Notes</th>
                         </tr>
                       </thead>
                       <tbody>

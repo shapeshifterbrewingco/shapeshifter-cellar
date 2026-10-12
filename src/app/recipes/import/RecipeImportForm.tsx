@@ -195,7 +195,7 @@ export function RecipeImportForm({ styles, ingredients }: Props) {
         Upload a brew sheet, recipe card, or any document — AI will read it and pre-fill the recipe form for you to review and save.
       </p>
 
-      <form onSubmit={handleParse} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+      <form onSubmit={handleParse} className="bg-white rounded-2xl p-6 space-y-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <div
           className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-gray-50 transition-colors"
           onClick={() => inputRef.current?.click()}

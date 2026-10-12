@@ -127,7 +127,7 @@ function MaterialsCard({ materials }: { materials: MaterialRow[] }) {
       note="Price per single item. Cans, ends and labels are per can, not per carton — the per-carton quantity is set in the columns on the right."
     >
       {unpriced > 0 && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+        <p className="text-xs text-charcoal bg-yeast/30 border border-yeast rounded-lg px-3 py-2 mb-3">
           {unpriced} material{unpriced === 1 ? '' : 's'} still unpriced. Anything without a price is
           left out of the unit cost and flagged on the costing screen, rather than counted as free.
         </p>
@@ -218,7 +218,7 @@ function MaterialRowEditor({ m, busy, start, refresh }: {
             onChange={(e) => setPrice(e.target.value)} onBlur={commit}
             placeholder="—"
             className={`w-16 text-right tabular-nums border rounded px-1.5 py-1 text-sm ${
-              price === '' ? 'border-amber-300 bg-amber-50' : 'border-transparent hover:border-gray-200'
+              price === '' ? 'border-yeast bg-yeast/30' : 'border-transparent hover:border-gray-200'
             }`}
           />
         </div>
@@ -318,7 +318,7 @@ function AdditivesCard({ additives, ingredients }: {
                 <div key={a.id} className="flex items-center justify-between gap-2 text-sm border-b border-gray-50 pb-1">
                   <span className="text-gray-800 truncate">
                     {a.ingredient_name}
-                    {!a.has_price && <span className="text-amber-600 text-xs ml-1.5">no price</span>}
+                    {!a.has_price && <span className="text-malt-dark text-xs ml-1.5">no price</span>}
                   </span>
                   <span className="flex items-center gap-2 whitespace-nowrap">
                     <span className="text-xs text-gray-500 tabular-nums">
@@ -398,8 +398,8 @@ function AddAdditive({ clarity, ingredients, onDone }: {
 
 function Card({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-      <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h2>
+    <section className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+      <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{title}</h2>
       {note && <p className="text-xs text-gray-400 mt-1 mb-3">{note}</p>}
       {children}
     </section>

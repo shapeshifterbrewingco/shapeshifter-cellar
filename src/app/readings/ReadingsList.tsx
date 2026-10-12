@@ -94,7 +94,7 @@ export function ReadingsList({ readings: initial }: Props) {
     <>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Readings</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Readings</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {gravityCount} gravity/pH reading{gravityCount !== 1 ? 's' : ''}
             {filtered.length !== readings.length && ` · ${filtered.length} shown`}
@@ -115,19 +115,19 @@ export function ReadingsList({ readings: initial }: Props) {
       {readings.length === 0 ? (
         <div className="text-center py-20 text-gray-400 text-sm">No readings logged yet.</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <div className="overflow-auto max-h-[calc(100vh-220px)]">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-gray-50 border-b border-gray-100 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Tank</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Beer</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Gravity</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">pH</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Temp</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">By</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Notes</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Tank</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Beer</th>
+                  <th className="px-4 py-3 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Gravity</th>
+                  <th className="px-4 py-3 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">pH</th>
+                  <th className="px-4 py-3 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Temp</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">By</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Notes</th>
                   <th className="w-16 px-2 py-3" />
                 </tr>
               </thead>
@@ -152,7 +152,7 @@ export function ReadingsList({ readings: initial }: Props) {
                       <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap tabular-nums text-xs">
                         {format(parseISO(r.recorded_at), 'd MMM yyyy, HH:mm')}
                       </td>
-                      <td className="px-4 py-2.5 font-black text-gray-700 text-xs uppercase tracking-wide">{r.tank_name}</td>
+                      <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide">{r.tank_name}</td>
                       <td className="px-4 py-2.5 font-bold text-gray-800 max-w-[160px] truncate">{r.beer_name}</td>
 
                       {/* Gravity */}

@@ -6,9 +6,9 @@ import { setTankTarget } from '@/app/tanks/actions'
 import type { FrigidReading } from '@/lib/frigid'
 
 const TEMP_COLOURS: Record<string, string> = {
-  HLT:    'text-orange-600',
-  CLT:    'text-blue-600',
-  Glycol: 'text-violet-600',
+  HLT:    'text-malt-dark',
+  CLT:    'text-hops',
+  Glycol: 'text-hops',
 }
 
 // One quiet line colour: the number beside it is what matters
@@ -127,7 +127,7 @@ function ExpandedModal({ reading, onClose }: { reading: FrigidReading; onClose: 
             <p className="text-xs text-gray-400 mt-0.5">Last 24 hours</p>
           </div>
           <div className="flex items-center gap-3">
-            <span className={`text-2xl font-black tabular-nums ${tempColour}`}>
+            <span className={`text-2xl font-bold tabular-nums ${tempColour}`}>
               {reading.temperature?.toFixed(1)}°C
             </span>
             <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -254,7 +254,7 @@ function UtilityCard({ r, onExpand }: { r: FrigidReading; onExpand: () => void }
                   {saving ? (
                     <span className="text-xs text-gray-400">…</span>
                   ) : statusMsg ? (
-                    <span className={`text-xs font-bold ${statusMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}>{statusMsg.text}</span>
+                    <span className={`text-xs font-bold ${statusMsg.ok ? 'text-hops' : 'text-red-500'}`}>{statusMsg.text}</span>
                   ) : (
                     <button type="button" onClick={() => setEditing(false)}
                       className="text-gray-300 hover:text-gray-500 transition-colors">

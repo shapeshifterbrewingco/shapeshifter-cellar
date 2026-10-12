@@ -146,7 +146,7 @@ async function StockPanel() {
                   <span className="text-gray-400"> · {s.format}</span>
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums text-gray-700">{s.available ?? '-'}</td>
-                <td className={`px-2 py-2 text-right tabular-nums font-semibold ${weeks < 2 ? 'text-red-600' : weeks < 4 ? 'text-amber-600' : 'text-gray-900'}`}>
+                <td className={`px-2 py-2 text-right tabular-nums font-semibold ${weeks < 2 ? 'text-red-600' : weeks < 4 ? 'text-malt-dark' : 'text-gray-900'}`}>
                   {out ? 'Out' : `${weeks.toFixed(1)} wk`}
                 </td>
                 <td className="px-2 py-2 tabular-nums text-gray-700">{out ? 'Now' : s.run_out_flat ? fmtDay(s.run_out_flat) : '-'}</td>
@@ -170,9 +170,9 @@ async function StockPanel() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const EVENT_DOT: [RegExp, string][] = [
-  [/^\s*BREW/i, 'bg-red-400'],
-  [/^\s*PACK/i, 'bg-blue-400'],
-  [/^\s*TRANSFER/i, 'bg-purple-400'],
+  [/^\s*BREW/i, 'bg-malt'],
+  [/^\s*PACK/i, 'bg-hops'],
+  [/^\s*TRANSFER/i, 'bg-water'],
 ]
 
 export default async function DashboardPage() {
@@ -297,7 +297,7 @@ export default async function DashboardPage() {
                         )}
                         <td className="px-2 py-2 text-right tabular-nums text-gray-900">{t.temperature != null ? `${t.temperature.toFixed(1)}°` : '-'}</td>
                         <td className="px-2 py-2 text-right tabular-nums text-gray-500">{cooling ? `${t.set_point_c!.toFixed(1)}°` : 'Off'}</td>
-                        <td className={`pl-2 pr-5 py-2 text-right tabular-nums whitespace-nowrap ${late ? 'text-amber-600 font-medium' : 'text-gray-500'}`}>
+                        <td className={`pl-2 pr-5 py-2 text-right tabular-nums whitespace-nowrap ${late ? 'text-malt-dark font-medium' : 'text-gray-500'}`}>
                           {!brew ? '' : since == null ? 'None' : since === 0 ? 'Today' : since === 1 ? 'Yesterday' : `${since} days ago`}
                         </td>
                       </tr>
@@ -317,7 +317,7 @@ export default async function DashboardPage() {
                 <ul className="pb-2">
                   {flags.map((f, i) => (
                     <li key={i} className="flex items-start gap-3 px-5 py-2 border-t border-gray-100 text-sm">
-                      <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${f.tone === 'warn' ? 'bg-amber-500' : 'bg-gray-300'}`} />
+                      <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${f.tone === 'warn' ? 'bg-malt' : 'bg-gray-300'}`} />
                       <p className="text-gray-700"><span className="font-semibold text-gray-900">{f.tank}</span> {f.text}</p>
                     </li>
                   ))}

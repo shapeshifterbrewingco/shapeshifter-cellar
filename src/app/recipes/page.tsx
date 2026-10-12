@@ -32,7 +32,7 @@ export default async function RecipesPage() {
         </div>
 
         {recipes.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center shadow-sm">
+          <div className="bg-white rounded-2xl p-12 text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
             <p className="text-gray-500 text-sm">No recipes yet.</p>
             <Link href="/recipes/new" className="mt-3 inline-block text-primary text-sm font-medium hover:underline">
               Create your first recipe →

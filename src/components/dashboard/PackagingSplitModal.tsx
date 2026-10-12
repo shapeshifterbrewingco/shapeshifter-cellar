@@ -239,7 +239,7 @@ export function PackagingSplitModal({
               {afterFerment != null && (
                 <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
                   <span className="text-xs text-gray-500">After ferment volume</span>
-                  <span className="text-xl font-black text-gray-900 tabular-nums">{afterFerment.toFixed(1)} L</span>
+                  <span className="text-xl font-bold text-gray-900 tabular-nums">{afterFerment.toFixed(1)} L</span>
                 </div>
               )}
 
@@ -276,7 +276,7 @@ export function PackagingSplitModal({
                 <div className="space-y-1.5">
                   <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-200 ${isOver ? 'bg-red-400' : pct >= 95 ? 'bg-emerald-400' : 'bg-primary/60'}`}
+                      className={`h-full rounded-full transition-all duration-200 ${isOver ? 'bg-red-400' : pct >= 95 ? 'bg-hops' : 'bg-primary/60'}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -347,7 +347,7 @@ export function PackagingSplitModal({
                         <>
                           <div className="border-t border-gray-300 pt-2 flex justify-between items-baseline">
                             <span className="font-bold text-gray-800 text-xs">TOTAL EXCISE</span>
-                            <span className="font-black text-gray-900 tabular-nums">{fmt$(totalExcise)}</span>
+                            <span className="font-bold text-gray-900 tabular-nums">{fmt$(totalExcise)}</span>
                           </div>
                         </>
                       )}
@@ -536,11 +536,11 @@ function InventoryField({
       <input
         type="number" inputMode="decimal" min="0" value={value} onChange={e => onChange(e.target.value)}
         className={`w-20 border rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 ${
-          ok ? 'border-emerald-200 focus:ring-emerald-200' : 'border-gray-200 focus:ring-primary/30'
+          ok ? 'border-water focus:ring-water' : 'border-gray-200 focus:ring-primary/30'
         }`}
       />
       {num > 0 && (
-        <span className={`text-xs font-medium ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>
+        <span className={`text-xs font-medium ${ok ? 'text-hops' : 'text-malt-dark'}`}>
           {ok ? '✓ ok' : `need ${needed - num} more`}
         </span>
       )}
@@ -567,11 +567,11 @@ function InventoryRow({
         <input
           type="number" inputMode="decimal" min="0" value={value} onChange={e => onChange(e.target.value)}
           className={`w-20 border rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 ${
-            ok && onSiteNum > 0 ? 'border-emerald-200 focus:ring-emerald-200' : 'border-gray-200 focus:ring-primary/30'
+            ok && onSiteNum > 0 ? 'border-water focus:ring-water' : 'border-gray-200 focus:ring-primary/30'
           }`}
         />
         {onSiteNum > 0 && (
-          <span className={`text-xs font-medium ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>
+          <span className={`text-xs font-medium ${ok ? 'text-hops' : 'text-malt-dark'}`}>
             {ok ? '✓' : `need ${needed - onSiteNum} more`}
           </span>
         )}
@@ -586,7 +586,7 @@ function MatChip({ label, value, sub, ok }: { label: string; value: string; sub?
       <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">{label}</p>
       <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
       {sub && (
-        <p className={`text-[10px] mt-0.5 ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>{sub}</p>
+        <p className={`text-[10px] mt-0.5 ${ok ? 'text-hops' : 'text-malt-dark'}`}>{sub}</p>
       )}
     </div>
   )

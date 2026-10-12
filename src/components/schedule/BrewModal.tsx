@@ -22,8 +22,8 @@ function fmtDate(dateStr: string) {
 
 const EVENT_PILL: Record<ScheduledBrewEventType, string> = {
   brew:     'bg-red-50 text-red-800 border-red-200',
-  pack:     'bg-blue-50 text-blue-800 border-blue-200',
-  transfer: 'bg-purple-50 text-purple-800 border-purple-200',
+  pack:     'bg-water/30 text-hops border-water',
+  transfer: 'bg-water/30 text-hops border-water',
 }
 const EVENT_LABEL: Record<ScheduledBrewEventType, string> = {
   brew: 'Brew', pack: 'Pack', transfer: 'Transfer',
@@ -33,9 +33,9 @@ const STATUS_LABELS: Record<ScheduledBrewStatus, string> = {
 }
 const STATUS_PILL: Record<ScheduledBrewStatus, string> = {
   planned:   'bg-gray-100 text-gray-600 border-gray-200',
-  confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  brewing:   'bg-amber-50 text-amber-700 border-amber-200',
-  done:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+  confirmed: 'bg-water/30 text-hops border-water',
+  brewing:   'bg-yeast/30 text-charcoal border-yeast',
+  done:      'bg-water/30 text-hops border-water',
   cancelled: 'bg-red-50 text-red-400 border-red-200',
 }
 
@@ -179,10 +179,10 @@ export function BrewModal({ state, recipes, tanks, settings = DEFAULT_SETTINGS, 
               </div>
               {packDate && (
                 <div className="mt-1.5 space-y-0.5">
-                  <p className="text-xs text-purple-600 font-medium">
+                  <p className="text-xs text-hops font-medium">
                     🔄 Transfer: {fmtDate(transferDateFor(packDate))}
                   </p>
-                  <p className="text-xs text-blue-600 font-medium">
+                  <p className="text-xs text-hops font-medium">
                     📦 Pack: {fmtDate(packDate)}
                   </p>
                 </div>

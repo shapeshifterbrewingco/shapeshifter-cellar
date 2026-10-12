@@ -15,7 +15,7 @@ export default async function MatchPage() {
         </Link>
 
         <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-900">Link ingredients to prices</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Link ingredients to prices</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             A recipe line only carries a cost once it points at a priced product. Suggestions are
             ranked, but the choice is yours: the same hop can appear as pellets, cryo or extract at

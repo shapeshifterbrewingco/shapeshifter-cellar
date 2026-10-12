@@ -84,7 +84,7 @@ export function FixLine({ line, onFixed }: { line: CostLine; onFixed: () => void
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-[11px] font-medium text-amber-700 underline decoration-amber-300 hover:decoration-amber-600"
+        className="text-[11px] font-medium text-charcoal underline decoration-amber-300 hover:decoration-amber-600"
       >
         {GAP_LABELS[line.gap]} · fix
       </button>
@@ -92,11 +92,11 @@ export function FixLine({ line, onFixed }: { line: CostLine; onFixed: () => void
   }
 
   return (
-    <div className="mt-2 border border-amber-200 bg-amber-50/60 rounded-lg p-3 space-y-3 text-left">
+    <div className="mt-2 border border-yeast bg-yeast/30 rounded-lg p-3 space-y-3 text-left">
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-semibold text-gray-800">
           {line.name}
-          <span className="font-normal text-amber-700 ml-1.5">{GAP_LABELS[line.gap]}</span>
+          <span className="font-normal text-charcoal ml-1.5">{GAP_LABELS[line.gap]}</span>
         </p>
         <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
           <X className="h-3.5 w-3.5" />
@@ -291,7 +291,7 @@ export function FixMaterial({ materialId, name, detail, onFixed }: {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 hover:bg-amber-100"
+        className="text-[11px] font-medium text-charcoal bg-yeast/30 border border-yeast rounded px-2 py-1 hover:bg-yeast/30"
       >
         {name} · add price
       </button>
@@ -299,7 +299,7 @@ export function FixMaterial({ materialId, name, detail, onFixed }: {
   }
 
   return (
-    <div className="border border-amber-200 bg-amber-50/60 rounded-lg p-2.5 flex flex-wrap items-center gap-1.5">
+    <div className="border border-yeast bg-yeast/30 rounded-lg p-2.5 flex flex-wrap items-center gap-1.5">
       <span className="text-xs font-semibold text-gray-800">{name}</span>
       <span className="text-[11px] text-gray-400">{detail}</span>
       <span className="text-xs text-gray-400">$</span>

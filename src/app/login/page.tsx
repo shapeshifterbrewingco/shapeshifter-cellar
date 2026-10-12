@@ -53,7 +53,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 flex flex-col items-center gap-6 w-full max-w-sm shadow-sm">
+      <div className="bg-white rounded-2xl p-6 sm:p-10 flex flex-col items-center gap-6 w-full max-w-sm ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Shapeshifter Cellar</h1>
           <p className="text-sm text-gray-500 mt-1">Sign in to continue</p>

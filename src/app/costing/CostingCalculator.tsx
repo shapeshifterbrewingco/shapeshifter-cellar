@@ -135,8 +135,8 @@ export function CostingCalculator({ recipes, reference, prefills }: Props) {
     <div className="space-y-5">
 
       {/* ── Inputs ────────────────────────────────────────── */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Batch</h2>
+      <section className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+        <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-4">Batch</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
@@ -230,7 +230,7 @@ export function CostingCalculator({ recipes, reference, prefills }: Props) {
           {unlinkedCount > 0 && (
             <Link
               href="/costing/match"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg hover:bg-amber-100"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-charcoal bg-yeast/30 border border-yeast px-2.5 py-1 rounded-lg hover:bg-yeast/30"
             >
               <Link2 className="h-3 w-3" />
               {unlinkedCount} ingredient{unlinkedCount === 1 ? '' : 's'} not linked to a price
@@ -242,9 +242,9 @@ export function CostingCalculator({ recipes, reference, prefills }: Props) {
       {recipeId && <AmbiguousUnits key={`${recipeId}-${reloadKey}`} recipeId={recipeId} onResolved={reload} />}
 
       {/* ── Packaging split ───────────────────────────────── */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <section className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Packaging split</h2>
+          <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Packaging split</h2>
           <button
             type="button"
             onClick={() => setSplit(suggestSplit(volumeNum * (1 - lossNum / 100)))}
@@ -310,7 +310,7 @@ function VolumeBar({ result }: { result: CostingResult }) {
       </div>
 
       {(over || under) && result.allocatedVolumeL > 0 && (
-        <p className={`text-xs flex items-start gap-1.5 ${over ? 'text-red-600' : 'text-amber-600'}`}>
+        <p className={`text-xs flex items-start gap-1.5 ${over ? 'text-red-600' : 'text-malt-dark'}`}>
           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-px" />
           {over
             ? `The split is ${Math.abs(result.unallocatedL).toFixed(0)} L more than the batch yields.`
@@ -332,15 +332,15 @@ function ResultPanel({ result, onSave, saved, onFixed }: {
   return (
     <>
       {result.gaps.length > 0 && (
-        <section className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <h3 className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+        <section className="bg-yeast/30 border border-yeast rounded-xl p-4">
+          <h3 className="text-xs font-semibold text-charcoal uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5" />
             Incomplete — {result.gaps.length} thing{result.gaps.length === 1 ? '' : 's'} missing
           </h3>
-          <p className="text-xs text-amber-700 mb-2">
+          <p className="text-xs text-charcoal mb-2">
             These are excluded from the cost below, so the real cost is higher than shown.
           </p>
-          <ul className="text-xs text-amber-800 space-y-0.5 list-disc pl-4">
+          <ul className="text-xs text-charcoal space-y-0.5 list-disc pl-4">
             {result.gaps.slice(0, 12).map((g) => <li key={g}>{g}</li>)}
             {result.gaps.length > 12 && <li>and {result.gaps.length - 12} more</li>}
           </ul>
@@ -375,9 +375,9 @@ function ResultPanel({ result, onSave, saved, onFixed }: {
       </section>
 
       {/* Batch summary */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <section className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Batch total</h2>
+          <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Batch total</h2>
           <button
             onClick={onSave}
             className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90"
@@ -427,8 +427,8 @@ function ResultPanel({ result, onSave, saved, onFixed }: {
       )}
 
       {/* Per-format make-up */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm overflow-x-auto">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+      <section className="bg-white rounded-2xl p-5 overflow-x-auto ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+        <h2 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-3">
           What makes up each unit
         </h2>
         <table className="w-full text-sm min-w-[520px]">
@@ -450,7 +450,7 @@ function ResultPanel({ result, onSave, saved, onFixed }: {
                   {f.label}
                   {f.qty > 0 && <span className="text-gray-400 ml-1.5">× {f.qty}</span>}
                   {!f.materialsComplete && (
-                    <span className="text-amber-600 ml-1.5 text-xs">
+                    <span className="text-malt-dark ml-1.5 text-xs">
                       {f.materialLines.filter((l) => l.gap).length} unpriced
                     </span>
                   )}
@@ -498,12 +498,12 @@ function Breakdown({ title, lines, onFixed }: {
   const fixable = lines.length - priced
 
   return (
-    <section className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+    <section className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
       <details open={priced < lines.length}>
-        <summary className="text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer">
+        <summary className="text-[11px] font-medium text-gray-400 uppercase tracking-wide cursor-pointer">
           {title} — {priced}/{lines.length} priced
           {fixable > 0 && (
-            <span className="ml-2 font-normal normal-case tracking-normal text-amber-700">
+            <span className="ml-2 font-normal normal-case tracking-normal text-charcoal">
               {fixable} to fix
             </span>
           )}
@@ -513,7 +513,7 @@ function Breakdown({ title, lines, onFixed }: {
             {lines.map((l, i) => (
               <tr key={`${l.name}-${i}`} className="border-b border-gray-50 last:border-0 align-top">
                 <td className="py-1.5">
-                  <span className={l.gap ? 'text-amber-700' : 'text-gray-800'}>{l.name}</span>
+                  <span className={l.gap ? 'text-charcoal' : 'text-gray-800'}>{l.name}</span>
                   <span className="text-gray-400 text-xs ml-2">
                     {l.quantity != null ? `${l.quantity.toFixed(2)} ${l.unit ?? ''}` : 'no quantity'}
                   </span>
@@ -530,7 +530,7 @@ function Breakdown({ title, lines, onFixed }: {
                 <td className="py-1.5 text-right tabular-nums w-24">
                   {l.cost != null
                     ? <span className="text-gray-800 font-medium">{formatMoney(l.cost)}</span>
-                    : <span className="text-amber-600 text-xs">{GAP_LABELS[l.gap!]}</span>}
+                    : <span className="text-malt-dark text-xs">{GAP_LABELS[l.gap!]}</span>}
                 </td>
               </tr>
             ))}

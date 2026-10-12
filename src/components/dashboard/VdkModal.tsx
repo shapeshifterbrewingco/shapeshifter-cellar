@@ -20,8 +20,8 @@ type Reading = { id: string; result: VdkResult; recorded_at: string; recorded_by
 
 const RESULTS: { result: VdkResult; label: string; bg: string; text: string; border: string }[] = [
   { result: 'high',   label: 'High',   bg: 'bg-red-50',    text: 'text-red-700',    border: 'border-red-200'    },
-  { result: 'medium', label: 'Medium', bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-  { result: 'low',    label: 'Low',    bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' },
+  { result: 'medium', label: 'Medium', bg: 'bg-malt/15', text: 'text-malt-dark', border: 'border-malt/40' },
+  { result: 'low',    label: 'Low',    bg: 'bg-yeast/30', text: 'text-charcoal', border: 'border-yeast' },
   { result: 'pass',   label: 'Pass',   bg: 'bg-[#09434d]/10',  text: 'text-[#09434d]',  border: 'border-[#09434d]/20'  },
 ]
 

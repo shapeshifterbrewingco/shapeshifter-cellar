@@ -68,8 +68,8 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
       {/* Header */}
       <header className="flex items-start justify-between gap-3 px-4 pt-4 pb-3 bg-white border-b border-gray-200">
         <div className="min-w-0">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{tank.name}{brew.batch_code ? ` · ${brew.batch_code}` : ''}</p>
-          <h2 className="text-xl font-black text-gray-900 leading-tight break-words">{brew.beer_name}</h2>
+          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{tank.name}{brew.batch_code ? ` · ${brew.batch_code}` : ''}</p>
+          <h2 className="text-xl font-bold text-gray-900 leading-tight break-words">{brew.beer_name}</h2>
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
             <StageBadge stage={brew.stage} />
             {days_in_tank != null && <span className="text-sm text-gray-500">Day {days_in_tank}</span>}
@@ -86,25 +86,25 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
         <section className="grid grid-cols-3 gap-2">
           {stats.map((s) => (
-            <div key={s.label} className="bg-white rounded-xl border border-gray-200 px-2 py-2.5 text-center">
+            <div key={s.label} className="bg-white rounded-2xl px-2 py-2.5 text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               <p className="text-[11px] text-gray-400">{s.label}</p>
               <p className="text-base font-bold tabular-nums text-gray-900 mt-0.5">{s.value}</p>
             </div>
           ))}
         </section>
 
-        <section className="bg-white rounded-xl border border-gray-200 pt-3 pb-1 px-1">
+        <section className="bg-white rounded-2xl pt-3 pb-1 px-1 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <FermentChart brew={brew} data={chart} loading={loading} height={240} />
         </section>
 
         <section>
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Recent readings</h3>
+          <h3 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Recent readings</h3>
           {loading ? (
             <p className="text-sm text-gray-400">Loading…</p>
           ) : recent.length === 0 ? (
             <p className="text-sm text-gray-400">Nothing logged yet.</p>
           ) : (
-            <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+            <ul className="bg-white rounded-2xl divide-y divide-gray-100 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               {recent.map((r) => {
                 const noteOnly = r.plato == null && r.ph == null
                 return (
@@ -130,8 +130,8 @@ export function TankDetailSheet({ data, stages, more, onLog, onStage, onClose }:
 
         {brew.notes && (
           <section>
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Brew notes</h3>
-            <p className="bg-white rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-700 whitespace-pre-wrap">{brew.notes}</p>
+            <h3 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">Brew notes</h3>
+            <p className="bg-white rounded-2xl px-3 py-2.5 text-sm text-gray-700 whitespace-pre-wrap ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">{brew.notes}</p>
           </section>
         )}
       </div>

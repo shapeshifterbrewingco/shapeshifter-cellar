@@ -116,7 +116,7 @@ export function PriceListImport() {
   const selectedCount = items?.filter((i) => i.selected).length ?? 0
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+    <div className="bg-white rounded-2xl p-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
           <FileText className="h-5 w-5 text-primary" />
@@ -128,7 +128,7 @@ export function PriceListImport() {
           </p>
 
           {importedCount !== null && (
-            <div className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
+            <div className="mt-3 text-xs text-hops bg-water/30 border border-water rounded-lg px-3 py-2 flex items-center gap-1.5">
               <Check className="h-3.5 w-3.5" />
               {importedCount} ingredient{importedCount !== 1 ? 's' : ''} imported successfully.
             </div>

@@ -18,7 +18,7 @@ export default async function CostSetupPage() {
         </Link>
 
         <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-900">Cost setup</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Cost setup</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Everything the per-unit cost is built from, other than the recipe itself.
           </p>

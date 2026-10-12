@@ -15,7 +15,7 @@ export default function Error({
 
   return (
     <main className="min-h-[60vh] flex items-center justify-center px-6">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 max-w-md w-full text-center">
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <h1 className="text-lg font-bold text-gray-900">That did not load</h1>
         <p className="text-sm text-gray-500 mt-2">
           Nothing has been lost. This is usually a dropped connection. Try again, and if it keeps

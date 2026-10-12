@@ -153,7 +153,7 @@ export function IngredientMatchStep({ items, allIngredients, onProceed, onBack }
 
       <div className="space-y-2">
         {rows.map(row => (
-          <div key={row.key} className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
+          <div key={row.key} className="bg-white rounded-2xl p-3 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
             <div className="flex items-start gap-3">
               {/* Left: parsed ingredient info */}
               <div className="flex-shrink-0 min-w-0 w-48">

@@ -185,7 +185,7 @@ export function RecipeForm({ recipe, styles, ingredients }: RecipeFormProps) {
 
       <div className="grid grid-cols-2 gap-6">
         {/* Left: Basic info */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
+        <div className="bg-white rounded-2xl p-5 space-y-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Recipe Info</h2>
 
           <div>
@@ -266,7 +266,7 @@ export function RecipeForm({ recipe, styles, ingredients }: RecipeFormProps) {
 
         {/* Right: Targets + Process */}
         <div className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="bg-white rounded-2xl p-5 space-y-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Targets</h2>
             <div className="grid grid-cols-5 gap-3">
               <Field label="ABV %" value={targetAbv} onChange={setTargetAbv} step="0.1" />
@@ -277,7 +277,7 @@ export function RecipeForm({ recipe, styles, ingredients }: RecipeFormProps) {
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="bg-white rounded-2xl p-5 space-y-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Process</h2>
             <div className="grid grid-cols-4 gap-3">
               <Field label="Brew Vol (L)" value={brewVolume} onChange={setBrewVolume} />
@@ -293,14 +293,14 @@ export function RecipeForm({ recipe, styles, ingredients }: RecipeFormProps) {
       </div>
 
       {/* Ingredients */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-5">
+      <div className="bg-white rounded-2xl p-5 space-y-5 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Ingredients</h2>
         {ADDITION_STAGE_ORDER.map((stage) => {
           const rows = stageIngredients(stage)
           return (
             <div key={stage}>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <h3 className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
                   {ADDITION_STAGE_LABELS[stage]}
                 </h3>
                 <button

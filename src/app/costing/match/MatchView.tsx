@@ -47,7 +47,7 @@ export function MatchView({ rows }: { rows: UnmatchedRow[] }) {
   return (
     <div className="space-y-4">
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-wrap items-center gap-3">
+      <div className="bg-white rounded-2xl p-4 flex flex-wrap items-center gap-3 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <div className="flex gap-1">
           {(['todo', 'linked', 'all'] as Filter[]).map((f) => (
             <button
@@ -94,7 +94,7 @@ export function MatchView({ rows }: { rows: UnmatchedRow[] }) {
 
       <div className="space-y-2">
         {visible.map((r) => (
-          <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div key={r.id} className="bg-white rounded-2xl p-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
             <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
               <div>
                 <span className="text-sm font-semibold text-gray-900">{r.name}</span>
@@ -119,7 +119,7 @@ export function MatchView({ rows }: { rows: UnmatchedRow[] }) {
 
             {r.linkedId ? (
               <div className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                <Check className="h-4 w-4 text-hops flex-shrink-0" />
                 <span className="text-gray-800">{r.linkedName}</span>
                 <span className="text-xs text-gray-400">
                   {r.linkedPrice != null
@@ -147,7 +147,7 @@ export function MatchView({ rows }: { rows: UnmatchedRow[] }) {
                       <span className="tabular-nums text-gray-600 font-medium">
                         {c.pricePerUnit != null ? `${formatMoney(c.pricePerUnit)}/${c.unit}` : '—'}
                       </span>
-                      <span className={`tabular-nums ${c.score >= 0.95 ? 'text-green-600' : 'text-gray-300'}`}>
+                      <span className={`tabular-nums ${c.score >= 0.95 ? 'text-hops' : 'text-gray-300'}`}>
                         {(c.score * 100).toFixed(0)}%
                       </span>
                     </span>

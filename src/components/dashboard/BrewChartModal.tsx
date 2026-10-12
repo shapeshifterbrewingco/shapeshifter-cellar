@@ -156,7 +156,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             orientation="left"
             // Whole-number bounds and one fixed decimal, so a tick reads 12.8 and never 12.799999
             domain={[Math.max(0, Math.floor(platoMin - platoPad)), Math.ceil(platoMax + platoPad)]}
-            tick={{ fontSize: 10, fill: '#0d9488' }}
+            tick={{ fontSize: 10, fill: '#09434D' }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => `${Number(v).toFixed(1)}°P`}
@@ -168,7 +168,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             yAxisId="temp"
             orientation="right"
             domain={[tempMin, tempMax]}
-            tick={{ fontSize: 10, fill: '#6366f1' }}
+            tick={{ fontSize: 10, fill: '#CD7B58' }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => `${Math.round(Number(v))}°C`}
@@ -216,7 +216,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
               type="monotone"
               dataKey="temp"
               name="Temp (°C)"
-              stroke="#6366f1"
+              stroke="#CD7B58"
               strokeWidth={1.5}
               dot={false}
               activeDot={{ r: 3 }}
@@ -230,9 +230,9 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             type="monotone"
             dataKey="plato"
             name="Gravity (°P)"
-            stroke="#0d9488"
+            stroke="#09434D"
             strokeWidth={2}
-            dot={{ r: 4, fill: '#0d9488', strokeWidth: 0 }}
+            dot={{ r: 4, fill: '#09434D', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls
           />
@@ -243,9 +243,9 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             type="monotone"
             dataKey="ph"
             name="pH"
-            stroke="#f59e0b"
+            stroke="#7c7c78"
             strokeWidth={2}
-            dot={{ r: 4, fill: '#f59e0b', strokeWidth: 0 }}
+            dot={{ r: 4, fill: '#7c7c78', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls
           />
@@ -297,7 +297,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
           {[
             { label: 'OG', value: brew.og_plato != null ? `${brew.og_plato}°P` : '—', colour: '' },
             { label: 'Current', value: latestPlato != null ? `${latestPlato}°P` : '—', colour: '' },
-            { label: 'ABV', value: abv != null ? `${abv.toFixed(1)}%` : '—', colour: abv != null ? 'text-indigo-600' : '' },
+            { label: 'ABV', value: abv != null ? `${abv.toFixed(1)}%` : '—', colour: abv != null ? 'text-hops' : '' },
             { label: 'Attenuation', value: attenuation != null ? `${attenuation}%` : '—', colour: '' },
             { label: 'Readings', value: gravityReadings.length, colour: '' },
           ].map(({ label, value, colour }) => (

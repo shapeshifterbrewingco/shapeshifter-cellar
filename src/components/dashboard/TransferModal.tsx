@@ -207,7 +207,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
               onClick={() => setPreOpen(o => !o)}
               className="w-full flex items-center justify-between px-5 py-3 text-left"
             >
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pre-Transfer</span>
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Pre-Transfer</span>
               {preOpen
                 ? <ChevronUp className="h-4 w-4 text-gray-400" />
                 : <ChevronDown className="h-4 w-4 text-gray-400" />}
@@ -238,7 +238,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
               onClick={() => setPostOpen(o => !o)}
               className="w-full flex items-center justify-between px-5 py-3 text-left"
             >
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Post-Transfer</span>
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Post-Transfer</span>
               {postOpen
                 ? <ChevronUp className="h-4 w-4 text-gray-400" />
                 : <ChevronDown className="h-4 w-4 text-gray-400" />}

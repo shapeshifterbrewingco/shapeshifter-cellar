@@ -28,10 +28,10 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
 const OTHER_CATS: IngredientCategory[] = ['finings', 'water_treatment', 'other']
 
 const CAT_COLOURS: Record<IngredientCategory, string> = {
-  malt: 'bg-amber-50 text-amber-700',
+  malt: 'bg-yeast/30 text-charcoal',
   hop: 'bg-[#09434d]/10 text-[#09434d]',
-  yeast: 'bg-purple-50 text-purple-700',
-  adjunct: 'bg-blue-50 text-blue-700',
+  yeast: 'bg-water/30 text-hops',
+  adjunct: 'bg-water/30 text-hops',
   finings: 'bg-gray-100 text-gray-600',
   water_treatment: 'bg-cyan-50 text-cyan-700',
   other: 'bg-gray-100 text-gray-500',
@@ -217,7 +217,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
   const selectedCount = [...selected].filter((id) => filteredIds.includes(id)).length
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
       {/* Header */}
       <div className="px-5 pt-4 pb-0 border-b border-gray-100">
         <div className="flex items-center gap-3 mb-3">
@@ -313,7 +313,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
                     <tr
                       key={ing.id}
                       className={`border-b border-gray-50 last:border-0 align-top ${
-                        isEditing ? 'bg-primary/5' : isSelected ? 'bg-amber-50/40' : 'hover:bg-gray-50/50'
+                        isEditing ? 'bg-primary/5' : isSelected ? 'bg-yeast/30' : 'hover:bg-gray-50/50'
                       }`}
                     >
                       {/* Checkbox */}
@@ -331,7 +331,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
                         <button
                           type="button"
                           onClick={() => handleStar(ing.id, ing.is_favourite)}
-                          className="p-0.5 rounded hover:bg-amber-50"
+                          className="p-0.5 rounded hover:bg-yeast/30"
                           title={ing.is_favourite ? 'Remove favourite' : 'Mark as favourite'}
                         >
                           <Star
@@ -455,7 +455,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
                                   {stale && (
                                     <span
                                       title={`Last imported ${days} days ago`}
-                                      className={`flex items-center gap-0.5 ${veryStale ? 'text-red-400' : 'text-amber-400'}`}
+                                      className={`flex items-center gap-0.5 ${veryStale ? 'text-red-400' : 'text-malt-dark'}`}
                                     >
                                       <AlertCircle className="h-3 w-3" />
                                       <span>{days}d</span>
@@ -475,7 +475,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
                             <button
                               type="button"
                               onClick={() => saveEdit(ing.id)}
-                              className="p-1 rounded text-emerald-600 hover:bg-emerald-50"
+                              className="p-1 rounded text-hops hover:bg-water/30"
                               title="Save"
                             >
                               <Check className="h-3.5 w-3.5" />
@@ -522,7 +522,7 @@ export function IngredientLibrary({ ingredients: initial }: { ingredients: Ingre
       <div className="px-5 py-2.5 border-t border-gray-50 bg-gray-50/50">
         <p className="text-xs text-gray-400">
           Re-uploading a supplier&rsquo;s price list overwrites their existing prices and resets the import date.
-          Prices older than 90 days are flagged with <AlertCircle className="h-3 w-3 inline text-amber-400 mx-0.5" />.
+          Prices older than 90 days are flagged with <AlertCircle className="h-3 w-3 inline text-malt-dark mx-0.5" />.
         </p>
       </div>
     </div>

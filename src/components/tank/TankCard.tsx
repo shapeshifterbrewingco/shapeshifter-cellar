@@ -333,7 +333,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             }
 
             {/* Tank name */}
-            <span className="w-12 flex-shrink-0 text-xs font-black text-gray-700 uppercase tracking-wide">
+            <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-700 uppercase tracking-wide">
               {tank.name}
             </span>
 
@@ -368,7 +368,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               </span>
             )}
             {abv != null && (
-              <span className="text-sm font-bold text-indigo-600 tabular-nums flex-shrink-0 hidden md:block">
+              <span className="text-sm font-bold text-hops tabular-nums flex-shrink-0 hidden md:block">
                 {abv.toFixed(1)}%
               </span>
             )}
@@ -431,14 +431,14 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                   </div>
                   <div className="flex flex-col justify-center flex-1 min-w-0 pl-4 gap-1.5">
                     <div className="min-w-0">
-                      <p className="text-base font-black text-gray-900 leading-tight">{brew.beer_name}</p>
+                      <p className="text-base font-bold text-gray-900 leading-tight">{brew.beer_name}</p>
                       {brew.style && <p className="text-xs text-gray-500 mt-0.5">{brew.style}</p>}
                     </div>
                     <StageBadge stage={stage} />
                     {stage === 'diacetyl_rest' && (() => {
                       const VDK_STYLES: Record<string, string> = {
-                        high: 'bg-red-50 text-red-700 border-red-200', medium: 'bg-orange-50 text-orange-700 border-orange-200',
-                        low: 'bg-yellow-50 text-yellow-700 border-yellow-200', pass: 'bg-green-100 text-green-700 border-green-300',
+                        high: 'bg-red-50 text-red-700 border-red-200', medium: 'bg-malt/15 text-malt-dark border-malt/40',
+                        low: 'bg-yeast/30 text-charcoal border-yeast', pass: 'bg-water/30 text-hops border-water',
                       }
                       const VDK_LABELS: Record<string, string> = { high: 'VDK High', medium: 'VDK Medium', low: 'VDK Low', pass: 'VDK Pass' }
                       if (!latest_vdk) return <span className="text-[11px] text-gray-400">No VDK logged</span>
@@ -447,7 +447,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                     {(showGravity || showPh) && (
                       <div className="flex items-baseline gap-1.5 flex-wrap leading-tight">
                         {showGravity && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.plato}°P</span>}
-                        {abv != null && <span className="text-sm font-bold text-indigo-600 tabular-nums">{abv.toFixed(1)}% ABV</span>}
+                        {abv != null && <span className="text-sm font-bold text-hops tabular-nums">{abv.toFixed(1)}% ABV</span>}
                         {showPh && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.ph} pH</span>}
                       </div>
                     )}
@@ -463,9 +463,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
               {/* Actions */}
               <div className={`border-t px-3 py-1.5 ${
-                stage === 'active_ferment' ? 'border-amber-200 bg-amber-100/40' :
-                stage === 'diacetyl_rest'  ? 'border-violet-200 bg-violet-100/40' :
-                stage === 'on_chill'       ? 'border-blue-200 bg-sky-100/40' :
+                stage === 'active_ferment' ? 'border-yeast bg-yeast/30' :
+                stage === 'diacetyl_rest'  ? 'border-water bg-water/30' :
+                stage === 'on_chill'       ? 'border-water bg-water/30' :
                 'border-gray-100'
               }`}>
                 {isEmpty ? (
@@ -477,12 +477,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                     {stage === 'diacetyl_rest' ? (
                       <>
                         <Button size="sm" variant="outline"
-                          className="flex-1 h-8 text-sm bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-300 gap-1.5"
+                          className="flex-1 h-8 text-sm bg-yeast/30 border-yeast text-charcoal hover:bg-yeast/30 hover:border-yeast gap-1.5"
                           onClick={() => setShowVdkModal(true)}>
                           <TestTube2 className="h-4 w-4" /> VDK Test
                         </Button>
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer flex-shrink-0">
+                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-yeast bg-yeast/30 text-charcoal hover:bg-yeast/30 cursor-pointer flex-shrink-0">
                             <MoreHorizontal className="h-5 w-5" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-sm">
@@ -510,12 +510,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                     ) : stage === 'vdk_pass' ? (
                       <>
                         <Button size="sm" variant="outline"
-                          className="flex-1 h-8 text-sm bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 hover:border-orange-300 gap-1.5"
+                          className="flex-1 h-8 text-sm bg-malt/15 border-malt/40 text-malt-dark hover:bg-malt/15 hover:border-malt/40 gap-1.5"
                           onClick={() => handleStageChange('on_chill')}>
                           → Move to Chill
                         </Button>
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 cursor-pointer flex-shrink-0">
+                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-malt/40 bg-malt/15 text-malt-dark hover:bg-malt/15 cursor-pointer flex-shrink-0">
                             <MoreHorizontal className="h-5 w-5" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-sm">
@@ -541,14 +541,14 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                     ) : stage === 'on_chill' ? (
                       <>
                         <Button size="sm" variant="outline"
-                          className="flex-1 h-8 text-sm bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100 hover:border-sky-300 gap-1.5"
+                          className="flex-1 h-8 text-sm bg-water/30 border-water text-hops hover:bg-water/30 hover:border-water gap-1.5"
                           onClick={() => tank.type === 'fermenter' ? setShowTransferModal(true) : setShowPackageModal(true)}>
                           {tank.type === 'fermenter'
                             ? <><ChevronRight className="h-4 w-4" /> Transfer</>
                             : <><Package className="h-4 w-4" /> Package / Keg</>}
                         </Button>
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 cursor-pointer flex-shrink-0">
+                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-water bg-water/30 text-hops hover:bg-water/30 cursor-pointer flex-shrink-0">
                             <MoreHorizontal className="h-5 w-5" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-sm">
@@ -575,12 +575,12 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       /* active_ferment */
                       <>
                         <Button size="sm" variant="outline"
-                          className="flex-1 h-8 text-sm bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 hover:border-teal-300 gap-1.5"
+                          className="flex-1 h-8 text-sm bg-water/30 border-water text-hops hover:bg-water/30 hover:border-water gap-1.5"
                           onClick={() => setShowLogModal(true)}>
                           <FlaskConical className="h-4 w-4" /> Log Reading
                         </Button>
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 cursor-pointer flex-shrink-0">
+                          <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md border border-water bg-water/30 text-hops hover:bg-water/30 cursor-pointer flex-shrink-0">
                             <MoreHorizontal className="h-5 w-5" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-sm">
@@ -617,9 +617,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               {/* Setpoint */}
               {tank.frigid_asset_id && (
                 <div className={`border-t px-3 py-1.5 flex items-center gap-2 ${
-                  stage === 'active_ferment' ? 'border-amber-200 bg-amber-50/60' :
-                  stage === 'diacetyl_rest'  ? 'border-violet-200 bg-violet-50/60' :
-                  stage === 'on_chill'       ? 'border-sky-200 bg-sky-50/60' :
+                  stage === 'active_ferment' ? 'border-yeast bg-yeast/30' :
+                  stage === 'diacetyl_rest'  ? 'border-water bg-water/30' :
+                  stage === 'on_chill'       ? 'border-water bg-water/30' :
                   'border-gray-100 bg-gray-50/50'
                 }`}>
                   {!showSetpoint ? (
@@ -641,7 +641,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       ) : setpointStatus === 'saving' ? (
                         <span className="text-xs text-gray-400 flex-1">Sending…</span>
                       ) : setpointStatus === 'done' ? (
-                        <span className="text-xs text-emerald-600 flex-1">{setpointMsg}</span>
+                        <span className="text-xs text-hops flex-1">{setpointMsg}</span>
                       ) : (
                         <>
                           <input type="number" step="0.5" value={setpointInput}
@@ -679,7 +679,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 <button type="button" onClick={() => setShowDiacetylModal(false)}
                   className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancel</button>
                 <button type="button" onClick={handleDiacetylConfirm}
-                  className="flex-1 bg-violet-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-violet-700">Confirm</button>
+                  className="flex-1 bg-hops text-white text-sm font-medium py-2 rounded-lg hover:bg-hops">Confirm</button>
               </div>
             </div>
           </div>
@@ -700,7 +700,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 <button type="button" onClick={() => setShowChillModal(false)}
                   className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancel</button>
                 <button type="button" onClick={handleChillConfirm}
-                  className="flex-1 bg-sky-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-sky-700">Confirm</button>
+                  className="flex-1 bg-hops text-white text-sm font-medium py-2 rounded-lg hover:bg-hops">Confirm</button>
               </div>
             </div>
           </div>
@@ -868,9 +868,9 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               {stage === 'diacetyl_rest' && (() => {
                 const VDK_STYLES: Record<string, string> = {
                   high:   'bg-red-50 text-red-700 border-red-200',
-                  medium: 'bg-orange-50 text-orange-700 border-orange-200',
-                  low:    'bg-yellow-50 text-yellow-700 border-yellow-200',
-                  pass:   'bg-green-100 text-green-700 border-green-300',
+                  medium: 'bg-malt/15 text-malt-dark border-malt/40',
+                  low:    'bg-yeast/30 text-charcoal border-yeast',
+                  pass:   'bg-water/30 text-hops border-water',
                 }
                 const VDK_LABELS: Record<string, string> = { high: 'VDK High', medium: 'VDK Medium', low: 'VDK Low', pass: 'VDK Pass' }
                 if (!latest_vdk) return <span className="text-[11px] text-gray-400">No VDK logged</span>
@@ -1086,7 +1086,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 ) : setpointStatus === 'saving' ? (
                   <span className="text-xs text-gray-400 flex-1">Sending…</span>
                 ) : setpointStatus === 'done' ? (
-                  <span className="text-xs text-emerald-600 flex-1">{setpointMsg}</span>
+                  <span className="text-xs text-hops flex-1">{setpointMsg}</span>
                 ) : (
                   <>
                     <input
@@ -1141,7 +1141,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               <button
                 type="button"
                 onClick={handleDiacetylConfirm}
-                className="flex-1 bg-violet-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-violet-700"
+                className="flex-1 bg-hops text-white text-sm font-medium py-2 rounded-lg hover:bg-hops"
               >
                 Confirm
               </button>
@@ -1179,7 +1179,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               <button
                 type="button"
                 onClick={handleChillConfirm}
-                className="flex-1 bg-sky-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-sky-700"
+                className="flex-1 bg-hops text-white text-sm font-medium py-2 rounded-lg hover:bg-hops"
               >
                 Confirm
               </button>

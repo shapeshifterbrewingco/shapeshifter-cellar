@@ -56,9 +56,9 @@ function gridFor(year: number, month: number) {
 function eventStyle(title: string) {
   const t = title.trim().toUpperCase()
   if (t.startsWith('BREW')) return 'bg-red-50 text-red-800 border-red-200'
-  if (t.startsWith('TRANSFER')) return 'bg-purple-50 text-purple-800 border-purple-200'
-  if (t.startsWith('PACK')) return 'bg-blue-50 text-blue-800 border-blue-200'
-  if (/\bA\/?L\b|LEAVE/.test(t)) return 'bg-amber-50 text-amber-800 border-amber-200'
+  if (t.startsWith('TRANSFER')) return 'bg-water/30 text-hops border-water'
+  if (t.startsWith('PACK')) return 'bg-water/30 text-hops border-water'
+  if (/\bA\/?L\b|LEAVE/.test(t)) return 'bg-yeast/30 text-charcoal border-yeast'
   return 'bg-gray-50 text-gray-700 border-gray-200'
 }
 
@@ -151,7 +151,7 @@ function Calendar({ refreshKey, onPick }: { refreshKey: number; onPick: (e: CalE
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 
-const ACTION_STYLE = { create: 'bg-emerald-100 text-emerald-800', update: 'bg-amber-100 text-amber-800', delete: 'bg-red-100 text-red-800' }
+const ACTION_STYLE = { create: 'bg-water/30 text-hops', update: 'bg-yeast/30 text-charcoal', delete: 'bg-red-100 text-red-800' }
 
 function PlanCard({ item, onApply, onDismiss }: { item: Extract<Item, { kind: 'plan' }>; onApply: () => void; onDismiss: () => void }) {
   const { plan, status, results } = item
@@ -179,7 +179,7 @@ function PlanCard({ item, onApply, onDismiss }: { item: Extract<Item, { kind: 'p
       </ul>
       {results && (
         <ul className="px-3 py-2 border-t text-xs space-y-0.5">
-          {results.map((r, i) => <li key={i} className={r.ok ? 'text-emerald-700' : 'text-red-600'}>{r.ok ? 'Done: ' : 'Failed: '}{r.message}</li>)}
+          {results.map((r, i) => <li key={i} className={r.ok ? 'text-hops' : 'text-red-600'}>{r.ok ? 'Done: ' : 'Failed: '}{r.message}</li>)}
         </ul>
       )}
       <div className="flex items-center gap-2 px-3 py-2 border-t bg-gray-50">
@@ -189,8 +189,8 @@ function PlanCard({ item, onApply, onDismiss }: { item: Extract<Item, { kind: 'p
           <span className="text-xs text-gray-500 ml-auto">Nothing changes until you apply</span>
         </>}
         {status === 'applying' && <span className="flex items-center gap-2 text-sm text-gray-600"><Loader2 className="h-4 w-4 animate-spin" />Writing to the calendar...</span>}
-        {status === 'applied' && <span className="text-sm font-medium text-emerald-700">Applied</span>}
-        {status === 'partial' && <span className="text-sm font-medium text-amber-700">Partly applied - check the lines marked Failed</span>}
+        {status === 'applied' && <span className="text-sm font-medium text-hops">Applied</span>}
+        {status === 'partial' && <span className="text-sm font-medium text-charcoal">Partly applied - check the lines marked Failed</span>}
         {status === 'failed' && <span className="text-sm font-medium text-red-700">Nothing was applied - calendar unchanged</span>}
         {status === 'dismissed' && <span className="text-sm text-gray-500">Dismissed - calendar unchanged</span>}
       </div>

@@ -54,12 +54,12 @@ export function AmbiguousUnits({ recipeId, onResolved }: {
   }
 
   return (
-    <section className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-      <h3 className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+    <section className="bg-yeast/30 border border-yeast rounded-xl p-4">
+      <h3 className="text-xs font-semibold text-charcoal uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
         <AlertTriangle className="h-3.5 w-3.5" />
         {lines.length} line{lines.length === 1 ? '' : 's'} with an ambiguous unit
       </h3>
-      <p className="text-xs text-amber-700 mb-2">
+      <p className="text-xs text-charcoal mb-2">
         These came off a brew sheet column headed{' '}
         <code className="font-medium">{lines[0].unit}</code>, so the amount is in one unit or the
         other. Check each one: the highlighted unit is only a guess.
@@ -70,13 +70,13 @@ export function AmbiguousUnits({ recipeId, onResolved }: {
           <li key={l.id} className="flex items-center gap-2">
             <span className="text-gray-800 flex-1 min-w-0 truncate">{l.name}</span>
             <span className="tabular-nums text-gray-600 w-14 text-right">{l.quantity ?? '-'}</span>
-            <span className="inline-flex rounded-lg border border-amber-300 overflow-hidden bg-white">
+            <span className="inline-flex rounded-lg border border-yeast overflow-hidden bg-white">
               {optionsOf(l.unit).map((u) => (
                 <button
                   key={u}
                   type="button"
                   onClick={() => setChoices((c) => ({ ...c, [l.id]: u }))}
-                  className={`px-2.5 py-1 font-medium ${choices[l.id] === u ? 'bg-primary text-primary-foreground' : 'text-amber-800 hover:bg-amber-100'}`}
+                  className={`px-2.5 py-1 font-medium ${choices[l.id] === u ? 'bg-primary text-primary-foreground' : 'text-charcoal hover:bg-yeast/30'}`}
                 >
                   {u}
                 </button>
@@ -102,7 +102,7 @@ export function AmbiguousUnits({ recipeId, onResolved }: {
             key={u}
             onClick={() => setAll(u)}
             disabled={busy}
-            className="text-xs font-medium border border-amber-300 bg-white text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-100 disabled:opacity-50"
+            className="text-xs font-medium border border-yeast bg-white text-charcoal px-3 py-1.5 rounded-lg hover:bg-yeast/30 disabled:opacity-50"
           >
             Mark all as {u}
           </button>

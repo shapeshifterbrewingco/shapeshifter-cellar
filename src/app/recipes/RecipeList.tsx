@@ -54,23 +54,23 @@ export function RecipeList({ recipes }: Props) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center shadow-sm">
+        <div className="bg-white rounded-2xl p-10 text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <p className="text-gray-500 text-sm">No {activeTag !== 'all' ? RECIPE_TAG_LABELS[activeTag] + ' ' : ''}recipes yet.</p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Style</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tag</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Ver.</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">ABV</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">OG</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">FG</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">IBU</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Vol (L)</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide">Name</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide">Style</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide">Tag</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide text-center">Ver.</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide text-right">ABV</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide text-right">OG</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide text-right">FG</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide text-right">IBU</th>
+                <th className="px-4 py-3 text-[11px] font-medium text-gray-400 uppercase tracking-wide text-right">Vol (L)</th>
                 <th className="px-4 py-3 w-8" />
               </tr>
             </thead>

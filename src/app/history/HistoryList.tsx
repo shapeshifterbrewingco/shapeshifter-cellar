@@ -17,9 +17,9 @@ const STAGE_LABELS: Record<string, string> = {
 }
 
 const STAGE_COLOURS: Record<string, string> = {
-  transferred: 'bg-blue-50 text-blue-600',
+  transferred: 'bg-water/30 text-hops',
   packaged: 'bg-[#09434d]/10 text-[#09434d]',
-  cleaning: 'bg-orange-50 text-orange-600',
+  cleaning: 'bg-malt/15 text-malt-dark',
 }
 
 interface Props {
@@ -88,7 +88,7 @@ export function HistoryList({ items }: Props) {
           const stageLabel = STAGE_LABELS[item.stage] ?? item.stage
 
           return (
-            <div key={item.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div key={item.id} className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
               {/* Summary row */}
               <div className="w-full flex items-center gap-4 px-5 py-4">
                 <button
@@ -105,7 +105,7 @@ export function HistoryList({ items }: Props) {
                   className="flex items-center gap-4 flex-1 min-w-0 text-left"
                   onClick={() => setExpanded(isOpen ? null : item.id)}
                 >
-                  <div className="flex-shrink-0 w-16 text-xs font-black text-gray-700 uppercase tracking-wide">
+                  <div className="flex-shrink-0 w-16 text-xs font-bold text-gray-700 uppercase tracking-wide">
                     {item.tank_name}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -136,7 +136,7 @@ export function HistoryList({ items }: Props) {
                       {item.final_plato != null ? ` → ${item.final_plato}°P` : ''}
                     </p>
                     {item.abv != null && (
-                      <p className="text-xs font-bold text-indigo-600 tabular-nums">{item.abv.toFixed(1)}% ABV</p>
+                      <p className="text-xs font-bold text-hops tabular-nums">{item.abv.toFixed(1)}% ABV</p>
                     )}
                   </div>
 
@@ -188,8 +188,8 @@ export function HistoryList({ items }: Props) {
                       { label: 'Final pH', value: item.final_ph != null ? String(item.final_ph) : '—' },
                     ].map(({ label, value, accent }) => (
                       <div key={label} className="bg-white rounded-lg border border-gray-100 px-3 py-2.5">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">{label}</p>
-                        <p className={`text-base font-black mt-0.5 tabular-nums ${accent ? 'text-indigo-600' : 'text-gray-900'}`}>{value}</p>
+                        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{label}</p>
+                        <p className={`text-base font-bold mt-0.5 tabular-nums ${accent ? 'text-hops' : 'text-gray-900'}`}>{value}</p>
                       </div>
                     ))}
                   </div>
@@ -205,19 +205,19 @@ export function HistoryList({ items }: Props) {
                   {/* Packaging runs */}
                   {item.packaging_runs.length > 0 && (
                     <div>
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <Package className="h-3 w-3" /> Packaging
                       </p>
                       <div className="rounded-lg border border-gray-100 overflow-hidden">
                         <table className="w-full text-xs">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Date</th>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Format</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Qty</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Volume</th>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">By</th>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Notes</th>
+                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Date</th>
+                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Format</th>
+                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Qty</th>
+                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Volume</th>
+                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">By</th>
+                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Notes</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -254,16 +254,16 @@ export function HistoryList({ items }: Props) {
                   {/* Readings table */}
                   {item.readings.length > 0 && (
                     <div>
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Readings</p>
+                      <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Readings</p>
                       <div className="rounded-lg border border-gray-100 overflow-hidden">
                         <table className="w-full text-xs">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Date</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">Gravity</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wide">pH</th>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">By</th>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">Notes</th>
+                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Date</th>
+                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">Gravity</th>
+                              <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 uppercase tracking-wide">pH</th>
+                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">By</th>
+                              <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 uppercase tracking-wide">Notes</th>
                             </tr>
                           </thead>
                           <tbody>

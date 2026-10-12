@@ -19,7 +19,7 @@ interface Section {
 function SectionHeader({ title, description }: Section) {
   return (
     <div className="mb-4">
-      <h2 className="text-base font-black text-gray-900">{title}</h2>
+      <h2 className="text-base font-bold text-gray-900">{title}</h2>
       <p className="text-sm text-gray-500 mt-0.5">{description}</p>
     </div>
   )
@@ -133,7 +133,7 @@ export function SettingsView({ settings }: Props) {
     <div className="max-w-xl space-y-8">
 
       {/* Fermentation */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
+      <div className="bg-white rounded-2xl px-5 py-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <SectionHeader
           title="Fermentation"
           description="Default temperatures used when moving a brew through stages."
@@ -147,7 +147,7 @@ export function SettingsView({ settings }: Props) {
       </div>
 
       {/* Scheduling */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
+      <div className="bg-white rounded-2xl px-5 py-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <SectionHeader
           title="Scheduling"
           description="Used to auto-calculate transfer and pack dates when scheduling a brew."
@@ -161,7 +161,7 @@ export function SettingsView({ settings }: Props) {
       </div>
 
       {/* Packaging */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
+      <div className="bg-white rounded-2xl px-5 py-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <SectionHeader
           title="Packaging"
           description="Defaults used in the packaging split calculator."
@@ -202,14 +202,14 @@ export function SettingsView({ settings }: Props) {
       </div>
 
       {/* Excise & Canning */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
+      <div className="bg-white rounded-2xl px-5 py-4 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <SectionHeader
           title="Excise & Canning"
           description="Australian excise duty rates and SA Canning contract costs used in the packaging split calculator."
         />
-        <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700">
+        <div className="mb-4 flex items-start gap-2 bg-yeast/30 border border-yeast rounded-xl px-4 py-3">
+          <AlertCircle className="h-4 w-4 text-malt-dark flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-charcoal">
             Excise rates are indexed by the ATO every 6 months (February and August). Update these after each rate change.
           </p>
         </div>
@@ -246,7 +246,7 @@ export function SettingsView({ settings }: Props) {
           {isPending ? 'Saving…' : 'Save settings'}
         </button>
         {saved && (
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-hops">
             <Check className="h-4 w-4" /> Saved
           </span>
         )}

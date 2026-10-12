@@ -84,14 +84,14 @@ export function PackagingReport({ initialPeriod, initialData }: Props) {
           { label: 'Packaging Runs', value: String(data.total_runs) },
           { label: 'Total Volume',   value: `${data.total_volume_l.toFixed(1)} L` },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
+          <div key={label} className="bg-white rounded-2xl px-4 py-3 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
             <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">{label}</p>
             <p className="text-xl font-bold text-gray-900 mt-1 tabular-nums">{value}</p>
           </div>
         ))}
 
         {/* Kegs */}
-        <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
+        <div className="bg-white rounded-2xl px-4 py-3 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Total Kegs</p>
           <p className="text-xl font-bold text-gray-900 mt-1 tabular-nums">{totalKegs}</p>
           {totalKegs > 0 && (
@@ -102,7 +102,7 @@ export function PackagingReport({ initialPeriod, initialData }: Props) {
         </div>
 
         {/* Cartons */}
-        <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
+        <div className="bg-white rounded-2xl px-4 py-3 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Total Cartons</p>
           <p className="text-xl font-bold text-gray-900 mt-1 tabular-nums">{totalCartons}</p>
           {totalCartons > 0 && (
@@ -115,11 +115,11 @@ export function PackagingReport({ initialPeriod, initialData }: Props) {
 
       {/* Table */}
       {data.rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm py-20 text-center">
+        <div className="bg-white rounded-2xl py-20 text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <p className="text-gray-400 text-sm">No packaging recorded for this period.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>

@@ -287,7 +287,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                               <td className="px-3 py-1.5 text-right tabular-nums">
                                 {b.cost != null
                                   ? <span className="text-gray-800 font-medium">${b.cost.toFixed(2)}</span>
-                                  : <span className="text-amber-500 text-[10px] font-medium uppercase tracking-wide">{reason}</span>}
+                                  : <span className="text-malt-dark text-[10px] font-medium uppercase tracking-wide">{reason}</span>}
                               </td>
                             </tr>
                           )
@@ -304,7 +304,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                     </table>
                   )}
                   {cogs.breakdown.length > 0 && cogs.breakdown.some(b => b.cost == null) && (
-                    <div className="px-3 py-2 bg-amber-50 border-t border-amber-100 text-[10px] text-amber-700 leading-relaxed">
+                    <div className="px-3 py-2 bg-yeast/30 border-t border-yeast text-[10px] text-charcoal leading-relaxed">
                       {cogs.breakdown.some(b => b.unlinked)
                         ? "Some ingredients aren't linked to the library. Edit the recipe and re-select them."
                         : 'Some ingredients have no price. Go to Ingredients → edit and add a price.'}
@@ -322,7 +322,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
               onClick={() => setQcOpen(o => !o)}
               className="w-full flex items-center justify-between px-5 py-3 text-left"
             >
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">QC Readings</span>
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">QC Readings</span>
               {qcOpen
                 ? <ChevronUp className="h-4 w-4 text-gray-400" />
                 : <ChevronDown className="h-4 w-4 text-gray-400" />}
@@ -361,7 +361,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
               onClick={() => setStockOpen(o => !o)}
               className="w-full flex items-center justify-between px-5 py-3 text-left"
             >
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Stock Distribution</span>
+              <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Stock Distribution</span>
               {stockOpen
                 ? <ChevronUp className="h-4 w-4 text-gray-400" />
                 : <ChevronDown className="h-4 w-4 text-gray-400" />}

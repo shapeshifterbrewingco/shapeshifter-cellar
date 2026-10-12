@@ -304,15 +304,15 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
             return (
               <section key={key}>
                 <button type="button" onClick={() => toggleMonth(key)} aria-expanded={open}
-                  className={`${CARD} w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50`}>
+                  className="w-full flex items-center gap-3 rounded-2xl bg-primary px-4 py-3.5 text-left text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] active:opacity-90">
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-base font-semibold text-gray-900">{monthLabel(key)}</h2>
-                    <p className="text-[13px] text-gray-500">
+                    <h2 className="text-base font-semibold text-white">{monthLabel(key)}</h2>
+                    <p className="text-[13px] text-white/85">
                       {list.length} batch{list.length === 1 ? '' : 'es'}{packed > 0 ? ` · ${litres(packed)}` : ''}{made ? ` · ${made}` : ''}
                     </p>
-                    {!open && <p className="text-[13px] text-gray-400 truncate">{[...new Set(list.map((i) => i.beer_name))].slice(0, 3).join(', ')}{new Set(list.map((i) => i.beer_name)).size > 3 ? '…' : ''}</p>}
+                    {!open && <p className="text-[13px] text-white/65 truncate">{[...new Set(list.map((i) => i.beer_name))].slice(0, 3).join(', ')}{new Set(list.map((i) => i.beer_name)).size > 3 ? '…' : ''}</p>}
                   </div>
-                  <ChevronDown className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-5 w-5 flex-shrink-0 text-white/80 transition-transform ${open ? 'rotate-180' : ''}`} />
                 </button>
                 {open && <ul className="mt-2.5 space-y-2.5 md:pl-3">{list.map((item) => batch(item))}</ul>}
               </section>

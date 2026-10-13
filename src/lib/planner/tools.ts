@@ -9,6 +9,7 @@ import { allocate, type TankEvent } from './tanks'
 import { stockForecast } from './forecast'
 
 import { getPacks } from './sales-app/splits'
+import { batchHistory, ingredientUsage, recipeBook, type UsageKind } from './brew-data'
 
 export type ChangeAction = 'create' | 'update' | 'delete'
 
@@ -54,6 +55,32 @@ export const TOOLS: Anthropic.Tool[] = [
     description:
       "Pack runs from Carla's Packaging Splits sheet, from the start of last month to six months ahead: date, beer as written on the sheet, and quantity per format (16PK, 24PK, 20L, 30L, 50L). The sheet lags the calendar and future months may have no tab yet.",
     input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_ingredient_usage',
+    description:
+      'What was actually used, added up from the brew sheets of every batch brewed between two dates. kind "hops" gives each hop variety in kg (crop years merged, so "Vic Secret 2022" and "Vic Secret" are one line; product forms like Lupo, Dynaboost, Incognito and oils stay separate, liquids in litres), split into kettle and dry hop and broken down by beer. kind "malt" gives each malt in kg. kind "other" gives salts, finings, enzymes, flavours and spirit. The result says how many brews were counted and the first and last brew day it covers - brew sheets start in late October 2025, so check that before calling anything a full year. Use this for hop contract, malt ordering and "how much X do we use" questions.',
+    input_schema: {
+      type: 'object',
+      properties: { from: DATE, to: DATE, kind: { type: 'string', enum: ['hops', 'malt', 'other'] } },
+      required: ['from', 'to', 'kind'],
+    },
+  },
+  {
+    name: 'get_recipes',
+    description:
+      'The recipes on file in the Cellar app: style, batch size, target OG / FG / ABV / IBU and every ingredient line with quantity, unit and when it goes in. Pass a name to get one beer, or nothing for all of them. Use it to work out what a planned brew will need (hop bill x number of brews on the calendar). Not every beer has a recipe on file - one-off limited releases mostly do not.',
+    input_schema: { type: 'object', properties: { name: { type: 'string', description: 'Part of the beer name, optional' } } },
+  },
+  {
+    name: 'get_batch_history',
+    description:
+      'Finished batches brewed between two dates, optionally for one beer: batch number, brew and pack dates, litres into the fermenter and litres packed, OG and ABV against target, cartons and kegs made, dissolved oxygen in brite and pack, hops and yeast used. Use it for yield, how many times a beer was brewed, and how a past batch went.',
+    input_schema: {
+      type: 'object',
+      properties: { from: DATE, to: DATE, beer: { type: 'string', description: 'Part of the beer name, optional' } },
+      required: ['from', 'to'],
+    },
   },
   {
     name: 'allocate_tanks',
@@ -170,6 +197,19 @@ export async function runTool(name: string, input: Record<string, unknown>, toda
       const proposed = (input.proposed_events as { date: string; title: string }[] | undefined) || []
       for (const p of proposed) if (isDate(p.date) && p.title) tankEvents.push([p.date, p.title.trim()])
       return { result: allocate(tankEvents, input.manual_plan as Record<string, string> | undefined) }
+    }
+    case 'get_ingredient_usage': {
+      const from = isDate(input.from) ? input.from : addDaysKey(todayKey, -365)
+      const to = isDate(input.to) ? input.to : todayKey
+      const kind = (['hops', 'malt', 'other'] as const).includes(input.kind as UsageKind) ? (input.kind as UsageKind) : 'hops'
+      return { result: await ingredientUsage(from, to, kind) }
+    }
+    case 'get_recipes':
+      return { result: await recipeBook(typeof input.name === 'string' ? input.name : undefined) }
+    case 'get_batch_history': {
+      const from = isDate(input.from) ? input.from : addDaysKey(todayKey, -365)
+      const to = isDate(input.to) ? input.to : todayKey
+      return { result: await batchHistory(from, to, typeof input.beer === 'string' ? input.beer : undefined) }
     }
     case 'propose_calendar_changes':
       return proposePlan(input as unknown as { summary: string; changes: PlannedChange[] })

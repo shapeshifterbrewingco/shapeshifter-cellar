@@ -44,7 +44,7 @@ export function EditBrewModal({ item, onClose }: Props) {
   }
 
   function handleSaveRun(p: PackagingRun) {
-    const qty = parseInt(runEdits[p.id])
+    const qty = parseFloat(runEdits[p.id])
     if (isNaN(qty) || qty <= 0) return
     const fmt = PACKAGE_FORMATS.find(f => f.format === p.format)
     const volume_l = fmt ? qty * fmt.volume_l : p.volume_l
@@ -133,7 +133,7 @@ export function EditBrewModal({ item, onClose }: Props) {
                 type="number" inputMode="decimal"
                 value={volumeL}
                 onChange={e => setVolumeL(e.target.value)}
-                step="1"
+                step="any"
                 min="1"
                 required
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -170,7 +170,7 @@ export function EditBrewModal({ item, onClose }: Props) {
               <div className="space-y-1">
                 {item.packaging_runs.map(p => {
                   const fmt = PACKAGE_FORMATS.find(f => f.format === p.format)
-                  const qty = parseInt(runEdits[p.id])
+                  const qty = parseFloat(runEdits[p.id])
                   const previewVol = fmt && !isNaN(qty) && qty > 0 ? qty * fmt.volume_l : p.volume_l
                   const changed = runEdits[p.id] !== String(p.qty)
                   return (
@@ -182,7 +182,7 @@ export function EditBrewModal({ item, onClose }: Props) {
                         value={runEdits[p.id]}
                         onChange={e => setRunEdits(prev => ({ ...prev, [p.id]: e.target.value }))}
                         min="1"
-                        step="1"
+                        step="any"
                         className="w-16 border border-gray-200 rounded px-2 py-1 text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
                       />
                       <span className="text-gray-400 w-14 tabular-nums">{previewVol.toFixed(1)}L</span>

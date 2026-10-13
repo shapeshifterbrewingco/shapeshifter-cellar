@@ -76,6 +76,8 @@ export interface BrewHistoryItem {
   final_plato: number | null
   final_ph: number | null
   abv: number | null
+  /** The recipe's target, when the batch is linked to a recipe that has one */
+  target_abv: number | null
   stage: string
   notes: string | null
   reading_count: number
@@ -157,7 +159,7 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
 
   const recipeIds = [...new Set(brews.map((b) => b.recipe_id).filter((x): x is string => !!x))]
 
-  const [finals, sheets, recipeLines, runs, transfers, reports] = await Promise.all([
+  const [finals, sheets, recipeLines, runs, transfers, reports, recipes] = await Promise.all([
     all<{ brew_id: string; final_plato: number | null; final_ph: number | null; reading_count: number; packed_at: string | null; packed_l: number }>((from, to) =>
       supabase.from('brew_finals').select('brew_id, final_plato, final_ph, reading_count, packed_at, packed_l').range(from, to),
     ),
@@ -187,7 +189,13 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
     all<PackReport & { brew_id: string }>((from, to) =>
       supabase.from('packaging_reports').select(`brew_id, ${PACK_REPORT_FIELDS.join(', ')}`).range(from, to),
     ),
+    recipeIds.length
+      ? all<{ id: string; target_abv: number | null }>((from, to) =>
+          supabase.from('recipes').select('id, target_abv').in('id', recipeIds).range(from, to),
+        )
+      : Promise.resolve([]),
   ])
+  const targetAbv = new Map(recipes.map((r) => [r.id, r.target_abv != null ? Number(r.target_abv) : null]))
 
   const packedBy = new Map<string, PackCounts>()
   const FORMAT_KEY: Record<string, keyof PackCounts> = { keg20: 'keg20', keg30: 'keg30', keg50: 'keg50', '24x375': 'c24', '16x440': 'c16' }
@@ -237,6 +245,7 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       final_plato: finalPlato,
       final_ph: f?.final_ph != null ? Number(f.final_ph) : null,
       abv: og != null && finalPlato != null ? calcAbv(og, finalPlato) : null,
+      target_abv: b.recipe_id ? targetAbv.get(b.recipe_id) ?? null : null,
       stage: b.stage,
       notes: b.notes,
       reading_count: f?.reading_count ?? 0,

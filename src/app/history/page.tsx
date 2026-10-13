@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getBrewHistory, getPackedRuns } from '@/lib/history'
 import { HistoryList } from './HistoryList'
 import { PackedSummary } from './PackedSummary'
+import { Insights } from './Insights'
 
 export default async function HistoryPage() {
   const supabase = await createClient()
@@ -16,6 +17,7 @@ export default async function HistoryPage() {
         </div>
 
         <PackedSummary runs={runs} />
+        <Insights items={items} />
         <HistoryList items={items} />
       </div>
     </main>

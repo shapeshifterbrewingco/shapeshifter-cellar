@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { ChevronDown, ClipboardList, Loader2, Pencil, Search, Trash2, X } from 'lucide-react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { deleteBrewHistory, loadBrewDetail } from './actions'
+import { yearBg } from './year-colour'
 import { EditBrewModal } from './EditBrewModal'
 import type { BrewHistoryItem, BrewReading, PackagingRun, PackCounts, VdkEntry } from '@/lib/history'
 import { PackReportPanel } from './PackReportPanel'
@@ -299,14 +300,17 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
         </>
       ) : (
         <div className="space-y-2.5">
-          {months.map(([key, list]) => {
+          {months.map(([key, list], idx) => {
             const open = openMonths.has(key)
+            const year = key.slice(0, 4)
+            const newYear = idx === 0 ? months.length > 0 && months[months.length - 1][0].slice(0, 4) !== year : months[idx - 1][0].slice(0, 4) !== year
             const packed = list.reduce((s, i) => s + i.packed_l, 0)
             const made = packedSummary(list.reduce((t, i) => ({ keg20: t.keg20 + i.packed.keg20, keg30: t.keg30 + i.packed.keg30, keg50: t.keg50 + i.packed.keg50, c24: t.c24 + i.packed.c24, c16: t.c16 + i.packed.c16 }), { keg20: 0, keg30: 0, keg50: 0, c24: 0, c16: 0 }))
             return (
               <section key={key}>
+                {newYear && <p className={`px-1 text-sm font-semibold text-gray-500 ${idx === 0 ? 'mb-2' : 'mt-4 mb-2'}`}>{year}</p>}
                 <button type="button" onClick={() => toggleMonth(key)} aria-expanded={open}
-                  className="w-full flex items-center gap-3 rounded-2xl bg-primary px-4 py-3.5 text-left text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] active:opacity-90">
+                  className={`w-full flex items-center gap-3 rounded-2xl ${yearBg(key)} px-4 py-3.5 text-left text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] active:opacity-90`}>
                   <div className="flex-1 min-w-0">
                     <h2 className="text-base font-semibold text-white">{monthLabel(key)}</h2>
                     <p className="text-[13px] text-white/85">

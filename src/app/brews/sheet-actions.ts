@@ -335,3 +335,33 @@ export async function recordAddition(input: { brew_id: string; index: number; na
   revalidatePath('/')
   return { ok: true }
 }
+
+/**
+ * Call off a brew day that was started by mistake or as a test. The brew and
+ * its sheet are removed and the tank goes back to empty. Only while the day is
+ * still open: once it is finished the beer is real and has to be emptied
+ * instead. Nothing is sent to Frigid, so the tank's set point is left alone.
+ */
+export async function cancelBrewDay(brew_id: string): Promise<Result> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return fail('You are signed out. Sign in again and retry.')
+
+  const { data: brew } = await supabase
+    .from('brews').select('id, beer_name, stage, og_plato, deleted_at, tanks(name)').eq('id', brew_id).maybeSingle()
+  if (!brew) return fail('That brew no longer exists.')
+  if (brew.deleted_at || brew.stage !== 'active_ferment' || brew.og_plato != null) {
+    return fail('This brew day is already finished, so it cannot be cancelled. Use Empty for cleaning on the tank instead.')
+  }
+
+  // Stage history points at the brew and does not cascade; readings and the sheet do
+  const { error: historyError } = await supabase.from('tank_stage_history').delete().eq('brew_id', brew_id)
+  if (historyError) return fail(`Not cancelled: ${historyError.message}`)
+  const { data: gone, error } = await supabase.from('brews').delete().eq('id', brew_id).select('id')
+  if (error || !gone?.length) return fail(`Not cancelled: ${error?.message ?? 'the brew could not be removed'}`)
+
+  const tank = (Array.isArray(brew.tanks) ? brew.tanks[0] : brew.tanks) as { name?: string } | null
+  logActivity(`${who(user.email)} cancelled the brew day for *${esc(brew.beer_name)}*${tank?.name ? ` in ${tank.name}` : ''}. Nothing was brewed.`)
+  revalidatePath('/')
+  return { ok: true }
+}

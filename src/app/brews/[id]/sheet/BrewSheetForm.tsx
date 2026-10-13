@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { importSheetReadings, applySheetToRecipe } from '@/app/brews/sheet-actions'
+import { importSheetReadings, applySheetToRecipe, cancelBrewDay } from '@/app/brews/sheet-actions'
 import Link from 'next/link'
 import { setTankTarget } from '@/app/tanks/actions'
 import { useRouter } from 'next/navigation'
@@ -550,6 +550,18 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     }
   }
 
+  async function cancelDay() {
+    if (!window.confirm(`Cancel the brew day for ${brew.beer_name} in ${brew.tank_name}?\n\nThe brew and everything on this sheet will be deleted and the tank goes back to empty. This cannot be undone.`)) return
+    setFinishing(true)
+    // Stop a last autosave from writing the sheet back after the brew is gone
+    dirty.current = false
+    if (timer.current) clearTimeout(timer.current)
+    const res = await cancelBrewDay(brew.id).catch(() => ({ ok: false as const, message: 'Could not reach the app.' }))
+    if (!res.ok) { setFinishing(false); toast.error(res.message); return }
+    toast.success(`Brew day cancelled. ${brew.tank_name} is empty again.`)
+    router.push('/')
+  }
+
   // Removing a line asks first, and can be undone for a few seconds after
   function removeLine(listKey: ListKey, index: number) {
     const line = data[listKey][index]
@@ -814,6 +826,17 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
       </Section>
+
+      {/* A way out of a brew day started by mistake or as a test. Gone once the day is finished. */}
+      {!done && (
+        <div className="pt-2 text-center">
+          <button type="button" onClick={() => void cancelDay()} disabled={finishing}
+            className="h-11 px-4 rounded-xl text-sm font-semibold text-red-600 ring-1 ring-red-200 bg-white disabled:opacity-60">
+            Cancel this brew day
+          </button>
+          <p className="mt-1.5 text-xs text-gray-400">Removes the brew and this sheet and frees {brew.tank_name}. The tank&apos;s set point is not touched.</p>
+        </div>
+      )}
     </div>
   )
 }

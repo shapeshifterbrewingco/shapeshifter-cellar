@@ -386,7 +386,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     const tooHigh = g != null && t != null && t >= g
     const box = (label: string, value: string, key: 'volume' | 'gravity' | 'target', placeholder: string) => (
       <label className="block min-w-0">
-        <span className="block text-xs text-gray-500 mb-1">{label}</span>
+        <span className="block text-xs text-gray-500 mb-1 whitespace-nowrap">{label}</span>
         <input type="text" inputMode="decimal" autoComplete="off" value={value} placeholder={placeholder}
           onChange={(e) => setCalc({ ...calc, [key]: e.target.value.replace(/[^0-9.]/g, '') })} className={INPUT} />
       </label>
@@ -405,9 +405,9 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           <button type="button" onClick={() => setCalcOpen(false)} aria-label="Close the dilution calculator" className="h-8 w-8 -mr-1 flex items-center justify-center text-gray-400"><X className="h-4 w-4" /></button>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          {box('Volume now (L)', volume, 'volume', '0')}
-          {box('Gravity now °P', gravity, 'gravity', '0')}
-          {box('Gravity wanted °P', calc.target, 'target', 'e.g. 10.4')}
+          {box('Volume (L)', volume, 'volume', '0')}
+          {box('Now °P', gravity, 'gravity', '0')}
+          {box('Target °P', calc.target, 'target', '10.4')}
         </div>
         {result ? (
           <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">

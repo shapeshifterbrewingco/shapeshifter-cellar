@@ -12,6 +12,7 @@ import { EditBrewModal } from './EditBrewModal'
 import type { BrewHistoryItem, BrewReading, PackagingRun, PackCounts, VdkEntry } from '@/lib/history'
 import { PackReportPanel } from './PackReportPanel'
 import { DO_SPEC, doRange, doWorst } from '@/lib/history'
+import { isRtd } from '@/lib/rtd'
 import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import { PACKAGE_FORMATS } from '@/types'
 import { formatUserName } from '@/lib/utils'
@@ -133,8 +134,10 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
     // Fermenter time runs to the transfer if there was one, otherwise to the day it left
     const fvDays = differenceInDays(parseISO(item.transferred_at ?? leftAt), parseISO(item.brew_day))
     const briteDays = item.transferred_at ? Math.max(0, differenceInDays(parseISO(leftAt), parseISO(item.transferred_at))) : null
-    const briteDo = doWorst(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high)
-    const packDo = doWorst(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high)
+    // The beer limits do not apply to a hard lemonade: show its readings, flag nothing
+    const lemonade = isRtd(item.beer_name, item.style)
+    const briteDo = lemonade ? null : doWorst(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high)
+    const packDo = lemonade ? null : doWorst(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high)
     // label, value, small note underneath, and whether it is outside the limit
     const stats: [string, string, string?, boolean?][] = [
       ['Brew day', day(item.brew_day)],

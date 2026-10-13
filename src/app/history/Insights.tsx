@@ -88,10 +88,12 @@ export function Insights({ items, period }: { items: BrewHistoryItem[]; period: 
       // Blends and barrel pulls pack far more or far less than went into the tank; they are not a yield
       yieldPct: y != null && y >= 30 && y <= 110 ? y : null,
       days: daysBetweenISO(item.brew_day, breweryToday(new Date(item.packed_at!))),
-      packDo: mid(item.report?.pack_do_ppb ?? null, item.report?.pack_do_ppb_high ?? null),
-      briteDo: mid(item.report?.bbt_do_ppb ?? null, item.report?.bbt_do_ppb_high ?? null),
-      packWorst: doWorst(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high),
-      briteWorst: doWorst(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high),
+      // Hard lemonade reads around 400 ppb, ten times a beer. It is a different
+      // product with a different limit, so it stays out of the oxygen figures.
+      packDo: isRtd(item) ? null : mid(item.report?.pack_do_ppb ?? null, item.report?.pack_do_ppb_high ?? null),
+      briteDo: isRtd(item) ? null : mid(item.report?.bbt_do_ppb ?? null, item.report?.bbt_do_ppb_high ?? null),
+      packWorst: isRtd(item) ? null : doWorst(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high),
+      briteWorst: isRtd(item) ? null : doWorst(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high),
       abvGap: item.abv != null && item.target_abv != null && item.abv > 0 ? item.abv - item.target_abv : null,
       ogGap: item.og_plato != null && item.target_og_plato != null ? item.og_plato - item.target_og_plato : null,
     }
@@ -152,7 +154,7 @@ export function Insights({ items, period }: { items: BrewHistoryItem[]; period: 
       const briteMax = Math.max(...briteHigh.map((r) => r.briteWorst!), 1)
       return (
         <>
-          <Headline value={`${packOk} of ${ps.length}`} text={`batches packed under ${DO_SPEC.pack} ppb of dissolved oxygen. The average is ${Math.round(avg)} ppb.`} note={`${bs.length ? `${briteOk} of ${bs.length} were under ${DO_SPEC.brite} ppb in the brite. ` : ''}${brite != null ? `The brite averages ${Math.round(brite)} ppb, so packaging adds about ${Math.round(avg - brite)} ppb. ` : ''}A batch counts as inside when its highest reading is under the line.`} />
+          <Headline value={`${packOk} of ${ps.length}`} text={`batches packed under ${DO_SPEC.pack} ppb of dissolved oxygen. The average is ${Math.round(avg)} ppb.`} note={`${bs.length ? `${briteOk} of ${bs.length} were under ${DO_SPEC.brite} ppb in the brite. ` : ''}${brite != null ? `The brite averages ${Math.round(brite)} ppb, so packaging adds about ${Math.round(avg - brite)} ppb. ` : ''}A batch counts as inside when its highest reading is under the line. Hard lemonades are left out.`} />
           <Block title="Highest in pack">{high.map((r) => <Bar key={r.item.id} label={tag(r)} sub={monthShort(r.item.month)} value={`${Math.round(r.packDo!)} ppb`} pct={(r.packDo! / max) * 100} bg="bg-malt" />)}</Block>
           {briteHigh.length > 0 && <Block title={`Over ${DO_SPEC.brite} ppb in the brite`}>{briteHigh.map((r) => <Bar key={r.item.id} label={tag(r)} sub={monthShort(r.item.month)} value={`${Math.round(r.briteWorst!)} ppb`} pct={(r.briteWorst! / briteMax) * 100} bg="bg-malt" />)}</Block>}
           <Block title="Average in pack by month">{byMonth.map((m) => <Bar key={m.k} label={monthShort(m.k)} sub={`${m.n} batch${m.n === 1 ? '' : 'es'}`} value={`${Math.round(m.avg)} ppb`} pct={(m.avg / max) * 100} bg={m.avg >= DO_SPEC.pack ? 'bg-malt' : yearBg(m.k)} />)}</Block>

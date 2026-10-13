@@ -74,7 +74,7 @@ async function main() {
   const keg50 = Math.floor(kegL / 50)
   const split: SplitQuantities = {
     '24x375': Math.floor((packaged - keg50 * 50) / 9),
-    '16x440': 0, keg30: 0, keg50,
+    '16x440': 0, keg20: 0, keg30: 0, keg50,
   }
 
   const result = calculateCosting({

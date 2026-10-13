@@ -116,11 +116,12 @@ export interface Tank {
   desired_set_point_c?: number | null
 }
 
-export type PackageFormat = '24x375' | '16x440' | 'keg30' | 'keg50'
+export type PackageFormat = '24x375' | '16x440' | 'keg20' | 'keg30' | 'keg50'
 
 export const PACKAGE_FORMATS: { format: PackageFormat; label: string; volume_l: number }[] = [
   { format: '24x375', label: '24 × 375 mL', volume_l: 9.0 },
   { format: '16x440', label: '16 × 440 mL', volume_l: 7.04 },
+  { format: 'keg20',  label: 'Keg 20 L (PET)', volume_l: 20 },
   { format: 'keg30',  label: 'Keg 30 L',    volume_l: 30 },
   { format: 'keg50',  label: 'Keg 50 L',    volume_l: 50 },
 ]

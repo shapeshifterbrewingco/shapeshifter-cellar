@@ -10,8 +10,8 @@ import { breweryToday } from '@/lib/dates'
 type Col = { code: string; name: string }
 
 // Cellar pack format -> the Sales App's format code
-const FORMAT: Record<string, string> = { '24x375': '24PK', '16x440': '16PK', keg30: '30L', keg50: '50L' }
-const FORMAT_WORDS: Record<string, string> = { '24PK': '24 packs', '16PK': '16 packs', '30L': '30 L kegs', '50L': '50 L kegs' }
+const FORMAT: Record<string, string> = { '24x375': '24PK', '16x440': '16PK', keg20: '20L', keg30: '30L', keg50: '50L' }
+const FORMAT_WORDS: Record<string, string> = { '24PK': '24 packs', '16PK': '16 packs', '20L': '20 L kegs', '30L': '30 L kegs', '50L': '50 L kegs' }
 
 /** The one Sales App SKU a beer and pack format belong to, or why there isn't one. */
 function skuFor(columns: Col[], beerName: string, style: string | null, fmt: string): { sku: string } | { why: string } {

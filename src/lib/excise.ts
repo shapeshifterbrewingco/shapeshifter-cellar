@@ -18,7 +18,7 @@ type Bucket = { litres: number; lal: number; dutiable: number }
 const empty = (): Bucket => ({ litres: 0, lal: 0, dutiable: 0 })
 const PACKS = ['cans', 'keg30', 'keg50'] as const
 type Pack = (typeof PACKS)[number]
-const PACK_LABEL: Record<Pack, string> = { cans: 'Cans', keg30: 'Kegs 30 L', keg50: 'Kegs 50 L' }
+const PACK_LABEL: Record<Pack, string> = { cans: 'Cans', keg30: 'Kegs up to 30 L', keg50: 'Kegs 50 L' }
 
 export interface ExciseReport {
   label: string
@@ -76,7 +76,8 @@ export async function exciseReport(supabase: SupabaseClient, year: number, month
     if (abv == null) { missing.add(tag); continue }
 
     const rtd = isRtd(brew.beer_name, brew.style)
-    const pack: Pack = run.format === 'keg30' ? 'keg30' : run.format === 'keg50' ? 'keg50' : 'cans'
+    // 20 L and 30 L kegs are the same excise class (containers up to 48 L)
+    const pack: Pack = run.format === 'keg30' || run.format === 'keg20' ? 'keg30' : run.format === 'keg50' ? 'keg50' : 'cans'
     const litres = Number(run.volume_l)
     const b = (rtd ? report.rtd : report.beer)[pack]
     b.litres += litres

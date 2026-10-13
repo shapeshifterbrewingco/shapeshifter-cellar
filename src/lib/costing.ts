@@ -36,6 +36,7 @@ export interface FormatMeta {
 export const FORMAT_META: Record<PackageFormat, FormatMeta> = {
   '24x375': { format: '24x375', label: '24 × 375 mL', volumeL: 9.0,  unitsPerPack: 24, canMl: 375, isKeg: false },
   '16x440': { format: '16x440', label: '16 × 440 mL', volumeL: 7.04, unitsPerPack: 16, canMl: 440, isKeg: false },
+  'keg20':  { format: 'keg20',  label: 'Keg 20 L',    volumeL: 20,   unitsPerPack: null, canMl: null, isKeg: true },
   'keg30':  { format: 'keg30',  label: 'Keg 30 L',    volumeL: 30,   unitsPerPack: null, canMl: null, isKeg: true },
   'keg50':  { format: 'keg50',  label: 'Keg 50 L',    volumeL: 50,   unitsPerPack: null, canMl: null, isKeg: true },
 }
@@ -526,10 +527,10 @@ export function suggestSplit(packagedVolumeL: number, kegShare = 0.5): SplitQuan
   const keg50 = Math.floor(kegL / 50)
   const keg30 = Math.floor((kegL - keg50 * 50) / 30)
   const qty24 = Math.floor(canL / FORMAT_META['24x375'].volumeL)
-  return { '24x375': qty24, '16x440': 0, keg30, keg50 }
+  return { '24x375': qty24, '16x440': 0, keg20: 0, keg30, keg50 }
 }
 
-export const EMPTY_SPLIT: SplitQuantities = { '24x375': 0, '16x440': 0, keg30: 0, keg50: 0 }
+export const EMPTY_SPLIT: SplitQuantities = { '24x375': 0, '16x440': 0, keg20: 0, keg30: 0, keg50: 0 }
 
 /**
  * A unit copied straight off a brew sheet column heading, such as "g/kg" or

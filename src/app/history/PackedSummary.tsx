@@ -20,13 +20,14 @@ export function PackedSummary({ runs }: { runs: PackedRun[] }) {
 
   const { label, totals } = useMemo(() => {
     const { label, start, end } = getPeriodRange(period)
-    const t = { runs: 0, litres: 0, keg30: 0, keg50: 0, c24: 0, c16: 0 }
+    const t = { runs: 0, litres: 0, keg20: 0, keg30: 0, keg50: 0, c24: 0, c16: 0 }
     for (const r of runs) {
       const at = new Date(r.packaged_at).getTime()
       if (at < start.getTime() || at > end.getTime()) continue
       t.runs += 1
       t.litres += r.volume_l
-      if (r.format === 'keg30') t.keg30 += r.qty
+      if (r.format === 'keg20') t.keg20 += r.qty
+      else if (r.format === 'keg30') t.keg30 += r.qty
       else if (r.format === 'keg50') t.keg50 += r.qty
       else if (r.format === '24x375') t.c24 += r.qty
       else if (r.format === '16x440') t.c16 += r.qty
@@ -34,12 +35,12 @@ export function PackedSummary({ runs }: { runs: PackedRun[] }) {
     return { label, totals: t }
   }, [runs, period])
 
-  const kegs = totals.keg30 + totals.keg50
+  const kegs = totals.keg20 + totals.keg30 + totals.keg50
   const cartons = totals.c24 + totals.c16
   const tiles: { label: string; value: string; sub: string }[] = [
     { label: 'Volume packed', value: `${Math.round(totals.litres).toLocaleString('en-AU')} L`, sub: `${totals.runs} packaging run${totals.runs === 1 ? '' : 's'}` },
     { label: 'Cartons', value: cartons.toLocaleString('en-AU'), sub: [totals.c24 > 0 && `${totals.c24} × 24 pack`, totals.c16 > 0 && `${totals.c16} × 16 pack`].filter(Boolean).join(' · ') || 'None' },
-    { label: 'Kegs', value: kegs.toLocaleString('en-AU'), sub: [totals.keg50 > 0 && `${totals.keg50} × 50 L`, totals.keg30 > 0 && `${totals.keg30} × 30 L`].filter(Boolean).join(' · ') || 'None' },
+    { label: 'Kegs', value: kegs.toLocaleString('en-AU'), sub: [totals.keg50 > 0 && `${totals.keg50} × 50 L`, totals.keg30 > 0 && `${totals.keg30} × 30 L`, totals.keg20 > 0 && `${totals.keg20} × 20 L`].filter(Boolean).join(' · ') || 'None' },
   ]
 
   return (

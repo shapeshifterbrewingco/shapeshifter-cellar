@@ -22,7 +22,7 @@ const plural = (n: number, word: string) => `${n.toLocaleString('en-AU')} ${word
 /** "86 cartons · 12 kegs", or null when nothing was packed. */
 function packedSummary(p: PackCounts): string | null {
   const cartons = p.c24 + p.c16
-  const kegs = p.keg30 + p.keg50
+  const kegs = p.keg20 + p.keg30 + p.keg50
   if (!cartons && !kegs) return null
   return [cartons > 0 && plural(cartons, 'carton'), kegs > 0 && plural(kegs, 'keg')].filter(Boolean).join(' · ')
 }
@@ -301,7 +301,7 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
           {months.map(([key, list]) => {
             const open = openMonths.has(key)
             const packed = list.reduce((s, i) => s + i.packed_l, 0)
-            const made = packedSummary(list.reduce((t, i) => ({ keg30: t.keg30 + i.packed.keg30, keg50: t.keg50 + i.packed.keg50, c24: t.c24 + i.packed.c24, c16: t.c16 + i.packed.c16 }), { keg30: 0, keg50: 0, c24: 0, c16: 0 }))
+            const made = packedSummary(list.reduce((t, i) => ({ keg20: t.keg20 + i.packed.keg20, keg30: t.keg30 + i.packed.keg30, keg50: t.keg50 + i.packed.keg50, c24: t.c24 + i.packed.c24, c16: t.c16 + i.packed.c16 }), { keg20: 0, keg30: 0, keg50: 0, c24: 0, c16: 0 }))
             return (
               <section key={key}>
                 <button type="button" onClick={() => toggleMonth(key)} aria-expanded={open}

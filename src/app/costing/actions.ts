@@ -312,7 +312,7 @@ export async function getSplitPrefills(): Promise<SplitPrefill[]> {
       exciseCategory: r.excise_category,
       qty: {
         '24x375': r.qty_24x375, '16x440': r.qty_16x440,
-        keg30: r.qty_keg30, keg50: r.qty_keg50,
+        keg20: 0, keg30: r.qty_keg30, keg50: r.qty_keg50,
       },
     }))
 }

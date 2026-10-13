@@ -58,7 +58,7 @@ export function doRange(low: number | null | undefined, high: number | null | un
 }
 
 /** How many of each pack format a batch made. */
-export type PackCounts = { keg30: number; keg50: number; c24: number; c16: number }
+export type PackCounts = { keg20: number; keg30: number; keg50: number; c24: number; c16: number }
 
 /** One packaging run, trimmed to what the period summary adds up. */
 export interface PackedRun { packaged_at: string; format: string; qty: number; volume_l: number }
@@ -190,11 +190,11 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
   ])
 
   const packedBy = new Map<string, PackCounts>()
-  const FORMAT_KEY: Record<string, keyof PackCounts> = { keg30: 'keg30', keg50: 'keg50', '24x375': 'c24', '16x440': 'c16' }
+  const FORMAT_KEY: Record<string, keyof PackCounts> = { keg20: 'keg20', keg30: 'keg30', keg50: 'keg50', '24x375': 'c24', '16x440': 'c16' }
   for (const r of runs) {
     const k = FORMAT_KEY[r.format]
     if (!k) continue
-    const c = packedBy.get(r.brew_id) ?? { keg30: 0, keg50: 0, c24: 0, c16: 0 }
+    const c = packedBy.get(r.brew_id) ?? { keg20: 0, keg30: 0, keg50: 0, c24: 0, c16: 0 }
     c[k] += Number(r.qty)
     packedBy.set(r.brew_id, c)
   }
@@ -242,7 +242,7 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       reading_count: f?.reading_count ?? 0,
       packed_at: f?.packed_at ?? null,
       packed_l: Number(f?.packed_l ?? 0),
-      packed: packedBy.get(b.id) ?? { keg30: 0, keg50: 0, c24: 0, c16: 0 },
+      packed: packedBy.get(b.id) ?? { keg20: 0, keg30: 0, keg50: 0, c24: 0, c16: 0 },
       transferred_at: transferBy.get(b.id) ?? null,
       report: reportBy.get(b.id) ?? null,
       month: monthOf(leftAt),

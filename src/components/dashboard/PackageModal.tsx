@@ -14,7 +14,7 @@ interface Props {
 }
 
 type Qtys = Record<PackageFormat, string>
-const EMPTY_QTYS: Qtys = { '24x375': '', '16x440': '', keg30: '', keg50: '' }
+const EMPTY_QTYS: Qtys = { '24x375': '', '16x440': '', keg20: '', keg30: '', keg50: '' }
 
 function NumInput({
   label, value, onChange, unit, placeholder = '—', step = '0.01',

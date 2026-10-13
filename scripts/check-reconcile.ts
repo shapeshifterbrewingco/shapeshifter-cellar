@@ -44,7 +44,7 @@ async function main() {
   }]
 
   // The sheet's own split: 5 x 30L, 5 x 50L, 75.09 cartons of 16x440
-  const split: SplitQuantities = { '24x375': 0, '16x440': 75, keg30: 5, keg50: 5 }
+  const split: SplitQuantities = { '24x375': 0, '16x440': 75, keg20: 0, keg30: 5, keg50: 5 }
 
   const result = calculateCosting({
     recipeVolumeL: null, volumeIntoTankL: VOLUME_FV, lossPct: LOSS_PCT,

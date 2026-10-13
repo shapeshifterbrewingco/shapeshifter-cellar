@@ -649,6 +649,28 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         {!rtd && list({ title: "Kettle hops", listKey: "kettle_hops", whenLabel: "Time", unit: "kg" })}
       </Section>
 
+      {!rtd && <>
+      <Section title="Yeast">
+        <div className="grid grid-cols-2 gap-3">
+          {field({ label: "Strain", path: "yeast.strain", mode: "text", wide: true })}
+          {field({ label: "Amount", path: "yeast.amount", mode: "text", placeholder: "e.g. 1 kg" })}
+          {field({ label: "Lot no.", path: "yeast.lot", mode: "text" })}
+          {field({ label: "Best before", path: "yeast.best_before", mode: "text", placeholder: "e.g. 03/2028" })}
+          {field({ label: "Pitch temp °C", path: "yeast.pitch_temp_c" })}
+          {field({ label: "Set temp °C", path: "yeast.set_temp_c" })}
+        </div>
+      </Section>
+
+      <Section title="Day 0 additions" hint="These go in today, before the brew day is finished.">
+        {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "g", only: isDayZero, newWhen: "Day 0" })}
+      </Section>
+      </>}
+
+      <Section title="Sign off">
+        {!rtd && signOff({ label: "ALDC enzyme added", k: "aldc" })}
+        {signOff({ label: rtd ? "Tank temp set in Frigid" : "FV temp set in Frigid", k: "frigid_set" })}
+      </Section>
+
       <Section id="all-in-fv" title={rtd ? "All in tank" : "All in FV"} hint={rtd ? "Volume and temperature are all that is measured. No gravity or pH for a lemonade." : "Volume and gravity here set the tank card's volume and OG."}>
         <div className="grid grid-cols-2 gap-3">
           {field({ label: "Volume (L)", path: "fv.volume_l" })}
@@ -671,30 +693,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         )}
       </Section>
 
-      {!rtd && <>
-      <Section title="Yeast">
-        <div className="grid grid-cols-2 gap-3">
-          {field({ label: "Strain", path: "yeast.strain", mode: "text", wide: true })}
-          {field({ label: "Amount", path: "yeast.amount", mode: "text", placeholder: "e.g. 1 kg" })}
-          {field({ label: "Lot no.", path: "yeast.lot", mode: "text" })}
-          {field({ label: "Best before", path: "yeast.best_before", mode: "text", placeholder: "e.g. 03/2028" })}
-          {field({ label: "Pitch temp °C", path: "yeast.pitch_temp_c" })}
-          {field({ label: "Set temp °C", path: "yeast.set_temp_c" })}
-        </div>
-      </Section>
-
-      <Section title="Day 0 additions" hint="These go in today, before the brew day is finished.">
-        {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "g", only: isDayZero, newWhen: "Day 0" })}
-      </Section>
-      </>}
-
       <Section title={rtd ? "After brew day: brite tank additions" : "After brew day: dry hop and cellar additions"} hint="These go in over the following days. They are not needed to finish the brew day.">
         {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "kg", only: (l) => !isDayZero(l) })}
-      </Section>
-
-      <Section title="Sign off">
-        {!rtd && signOff({ label: "ALDC enzyme added", k: "aldc" })}
-        {signOff({ label: rtd ? "Tank temp set in Frigid" : "FV temp set in Frigid", k: "frigid_set" })}
       </Section>
 
       <Section title="Notes">

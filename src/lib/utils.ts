@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Convert °Plato to specific gravity, then apply ABV formula
-function platoToSg(plato: number): number {
+export function platoToSg(plato: number): number {
   return plato / (258.6 - 227.1 * (plato / 258.2)) + 1
 }
 
@@ -20,4 +20,15 @@ export function calcAbv(ogPlato: number, fgPlato: number): number {
 export function formatUserName(emailOrName: string): string {
   const local = emailOrName.includes('@') ? emailOrName.split('@')[0] : emailOrName
   return local.charAt(0).toUpperCase() + local.slice(1)
+}
+
+/**
+ * Water to add to bring wort down to a target gravity. The sugar in the tank
+ * stays the same, so volume x gravity points is the same before and after
+ * (the method Brewer's Friend uses). Null if the numbers cannot give an answer.
+ */
+export function dilution(volumeL: number, platoNow: number, platoTarget: number): { waterL: number; finalL: number } | null {
+  if (!(volumeL > 0) || !(platoNow > 0) || !(platoTarget > 0) || platoTarget >= platoNow) return null
+  const finalL = (volumeL * (platoToSg(platoNow) - 1)) / (platoToSg(platoTarget) - 1)
+  return { waterL: finalL - volumeL, finalL }
 }

@@ -12,7 +12,8 @@ import { importSheetReadings, applySheetToRecipe } from '@/app/brews/sheet-actio
 import Link from 'next/link'
 import { setTankTarget } from '@/app/tanks/actions'
 import { useRouter } from 'next/navigation'
-import { sheetProgress, bagsLabel, isDayZero, recipeChanges } from '@/lib/brew-sheet'
+import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber } from '@/lib/brew-sheet'
+import { dilution } from '@/lib/utils'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
 type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean }
@@ -120,6 +121,9 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   const [confirming, setConfirming] = useState(false)
   const [setTemp, setSetTemp] = useState('')
   const [keepChanges, setKeepChanges] = useState(true)
+  // Dilution calculator: its own boxes, so trying numbers never touches the record
+  const [calcOpen, setCalcOpen] = useState(false)
+  const [calc, setCalc] = useState({ volume: '', gravity: '', target: '' })
   const [compare, setCompare] = useState(true)
   const router = useRouter()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -368,6 +372,62 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       </button>
     </div>
   )
+  }
+
+  // How much water takes the wort from what is in the tank down to the gravity wanted
+  const dilutionCalc = () => {
+    // Start from All in FV, falling back to the post boil figures
+    const startVolume = data.fv.volume_l.trim() || data.kettle.post_boil_volume_l.trim()
+    const startGravity = data.fv.plato.trim() || data.kettle.post_boil_plato.trim()
+    const volume = calc.volume || startVolume
+    const gravity = calc.gravity || startGravity
+    const v = sheetNumber(volume), g = sheetNumber(gravity), t = sheetNumber(calc.target)
+    const result = v != null && g != null && t != null ? dilution(v, g, t) : null
+    const tooHigh = g != null && t != null && t >= g
+    const box = (label: string, value: string, key: 'volume' | 'gravity' | 'target', placeholder: string) => (
+      <label className="block min-w-0">
+        <span className="block text-xs text-gray-500 mb-1">{label}</span>
+        <input type="text" inputMode="decimal" autoComplete="off" value={value} placeholder={placeholder}
+          onChange={(e) => setCalc({ ...calc, [key]: e.target.value.replace(/[^0-9.]/g, '') })} className={INPUT} />
+      </label>
+    )
+    if (!calcOpen) {
+      return (
+        <button type="button" onClick={() => setCalcOpen(true)} className="mt-3 inline-flex items-center gap-1.5 h-10 px-1 text-sm font-semibold text-primary">
+          <Plus className="h-4 w-4" />Dilution calculator
+        </button>
+      )
+    }
+    return (
+      <div className="mt-3 rounded-xl bg-background ring-1 ring-black/5 p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">Dilution calculator</h3>
+          <button type="button" onClick={() => setCalcOpen(false)} aria-label="Close the dilution calculator" className="h-8 w-8 -mr-1 flex items-center justify-center text-gray-400"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {box('Volume now (L)', volume, 'volume', '0')}
+          {box('Gravity now °P', gravity, 'gravity', '0')}
+          {box('Gravity wanted °P', calc.target, 'target', 'e.g. 10.4')}
+        </div>
+        {result ? (
+          <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">
+            <p className="text-xs text-gray-500">Add</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{Math.round(result.waterL)} L of water</p>
+            <p className="text-sm text-gray-600 tabular-nums">for {Math.round(result.finalL).toLocaleString('en-AU')} L at {t}°P</p>
+            <button type="button"
+              onClick={() => { update(setPath(data, 'kettle.dilution_l', String(Math.round(result.waterL)))); toast.success(`${Math.round(result.waterL)} L put in the Dilution box. Measure volume and gravity again after adding it.`) }}
+              className="mt-2 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
+              Put {Math.round(result.waterL)} L in the Dilution box
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">
+            {tooHigh ? 'The gravity wanted has to be lower than the gravity now. Water only brings it down.' : 'Enter the gravity you want and it works out the water to add.'}
+          </p>
+        )}
+        <p className="text-[11px] text-gray-400">This is a working-out tool. Nothing here is saved unless you tap the button, and All in FV still needs the measured numbers.</p>
+      </div>
+    )
   }
 
   const signOff = ({ label, k }: { label: string; k: 'aldc' | 'frigid_set' }) => {
@@ -678,6 +738,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           {!rtd && field({ label: "pH", path: "fv.ph" })}
           {field({ label: "Temp °C", path: "fv.temp_c" })}
         </div>
+        {!rtd && dilutionCalc()}
         {done ? (
           <p className="mt-3 rounded-xl bg-water/30 px-3 py-2 text-xs text-hops">
             {rtd ? 'Finished and on chill. To correct the volume, change it here and the tank card follows.' : 'Brew day finished. To correct volume, gravity or pH, change it here: the tank card and the first reading follow.'}

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getFrigidReadings, FRIGID_OFF_SET_POINT } from '@/lib/frigid'
 import { logGroupedActivity, who } from '@/lib/slack'
+import { coolingOff } from '@/lib/cooling'
 
 // [lowest, highest] set point allowed, by Frigid vessel name
 const LIMITS: Record<string, [number, number]> = {
@@ -81,4 +82,38 @@ export async function setTankTarget(tankId: string, targetTemp: number): Promise
   revalidatePath('/')
   revalidatePath('/dashboard')
   return { success: true, message: `Setpoint updated to ${targetTemp}°C` }
+}
+
+/** Live probe temperatures for a few tanks, straight from Frigid. A tank with no reading comes back null. */
+export async function readTankTemps(tankIds: string[]): Promise<Record<string, number | null>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const out: Record<string, number | null> = Object.fromEntries(tankIds.map((id) => [id, null]))
+  if (!user || !tankIds.length) return out
+  try {
+    const [{ data: tanks }, readings] = await Promise.all([
+      supabase.from('tanks').select('id, frigid_tank_name').in('id', tankIds.slice(0, 10)),
+      getFrigidReadings(),
+    ])
+    for (const t of tanks ?? []) {
+      const temp = readings.find((r) => r.name === t.frigid_tank_name)?.temperature
+      out[t.id] = temp != null ? Math.round(temp * 10) / 10 : null
+    }
+  } catch (err) {
+    console.error('[readTankTemps] failed:', err instanceof Error ? err.message : err)
+  }
+  return out
+}
+
+/** Stop a tank's cooling (Frigid's resting set point). Used once a fermenter has been emptied by a transfer. */
+export async function turnCoolingOff(tankId: string): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: 'You are signed out. Sign in again and retry.' }
+  const { data: tank } = await supabase.from('tanks').select('name').eq('id', tankId).maybeSingle()
+  if (!tank) return { success: false, message: 'Tank not found' }
+  if (!(await coolingOff(tankId))) return { success: false, message: `Frigid did not accept that. ${tank.name} cooling is unchanged.` }
+  logGroupedActivity(`${tankId}:${user.email ?? user.id}`, `${who(user.email)} turned ${tank.name} cooling off.`, 'turned its cooling off')
+  revalidatePath('/')
+  return { success: true, message: `${tank.name} cooling is off` }
 }

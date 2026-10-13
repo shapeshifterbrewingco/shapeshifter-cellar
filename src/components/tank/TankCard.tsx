@@ -201,9 +201,13 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   // the full-screen detail sheet. Menu items live in a portal but their clicks
   // still bubble up to here through React, hence the role checks.
   function handleCardTap(e: React.MouseEvent) {
-    if (isEmpty || !window.matchMedia('(max-width: 767px)').matches) return
-    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, label, [role="menu"], [role="menuitem"], [role="dialog"]')) return
-    setShowDetail(true)
+    if (isEmpty) return
+    // Buttons, links and form fields keep their own job. So does anything inside
+    // a dialog or its backdrop: closing one must not open another.
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, label, [role="menu"], [role="menuitem"], [role="dialog"], .fixed')) return
+    // Phone: the full detail screen. Desktop: the ferment chart and readings.
+    if (window.matchMedia('(max-width: 767px)').matches) setShowDetail(true)
+    else setShowChartModal(true)
   }
 
   // Arriving from the Dashboard with ?tank=<id>: open this tank's detail and
@@ -453,7 +457,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   // ── Compact desktop card ──────────────────────────────────────────────────
   // Everything the full card says, in half the height: no drawing, one line each.
   const compactCard = (
-    <div className={`${isEmpty ? 'tank-empty' : 'tank-full'} hidden md:flex flex-1 min-h-0 flex-col justify-between gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 py-3`}>
+    <div onClick={handleCardTap} className={`${isEmpty ? 'tank-empty' : 'tank-full cursor-pointer hover:ring-black/15 transition-shadow'} hidden md:flex flex-1 min-h-0 flex-col justify-between gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] px-4 py-3`}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-lg font-semibold text-gray-900 tracking-tight leading-none whitespace-nowrap">{tank.name}</span>
         {isEmpty || !brew
@@ -1003,7 +1007,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       {detailSheet}
       {mobileRow}
       {compact && compactCard}
-      <div className={`${compact ? 'hidden' : 'hidden md:flex'} ${isEmpty ? 'tank-empty' : 'tank-full'} flex-col rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden w-full`}>
+      <div onClick={handleCardTap} className={`${compact ? 'hidden' : 'hidden md:flex'} ${isEmpty ? 'tank-empty' : 'tank-full cursor-pointer hover:ring-black/15 transition-shadow'} flex-col rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] overflow-hidden w-full`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
@@ -1065,7 +1069,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         ) : (
           /* Occupied: illustration left, data right */
           <div className="flex items-center gap-0 px-3 pb-2 pt-0.5">
-            <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c} className="flex items-center justify-center flex-shrink-0 hover:no-underline">
+            {/* Clicking the tank opens its chart, like the rest of the card. The set point is changed from the row below. */}
+            <div className="flex items-center justify-center flex-shrink-0">
               <TankIllustration
                 type={tank.type}
                 style={brew?.style ?? null}
@@ -1078,7 +1083,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 width={illW}
                 height={illH}
               />
-            </TempTap>
+            </div>
 
             <div className="flex flex-col justify-center flex-1 min-w-0 pl-3 gap-1.5">
               {/* Beer name + style */}

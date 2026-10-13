@@ -34,7 +34,7 @@ export async function saveBrewSheet(input: {
   const { data: brew } = await supabase
     .from('brews').select('id, beer_name, style, tank_id, stage, og_plato, volume_l, deleted_at').eq('id', input.brew_id).maybeSingle()
   if (!brew) return fail('That brew no longer exists.')
-  const { data: already } = await supabase.from('brew_sheets').select('brew_id, source').eq('brew_id', input.brew_id).maybeSingle()
+  const { data: already } = await supabase.from('brew_sheets').select('brew_id, source, fv_volume:data->fv->>volume_l').eq('brew_id', input.brew_id).maybeSingle()
 
   const row: Record<string, unknown> = {
     brew_id: input.brew_id, data, unchecked,
@@ -82,7 +82,11 @@ export async function saveBrewSheet(input: {
   const patch: Record<string, unknown> = {}
   if (og != null && og > 0 && og < 40 && Number(brew.og_plato) !== og) patch.og_plato = og
   const firstTank = brew.stage === 'active_ferment' || (rtd && brew.stage === 'on_chill')
-  if (volume != null && volume > 0 && volume < 20000 && firstTank && !brew.deleted_at && Number(brew.volume_l) !== volume) {
+  // Once the brew day is finished the tank's volume has a life of its own (bottoms
+  // come off). The sheet only moves it again when its own figure is corrected,
+  // otherwise any later autosave would put the bottoms back.
+  const sheetVolumeChanged = input.finish || sheetNumber((already as { fv_volume?: string | null } | null)?.fv_volume ?? '') !== volume
+  if (volume != null && volume > 0 && volume < 20000 && firstTank && !brew.deleted_at && sheetVolumeChanged && Number(brew.volume_l) !== volume) {
     patch.volume_l = volume
   }
   // OG and pH together are the brew's first reading: the start of its ferment

@@ -679,11 +679,25 @@ export async function getBrewVdkReadings(brew_id: string) {
 
 export async function updateBrewVolume(brew_id: string, volume_l: number) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!(volume_l > 0 && volume_l < 20000)) throw new Error('Volume must be more than zero.')
+  const { data: before } = await supabase.from('brews').select('volume_l, tank_id').eq('id', brew_id).maybeSingle()
   const { error } = await supabase
     .from('brews')
     .update({ volume_l, updated_at: new Date().toISOString() })
     .eq('id', brew_id)
   if (error) throw error
+
+  // Leave a line in the tank's log so a lower figure at packaging has an explanation
+  const was = before ? Number(before.volume_l) : null
+  if (before?.tank_id && user && was != null && was !== volume_l) {
+    const diff = Math.round(Math.abs(volume_l - was) * 10) / 10
+    await supabase.from('gravity_readings').insert({
+      brew_id, tank_id: before.tank_id, plato: null, ph: null,
+      notes: `Volume changed from ${was} L to ${volume_l} L (${diff} L ${volume_l < was ? 'off' : 'added'})`,
+      recorded_by: user.email ?? user.id,
+    })
+  }
   revalidatePath('/')
 }
 

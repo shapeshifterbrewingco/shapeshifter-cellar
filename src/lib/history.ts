@@ -79,6 +79,8 @@ export interface BrewHistoryItem {
   brew_day: string
   completed_at: string
   volume_l: number
+  /** What went into the fermenter on brew day, off the brew sheet. Yield is measured against this, not what was left after bottoms and a transfer. */
+  fv_volume_l: number
   og_plato: number | null
   final_plato: number | null
   final_ph: number | null
@@ -173,10 +175,10 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       supabase.from('brew_finals').select('brew_id, final_plato, final_ph, reading_count, packed_at, packed_l').range(from, to),
     ),
     // Only the parts of each brew sheet that name a hop or a yeast
-    all<{ brew_id: string; kettle_hops: Line[] | null; dry_hops: Line[] | null; mash_additions: Line[] | null; yeast: string | null }>((from, to) =>
+    all<{ brew_id: string; kettle_hops: Line[] | null; dry_hops: Line[] | null; mash_additions: Line[] | null; yeast: string | null; fv_volume: string | null }>((from, to) =>
       supabase
         .from('brew_sheets')
-        .select('brew_id, kettle_hops:data->kettle_hops, dry_hops:data->dry_hops, mash_additions:data->mash_additions, yeast:data->yeast->>strain')
+        .select('brew_id, kettle_hops:data->kettle_hops, dry_hops:data->dry_hops, mash_additions:data->mash_additions, yeast:data->yeast->>strain, fv_volume:data->fv->>volume_l')
         .range(from, to),
     ),
     recipeIds.length
@@ -251,6 +253,7 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       brew_day: b.brew_day,
       completed_at: b.deleted_at,
       volume_l: Number(b.volume_l),
+      fv_volume_l: parseFloat(s?.fv_volume ?? '') > 0 ? parseFloat(s!.fv_volume!) : Number(b.volume_l),
       og_plato: og,
       final_plato: finalPlato,
       final_ph: f?.final_ph != null ? Number(f.final_ph) : null,

@@ -29,7 +29,7 @@ export interface StageOption {
  * is tapped. It only shows and routes: every action here opens the same dialog
  * the card's own menu does, so there is one code path per action.
  */
-export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log reading', onStage, onClose }: {
+export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log reading', onStage, onVolume, onClose }: {
   data: TankDashboardData
   stages: StageOption[]
   more: SheetAction[]
@@ -37,6 +37,8 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
   /** What the main button says. It logs VDK for a tank on diacetyl rest. */
   logLabel?: string
   onStage: (stage: TankStage) => void
+  /** Opens the volume dialog: bottoms off, or a corrected figure */
+  onVolume: () => void
   onClose: () => void
 }) {
   const { tank, latest_gravity, temperature, set_point_c, days_in_tank } = data
@@ -97,6 +99,8 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
               <p className="text-base font-bold tabular-nums text-gray-900 mt-0.5">
                 {s.label === 'Tank temp' || s.label === 'Set point'
                   ? <TempTap tankId={tank.frigid_asset_id ? tank.id : null} name={tank.name} temperature={temperature} setPoint={set_point_c}>{s.value}</TempTap>
+                  : s.label === 'Volume'
+                  ? <button type="button" onClick={onVolume} aria-label="Change volume" className="rounded-md underline decoration-dotted decoration-black/25 underline-offset-4 active:opacity-60">{s.value}</button>
                   : s.value}
               </p>
             </div>

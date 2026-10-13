@@ -156,7 +156,7 @@ export async function batchHistory(from: string, to: string, beer?: string) {
     .map((i) => ({
       batch: i.batch_code, beer: i.beer_name, style: i.style, tank: i.tank_name, brew_day: i.brew_day,
       packed_on: i.packed_at ? i.packed_at.slice(0, 10) : null,
-      litres_in_fv: i.volume_l, litres_packed: Math.round(i.packed_l),
+      litres_in_fv: i.fv_volume_l, litres_packed: Math.round(i.packed_l),
       og_plato: i.og_plato, target_og_plato: i.target_og_plato, fg_plato: i.final_plato,
       abv: i.abv != null ? Math.round(i.abv * 10) / 10 : null, target_abv: i.target_abv,
       cartons_24x375: i.packed.c24, cartons_16x440: i.packed.c16, kegs_50: i.packed.keg50, kegs_30: i.packed.keg30, kegs_20: i.packed.keg20,

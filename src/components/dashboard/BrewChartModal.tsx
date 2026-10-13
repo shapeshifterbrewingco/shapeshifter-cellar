@@ -24,6 +24,8 @@ interface Props {
   brew: Brew
   tank: Tank
   days_in_tank: number | null
+  /** Opens the volume dialog. Without it the volume is shown but cannot be changed. */
+  onVolume?: () => void
   onClose: () => void
 }
 
@@ -274,7 +276,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
   )
 }
 
-export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
+export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: Props) {
   const { data, loading } = useBrewChart(brew, tank)
 
   const readings = data?.readings ?? []
@@ -303,6 +305,10 @@ export function BrewChartModal({ brew, tank, days_in_tank, onClose }: Props) {
               {tank.name}
               {brew.style ? ` · ${brew.style}` : ''}
               {days_in_tank != null ? ` · Day ${days_in_tank}` : ''}
+              {' · '}
+              {onVolume
+                ? <button type="button" onClick={onVolume} aria-label="Change volume" className="rounded underline decoration-dotted decoration-black/25 underline-offset-4 hover:text-gray-700">{Math.round(brew.volume_l).toLocaleString('en-AU')} L</button>
+                : `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`}
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 mt-0.5">

@@ -75,7 +75,7 @@ export function Insights({ items }: { items: BrewHistoryItem[] }) {
   const [view, setView] = useState<View>('yield')
 
   const rows = useMemo<Row[]>(() => items.filter((i) => i.packed_l > 0 && i.packed_at).map((item) => {
-    const y = item.volume_l > 0 ? (item.packed_l / item.volume_l) * 100 : null
+    const y = item.fv_volume_l > 0 ? (item.packed_l / item.fv_volume_l) * 100 : null
     return {
       item,
       // Blends and barrel pulls pack far more or far less than went into the tank; they are not a yield

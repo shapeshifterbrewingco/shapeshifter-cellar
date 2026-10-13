@@ -251,6 +251,8 @@ export interface TankDashboardData {
   days_in_tank: number | null
   style_colour?: string | null
   latest_vdk?: { result: VdkResult; recorded_at: string } | null
+  /** Planned pack day and formats, from the Packaging Splits sheet. Null when the beer is not on it. */
+  sheet_split?: import('@/lib/tank-splits').SheetSplit | null
   /** Dry hops, fruit and cellar additions still to go in. Null when the beer has none. */
   additions?: import('@/lib/brew-sheet').AdditionStatus | null
   packaging_split?: PackagingSplit | null

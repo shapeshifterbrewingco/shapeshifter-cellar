@@ -55,7 +55,7 @@ const STAGE_TRANSITIONS: { label: string; stage: TankStage }[] = [
 ]
 
 export function TankCard({ data, recipes, currentUser, allTanks, settings, cardSize = 'medium', listMode = false, compact = false }: TankCardProps) {
-  const { tank, brew, latest_gravity, temperature, set_point_c, days_in_tank, style_colour, latest_vdk, packaging_split, next_scheduled_brew, additions } = data
+  const { tank, brew, latest_gravity, temperature, set_point_c, days_in_tank, style_colour, latest_vdk, packaging_split, next_scheduled_brew, additions, sheet_split } = data
   const isEmpty = !brew || brew.stage === 'empty'
   const stage = brew?.stage ?? 'empty'
   const vdkPassed = stage === 'vdk_pass' || latest_vdk?.result === 'pass'
@@ -234,6 +234,17 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     <AdditionsDialog key={brew.id} brewId={brew.id} beer={brew.beer_name} tank={tank.name} additions={additions} onClose={() => setShowAdditions(false)} />
   ) : null
 
+  // The planned pack, from the Packaging Splits sheet: day first, then one format per line
+  const packDay = sheet_split
+    ? new Date(sheet_split.date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+    : ''
+  const splitLines = sheet_split && !isEmpty ? (
+    <div className="text-[11px] leading-snug text-gray-500 tabular-nums" title={sheet_split.label}>
+      <p className="font-semibold text-gray-700 whitespace-nowrap">Pack {packDay}{sheet_split.proposed ? ' (proposed)' : ''}</p>
+      {sheet_split.parts.map((part) => <p key={part} className="whitespace-nowrap">{part}</p>)}
+    </div>
+  ) : null
+
   const sheetStages: StageOption[] = STAGE_TRANSITIONS
     .filter((t) => t.stage !== stage)
     .map((t) => ({
@@ -390,6 +401,11 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           <p className="text-[13px] text-gray-500 truncate">
             {[brew.style, `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`].filter(Boolean).join(' · ')}
           </p>
+          {sheet_split && (
+            <p className="text-xs text-gray-400 truncate tabular-nums">
+              Pack {packDay}{sheet_split.proposed ? ' (proposed)' : ''} · {sheet_split.parts.join(' · ')}
+            </p>
+          )}
         </div>
         <div className="flex-shrink-0 flex flex-col items-end gap-1">
           <span className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${look.pill}`}>
@@ -645,6 +661,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                         {abv != null && <span className="text-sm font-bold text-hops tabular-nums whitespace-nowrap">{abv.toFixed(1)}% ABV</span>}
                       </div>
                     )}
+                    {splitLines}
                     {packaging_split && (
                       <button type="button" onClick={() => setShowSplitModal(true)}
                         className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 self-start">
@@ -1102,7 +1119,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                 </div>
               )}
 
-              {/* Packaging split button */}
+              {/* Planned pack from the Splits sheet, then the app's own plan if there is one */}
+              {splitLines}
               {packaging_split && (
                 <button type="button" onClick={() => setShowSplitModal(true)}
                   className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors leading-tight mt-0.5 self-start">

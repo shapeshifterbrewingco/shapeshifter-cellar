@@ -14,6 +14,7 @@ import { Hello } from '@/components/layout/Hello'
 import { getBirthday } from '@/app/settings/actions'
 import { breweryToday } from '@/lib/dates'
 import { isRtd } from '@/lib/rtd'
+import { splitsByTank } from '@/lib/tank-splits'
 import { formatUserName } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/app/settings/actions'
@@ -92,6 +93,10 @@ export default async function DashboardPage() {
     const result = await recordTemperatures(frigid)
     if (result.error) console.error('[dashboard] temperature log failed:', result.error)
   })
+
+  // Planned pack day and formats for each beer, from the Splits sheet
+  const sheetSplits = await splitsByTank(tanks)
+  for (const t of tanks) t.sheet_split = sheetSplits.get(t.tank.id) ?? null
 
   // Brew days still running: started, but OG not in yet. Their sheets feed the panel at the top.
   const openBrews = tanks.filter((t) => t.brew && t.brew.stage === 'active_ferment' && t.brew.og_plato == null)

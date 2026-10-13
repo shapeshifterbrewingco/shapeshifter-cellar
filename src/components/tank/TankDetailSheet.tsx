@@ -7,6 +7,7 @@ import { FermentChart, useBrewChart } from '@/components/dashboard/BrewChartModa
 import { StageBadge } from './StageBadge'
 import { TempTap } from './SetPoint'
 import { calcAbv, formatUserName } from '@/lib/utils'
+import { stageStyle } from '@/lib/stage-style'
 import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import type { TankDashboardData, TankStage } from '@/types'
 
@@ -157,6 +158,11 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
         <>
           <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/30" onClick={() => setPanel(null)} />
           <div className="relative bg-white border-t border-gray-200 rounded-t-2xl shadow-2xl max-h-[60vh] overflow-y-auto">
+            {panel === 'stage' && (
+              <p className="px-5 pt-3.5 pb-1 text-xs text-gray-500">
+                Now on <span className="font-semibold text-gray-900">{stageStyle(brew.stage).label}</span>. Move it to:
+              </p>
+            )}
             {panel === 'stage'
               ? stages.map((s) => (
                   <button key={s.stage} type="button" disabled={!!s.blocked} onClick={pick(() => onStage(s.stage))} className={row}>
@@ -173,7 +179,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
       )}
 
       {/* Actions */}
-      <footer className="relative grid grid-cols-[1.4fr_1fr_1fr] gap-2 px-4 pt-3 bg-white border-t border-gray-200"
+      <footer className="relative grid grid-cols-[1.2fr_1.2fr_0.8fr] gap-2 px-4 pt-3 bg-white border-t border-gray-200"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <button type="button" onClick={pick(onLog)}
           className="h-14 rounded-xl bg-primary text-white text-base font-semibold inline-flex items-center justify-center gap-2">
@@ -181,7 +187,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
         </button>
         <button type="button" onClick={() => setPanel(panel === 'stage' ? null : 'stage')} aria-expanded={panel === 'stage'}
           className="h-14 rounded-xl border border-gray-300 text-gray-800 text-sm font-semibold inline-flex items-center justify-center gap-1.5">
-          <ArrowRightLeft className="h-4 w-4" />Stage
+          <ArrowRightLeft className="h-4 w-4 flex-shrink-0" />Change stage
         </button>
         <button type="button" onClick={() => setPanel(panel === 'more' ? null : 'more')} aria-expanded={panel === 'more'}
           className="h-14 rounded-xl border border-gray-300 text-gray-800 text-sm font-semibold inline-flex items-center justify-center gap-1.5">

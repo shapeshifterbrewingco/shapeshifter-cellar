@@ -234,7 +234,7 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
                                 {r.notes && <span className="block text-xs text-gray-500 mt-0.5 break-words">{r.notes}</span>}
                               </span>
                             ) : noteOnly ? (
-                              <span className="text-gray-600 break-words min-w-0">{r.notes}</span>
+                              <span className="flex-1 text-gray-600 break-words min-w-0">{r.notes}</span>
                             ) : (
                               <span className="flex-1 min-w-0">
                                 <span className="font-semibold tabular-nums text-gray-900">
@@ -244,6 +244,7 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
                                 {r.notes && <span className="block text-xs text-gray-500 break-words">{r.notes}</span>}
                               </span>
                             )}
+                            <span className="ml-auto flex-shrink-0 text-xs text-gray-400">{formatUserName(r.recorded_by)}</span>
                           </li>
                         )
                       })}

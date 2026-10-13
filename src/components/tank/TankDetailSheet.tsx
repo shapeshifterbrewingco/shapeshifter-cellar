@@ -6,7 +6,7 @@ import { X, FlaskConical, ArrowRightLeft, MoreHorizontal } from 'lucide-react'
 import { FermentChart, useBrewChart } from '@/components/dashboard/BrewChartModal'
 import { StageBadge } from './StageBadge'
 import { TempTap } from './SetPoint'
-import { calcAbv } from '@/lib/utils'
+import { calcAbv, formatUserName } from '@/lib/utils'
 import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import type { TankDashboardData, TankStage } from '@/types'
 
@@ -125,7 +125,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
                         {r.notes && <span className="block text-xs text-gray-500 mt-0.5">{r.notes}</span>}
                       </span>
                     ) : noteOnly ? (
-                      <span className="text-gray-600">{r.notes}</span>
+                      <span className="flex-1 min-w-0 text-gray-600 break-words">{r.notes}</span>
                     ) : (
                       <span className="flex-1 min-w-0">
                         <span className="tabular-nums text-gray-900 font-semibold">
@@ -135,6 +135,8 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
                         {r.notes && <span className="block text-xs text-gray-500">{r.notes}</span>}
                       </span>
                     )}
+                    {/* Who logged it, as the desktop chart shows */}
+                    <span className="ml-auto flex-shrink-0 text-xs text-gray-400">{formatUserName(r.recorded_by)}</span>
                   </li>
                 )
               })}

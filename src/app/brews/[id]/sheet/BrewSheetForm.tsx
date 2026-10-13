@@ -127,7 +127,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   const [calcOpen, setCalcOpen] = useState(false)
   const [calc, setCalc] = useState({ volume: '', gravity: '', target: '' })
   // Spirit calculator for lemonades, same idea: its own boxes
-  const [spirit, setSpirit] = useState({ volume: '', target: targetAbv != null ? String(targetAbv) : '', strength: '97' })
+  const [spirit, setSpirit] = useState({ volume: '', target: targetAbv != null ? String(targetAbv) : '', strength: '96' })
   const [compare, setCompare] = useState(true)
   const router = useRouter()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -419,7 +419,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         <div className="grid grid-cols-3 gap-2">
           {box('In tank (L)', volume, 'volume', '0')}
           {box('Target ABV %', spirit.target, 'target', '4.5')}
-          {box('Spirit ABV %', spirit.strength, 'strength', '97')}
+          {box('Spirit ABV %', spirit.strength, 'strength', '96')}
         </div>
         {result ? (
           <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">

@@ -38,7 +38,7 @@ export function dilution(volumeL: number, platoNow: number, platoTarget: number)
  * adds to the volume as well as the alcohol, so the alcohol in the spirit has
  * to cover the whole of the final volume, not just the base:
  *   spirit x strength = (base + spirit) x target
- * Percentages are whole numbers (4.5, 97). Null if the numbers cannot work.
+ * Percentages are whole numbers (4.5, 96). Null if the numbers cannot work.
  */
 export function spiritDose(baseL: number, targetAbv: number, spiritAbv: number): { spiritL: number; finalL: number } | null {
   if (!(baseL > 0) || !(targetAbv > 0) || !(spiritAbv > targetAbv) || spiritAbv > 100) return null

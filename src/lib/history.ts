@@ -51,7 +51,7 @@ export const PACK_REPORT_FIELDS = [
 ] as const
 
 /** Dissolved oxygen limits, in ppb. A batch is inside when its highest reading is under the line. */
-export const DO_SPEC = { brite: 20, pack: 40 }
+export const DO_SPEC = { brite: 20, pack: 50 }
 
 /** The worst DO reading written down for a batch, or null when there is none. */
 export const doWorst = (low: number | null | undefined, high: number | null | undefined) =>

@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { setTankTarget } from '@/app/tanks/actions'
 import { useRouter } from 'next/navigation'
 import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber } from '@/lib/brew-sheet'
-import { dilution } from '@/lib/utils'
+import { dilution, spiritDose } from '@/lib/utils'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
 type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean }
@@ -94,7 +94,7 @@ function Section({ title, hint, id, children }: { title: string; hint?: string; 
 )
 }
 
-export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, baseline = null, recipeVersion = null, previous = null, me }: {
+export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, baseline = null, recipeVersion = null, targetAbv = null, previous = null, me }: {
   brew: BrewInfo
   initial: BrewSheetData
   initialUnchecked: string[]
@@ -106,6 +106,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   /** The recipe as a sheet, to see what was changed on the day. Null if the brew has no recipe. */
   baseline?: BrewSheetData | null
   recipeVersion?: number | null
+  /** The recipe's target ABV, where the spirit calculator starts on a lemonade */
+  targetAbv?: number | null
   /** The last brew of this beer, shown beside each box for comparison */
   previous?: { id: string; brew_day: string; batch_code: string | null; data: BrewSheetData } | null
   me: string
@@ -124,6 +126,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   // Dilution calculator: its own boxes, so trying numbers never touches the record
   const [calcOpen, setCalcOpen] = useState(false)
   const [calc, setCalc] = useState({ volume: '', gravity: '', target: '' })
+  // Spirit calculator for lemonades, same idea: its own boxes
+  const [spirit, setSpirit] = useState({ volume: '', target: targetAbv != null ? String(targetAbv) : '', strength: '97' })
   const [compare, setCompare] = useState(true)
   const router = useRouter()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -372,6 +376,55 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       </button>
     </div>
   )
+  }
+
+  // Lemonade: the spirit dose depends on what actually landed in the tank, so it is worked out here each time
+  const spiritCalc = () => {
+    const volume = spirit.volume || data.fv.volume_l.trim()
+    const v = sheetNumber(volume), t = sheetNumber(spirit.target), st = sheetNumber(spirit.strength)
+    const result = v != null && t != null && st != null ? spiritDose(v, t, st) : null
+    const litres = result ? Math.round(result.spiritL * 10) / 10 : 0
+    const lineIndex = data.dry_hops.findIndex((l) => /spirit|ethanol/i.test(l.name))
+    const box = (label: string, value: string, key: 'volume' | 'target' | 'strength', placeholder: string) => (
+      <label className="block min-w-0">
+        <span className="block text-xs text-gray-500 mb-1 whitespace-nowrap">{label}</span>
+        <input type="text" inputMode="decimal" autoComplete="off" value={value} placeholder={placeholder}
+          onChange={(e) => setSpirit({ ...spirit, [key]: e.target.value.replace(/[^0-9.]/g, '') })} className={INPUT} />
+      </label>
+    )
+    return (
+      <div className="mt-3 rounded-xl bg-background ring-1 ring-black/5 p-3 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-900">Spirit calculator</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {box('In tank (L)', volume, 'volume', '0')}
+          {box('Target ABV %', spirit.target, 'target', '4.5')}
+          {box('Spirit ABV %', spirit.strength, 'strength', '97')}
+        </div>
+        {result ? (
+          <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">
+            <p className="text-xs text-gray-500">Add</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{litres} L of spirit</p>
+            <p className="text-sm text-gray-600 tabular-nums">
+              {(litres / 4).toFixed(1)} x 4 L jugs · new volume {Math.round(result.finalL).toLocaleString('en-AU')} L at {t}%
+            </p>
+            <button type="button"
+              onClick={() => {
+                const line = { amount: String(litres), unit: 'L', note: `${(litres / 4).toFixed(1)} x 4 L jugs. ${v} L in tank to ${t}% with ${st}% spirit. New volume ${Math.round(result.finalL)} L` }
+                const list = lineIndex >= 0
+                  ? data.dry_hops.map((l, i) => (i === lineIndex ? { ...l, ...line } : l))
+                  : [...data.dry_hops, { name: 'Tarac Grape Spirit', when: 'Brite tank', done: false, ...line }]
+                update({ ...data, dry_hops: list })
+                toast.success(`${litres} L put on the grape spirit line.`)
+              }}
+              className="mt-2 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
+              Put {litres} L on the grape spirit line
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">Enter the volume in tank and the target ABV, and it works out the spirit to add and the new volume.</p>
+        )}
+      </div>
+    )
   }
 
   // How much water takes the wort from what is in the tank down to the gravity wanted
@@ -712,7 +765,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       </Section>
       </>}
 
-      <Section id="all-in-fv" title={rtd ? "All in tank" : "All in FV"} hint={rtd ? "Volume and temperature are all that is measured. No gravity or pH for a lemonade." : "Volume and gravity here set the tank card's volume and OG."}>
+      <Section id="all-in-fv" title={rtd ? "All in tank" : "All in FV"} hint={rtd ? "Knock out to the tank, enter the volume, then dose the spirit from the calculator. No gravity or pH for a lemonade." : "Volume and gravity here set the tank card's volume and OG."}>
         <div className="grid grid-cols-2 gap-3">
           {field({ label: "Volume (L)", path: "fv.volume_l" })}
           {!rtd && field({ label: "Gravity °P", path: "fv.plato" })}
@@ -720,6 +773,12 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           {field({ label: "Temp °C", path: "fv.temp_c" })}
         </div>
         {!rtd && dilutionCalc()}
+        {rtd && spiritCalc()}
+        {rtd && (
+          <div className="mt-3">
+            {list({ title: "Spirit and tank additions", listKey: "dry_hops", whenLabel: "Note", unit: "g" })}
+          </div>
+        )}
         {done ? (
           <p className="mt-3 rounded-xl bg-water/30 px-3 py-2 text-xs text-hops">
             {rtd ? 'Finished and on chill. To correct the volume, change it here and the tank card follows.' : 'Brew day finished. To correct volume, gravity or pH, change it here: the tank card and the first reading follow.'}
@@ -735,9 +794,11 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         )}
       </Section>
 
-      <Section title={rtd ? "After brew day: brite tank additions" : "After brew day: dry hop and cellar additions"} hint="These go in over the following days. They are not needed to finish the brew day.">
-        {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "kg", only: (l) => !isDayZero(l) })}
-      </Section>
+      {!rtd && (
+        <Section title="After brew day: dry hop and cellar additions" hint="These go in over the following days. They are not needed to finish the brew day.">
+          {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "kg", only: (l) => !isDayZero(l) })}
+        </Section>
+      )}
 
       <Section title="Notes">
         <textarea

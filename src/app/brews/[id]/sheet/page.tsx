@@ -29,7 +29,7 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
   const [{ data: lines }, { data: recipe }] = brew.recipe_id
     ? await Promise.all([
         supabase.from('recipe_ingredients').select('name, addition_stage, quantity, unit, time_minutes, trigger').eq('recipe_id', brew.recipe_id).order('sort_order'),
-        supabase.from('recipes').select('version, boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle(),
+        supabase.from('recipes').select('version, target_abv, boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle(),
       ])
     : [{ data: [] }, { data: null }]
   const baseline = brew.recipe_id ? withRecipeDefaults(sheetFromRecipe(lines ?? []), recipe) : null
@@ -81,6 +81,7 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
           rtd={isRtd(brew.beer_name, brew.style)}
           baseline={baseline}
           recipeVersion={recipe?.version ?? null}
+          targetAbv={recipe?.target_abv != null ? Number(recipe.target_abv) : null}
           previous={previous}
           me={formatUserName(user?.email ?? '')}
         />

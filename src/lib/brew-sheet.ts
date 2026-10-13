@@ -210,7 +210,8 @@ export function sheetProgress(s: BrewSheetData, rtd = false): { filled: number; 
   ]
   // Dry hops and cellar additions go in days later, so they never count against
   // the brew day. Day 0 additions do: they go in before the day is done.
-  const lines = brewDayLines(s).map((x) => x.line)
+  // On a lemonade the spirit and tank additions are part of the day
+  const lines = [...brewDayLines(s).map((x) => x.line), ...(rtd ? s.dry_hops.filter((l) => !isDayZero(l)) : [])]
   return {
     filled: scalars.filter((v) => v.trim()).length + lines.filter((l) => l.done).length,
     total: scalars.length + lines.length,

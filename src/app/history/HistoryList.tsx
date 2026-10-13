@@ -11,7 +11,7 @@ import { yearBg } from './year-colour'
 import { EditBrewModal } from './EditBrewModal'
 import type { BrewHistoryItem, BrewReading, PackagingRun, PackCounts, VdkEntry } from '@/lib/history'
 import { PackReportPanel } from './PackReportPanel'
-import { doRange } from '@/lib/history'
+import { DO_SPEC, doRange, doWorst } from '@/lib/history'
 import { VDK_STYLE, withVdk } from '@/lib/vdk'
 import { PACKAGE_FORMATS } from '@/types'
 import { formatUserName } from '@/lib/utils'
@@ -133,15 +133,18 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
     // Fermenter time runs to the transfer if there was one, otherwise to the day it left
     const fvDays = differenceInDays(parseISO(item.transferred_at ?? leftAt), parseISO(item.brew_day))
     const briteDays = item.transferred_at ? Math.max(0, differenceInDays(parseISO(leftAt), parseISO(item.transferred_at))) : null
-    const stats: [string, string][] = [
+    const briteDo = doWorst(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high)
+    const packDo = doWorst(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high)
+    // label, value, small note underneath, and whether it is outside the limit
+    const stats: [string, string, string?, boolean?][] = [
       ['Brew day', day(item.brew_day)],
       ['Time in FV', daysLabel(fvDays)],
       ['Time in brite', daysLabel(briteDays)],
-      ['OG', item.og_plato != null ? `${item.og_plato}°P` : '-'],
+      ['OG', item.og_plato != null ? `${item.og_plato}°P` : '-', item.target_og_plato != null ? `Target ${item.target_og_plato}°P` : undefined],
       ['FG', item.final_plato != null ? `${item.final_plato}°P` : '-'],
-      ['Final ABV', item.abv != null ? `${item.abv.toFixed(1)}%` : '-'],
-      ['DO in brite', doRange(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high)],
-      ['DO in pack', doRange(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high)],
+      ['Final ABV', item.abv != null ? `${item.abv.toFixed(1)}%` : '-', item.target_abv != null ? `Target ${item.target_abv.toFixed(1)}%` : undefined],
+      ['DO in brite', doRange(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high), briteDo != null ? `Ideal under ${DO_SPEC.brite}` : undefined, briteDo != null && briteDo >= DO_SPEC.brite],
+      ['DO in pack', doRange(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high), packDo != null ? `Ideal under ${DO_SPEC.pack}` : undefined, packDo != null && packDo >= DO_SPEC.pack],
     ]
     return (
       <li key={item.id} className={`${CARD} overflow-hidden`}>
@@ -165,10 +168,11 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
         {isOpen && (
           <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3 space-y-4">
             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2.5">
-              {stats.map(([label, value]) => (
+              {stats.map(([label, value, note, over]) => (
                 <div key={label} className="min-w-0">
                   <dt className="text-[11px] text-gray-400">{label}</dt>
-                  <dd className="text-[15px] font-semibold tabular-nums text-gray-900">{value}</dd>
+                  <dd className={`text-[15px] font-semibold tabular-nums ${over ? 'text-malt-dark' : 'text-gray-900'}`}>{value}</dd>
+                  {note && <dd className="text-[11px] tabular-nums text-gray-400">{note}</dd>}
                 </div>
               ))}
             </dl>

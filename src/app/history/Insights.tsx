@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, Lightbulb } from 'lucide-react'
 import { breweryToday, daysBetweenISO } from '@/lib/dates'
+import { DO_SPEC, doWorst } from '@/lib/history'
 import type { BrewHistoryItem } from '@/lib/history'
 import { yearBg } from './year-colour'
 
@@ -25,7 +26,7 @@ const mid = (low: number | null, high: number | null) => (low == null && high ==
 const isLager = (style: string | null) => /lager|pils|helles|kolsch|kölsch|märzen|marzen|festbier/i.test(style ?? '')
 const isRtd = (i: BrewHistoryItem) => /lemonade|seltzer|\brtd\b/i.test(`${i.beer_name} ${i.style ?? ''}`)
 
-interface Row { item: BrewHistoryItem; yieldPct: number | null; days: number | null; packDo: number | null; briteDo: number | null; abvGap: number | null }
+interface Row { item: BrewHistoryItem; yieldPct: number | null; days: number | null; packDo: number | null; briteDo: number | null; packWorst: number | null; briteWorst: number | null; abvGap: number | null; ogGap: number | null }
 
 /** Groups rows by beer and averages one number, keeping beers with enough batches to mean something. */
 function byBeer(rows: Row[], pick: (r: Row) => number | null, min = 2) {
@@ -82,7 +83,10 @@ export function Insights({ items }: { items: BrewHistoryItem[] }) {
       days: daysBetweenISO(item.brew_day, breweryToday(new Date(item.packed_at!))),
       packDo: mid(item.report?.pack_do_ppb ?? null, item.report?.pack_do_ppb_high ?? null),
       briteDo: mid(item.report?.bbt_do_ppb ?? null, item.report?.bbt_do_ppb_high ?? null),
+      packWorst: doWorst(item.report?.pack_do_ppb, item.report?.pack_do_ppb_high),
+      briteWorst: doWorst(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high),
       abvGap: item.abv != null && item.target_abv != null && item.abv > 0 ? item.abv - item.target_abv : null,
+      ogGap: item.og_plato != null && item.target_og_plato != null ? item.og_plato - item.target_og_plato : null,
     }
   }), [items])
 
@@ -133,27 +137,37 @@ export function Insights({ items }: { items: BrewHistoryItem[] }) {
       for (const r of ps) months.set(r.item.month, [...(months.get(r.item.month) ?? []), r.packDo!])
       const byMonth = [...months.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => ({ k, n: v.length, avg: mean(v)! }))
       const max = Math.max(...byMonth.map((m) => m.avg), ...high.map((r) => r.packDo!), 1)
+      const packOk = ps.filter((r) => r.packWorst! < DO_SPEC.pack).length
+      const bs = rows.filter((r) => r.briteWorst != null)
+      const briteOk = bs.filter((r) => r.briteWorst! < DO_SPEC.brite).length
+      const briteHigh = [...bs].filter((r) => r.briteWorst! >= DO_SPEC.brite).sort((a, b) => b.briteWorst! - a.briteWorst!).slice(0, 5)
+      const briteMax = Math.max(...briteHigh.map((r) => r.briteWorst!), 1)
       return (
         <>
-          <Headline value={`${Math.round(avg)} ppb`} text="average dissolved oxygen in the package." note={`${brite != null ? `The brite tank averages ${Math.round(brite)} ppb, so packaging adds about ${Math.round(avg - brite)} ppb. ` : ''}${ps.length} batches. Where a low and a high were written down, the middle is used.`} />
-          <Block title="Highest batches">{high.map((r) => <Bar key={r.item.id} label={tag(r)} sub={monthShort(r.item.month)} value={`${Math.round(r.packDo!)} ppb`} pct={(r.packDo! / max) * 100} bg="bg-malt" />)}</Block>
-          <Block title="Average by month">{byMonth.map((m) => <Bar key={m.k} label={monthShort(m.k)} sub={`${m.n} batch${m.n === 1 ? '' : 'es'}`} value={`${Math.round(m.avg)} ppb`} pct={(m.avg / max) * 100} bg={yearBg(m.k)} />)}</Block>
+          <Headline value={`${packOk} of ${ps.length}`} text={`batches packed under ${DO_SPEC.pack} ppb of dissolved oxygen. The average is ${Math.round(avg)} ppb.`} note={`${bs.length ? `${briteOk} of ${bs.length} were under ${DO_SPEC.brite} ppb in the brite. ` : ''}${brite != null ? `The brite averages ${Math.round(brite)} ppb, so packaging adds about ${Math.round(avg - brite)} ppb. ` : ''}A batch counts as inside when its highest reading is under the line.`} />
+          <Block title="Highest in pack">{high.map((r) => <Bar key={r.item.id} label={tag(r)} sub={monthShort(r.item.month)} value={`${Math.round(r.packDo!)} ppb`} pct={(r.packDo! / max) * 100} bg="bg-malt" />)}</Block>
+          {briteHigh.length > 0 && <Block title={`Over ${DO_SPEC.brite} ppb in the brite`}>{briteHigh.map((r) => <Bar key={r.item.id} label={tag(r)} sub={monthShort(r.item.month)} value={`${Math.round(r.briteWorst!)} ppb`} pct={(r.briteWorst! / briteMax) * 100} bg="bg-malt" />)}</Block>}
+          <Block title="Average in pack by month">{byMonth.map((m) => <Bar key={m.k} label={monthShort(m.k)} sub={`${m.n} batch${m.n === 1 ? '' : 'es'}`} value={`${Math.round(m.avg)} ppb`} pct={(m.avg / max) * 100} bg={m.avg >= DO_SPEC.pack ? 'bg-malt' : yearBg(m.k)} />)}</Block>
         </>
       )
     }
 
     if (view === 'strength') {
       const gs = rows.filter((r) => r.abvGap != null && Math.abs(r.abvGap) < 1.5)
-      if (gs.length === 0) return <p className="text-sm text-gray-500">No batches linked to a recipe with a target ABV yet.</p>
+      if (gs.length === 0) return <p className="text-sm text-gray-500">No batches with a target ABV yet.</p>
       const within = gs.filter((r) => Math.abs(r.abvGap!) <= 0.3).length
+      const ogs = rows.filter((r) => r.ogGap != null)
+      const ogWithin = ogs.filter((r) => Math.abs(r.ogGap!) <= 0.3).length
+      const ogOff = [...ogs].filter((r) => Math.abs(r.ogGap!) > 0.3).sort((a, b) => Math.abs(b.ogGap!) - Math.abs(a.ogGap!)).slice(0, 6)
       const off = [...gs].sort((a, b) => Math.abs(b.abvGap!) - Math.abs(a.abvGap!)).filter((r) => Math.abs(r.abvGap!) > 0.3).slice(0, 6)
       const beers = byBeer(gs, (r) => r.abvGap).sort((a, b) => a.avg - b.avg)
       const sign = (n: number) => (Math.abs(n) < 0.05 ? 'On target' : `${n > 0 ? '+' : ''}${n.toFixed(1)}%`)
       return (
         <>
-          <Headline value={`${within} of ${gs.length}`} text="batches finished within 0.3% ABV of the recipe target." note="Only batches linked to a recipe with a target ABV are counted. ABV is worked out from the first and last gravity readings." />
+          <Headline value={`${within} of ${gs.length}`} text="batches finished within 0.3% ABV of their target." note={`${ogs.length ? `${ogWithin} of ${ogs.length} hit their starting gravity within 0.3°P. ` : ''}Targets come from each batch's own brew sheet. ABV is worked out from the first and last gravity readings.`} />
           {off.length > 0 && <Block title="Furthest from target">{off.map((r) => <Bar key={r.item.id} label={tag(r)} sub={`${dp(r.item.abv)}% vs ${dp(r.item.target_abv)}%`} value={sign(r.abvGap!)} pct={(Math.abs(r.abvGap!) / 1.5) * 100} bg={r.abvGap! < 0 ? 'bg-water' : 'bg-malt'} />)}</Block>}
-          {beers.length > 0 && <Block title="Average by beer (2 or more batches)">{beers.map((b) => <Bar key={b.beer} label={b.beer} sub={`${b.n} batches`} value={sign(b.avg)} pct={(Math.abs(b.avg) / 1.5) * 100} bg={b.avg < 0 ? 'bg-water' : 'bg-malt'} />)}</Block>}
+          {ogOff.length > 0 && <Block title="Starting gravity furthest from target">{ogOff.map((r) => <Bar key={r.item.id} label={tag(r)} sub={`${dp(r.item.og_plato)}°P vs ${dp(r.item.target_og_plato)}°P`} value={`${r.ogGap! > 0 ? '+' : ''}${r.ogGap!.toFixed(1)}°P`} pct={(Math.abs(r.ogGap!) / 2) * 100} bg={r.ogGap! < 0 ? 'bg-water' : 'bg-malt'} />)}</Block>}
+          {beers.length > 0 && <Block title="ABV average by beer (2 or more batches)">{beers.map((b) => <Bar key={b.beer} label={b.beer} sub={`${b.n} batches`} value={sign(b.avg)} pct={(Math.abs(b.avg) / 1.5) * 100} bg={b.avg < 0 ? 'bg-water' : 'bg-malt'} />)}</Block>}
         </>
       )
     }

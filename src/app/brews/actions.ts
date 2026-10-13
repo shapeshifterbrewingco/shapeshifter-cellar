@@ -74,9 +74,16 @@ export async function assignBrew(data: {
   const occupant = await brewInTank(supabase, data.tank_id)
   if (occupant) return fail(`That tank already holds ${occupant.beer_name}. Refresh the page.`)
 
+  // Keep the target on the batch, so changing the recipe later does not rewrite what this one aimed for
+  const { data: recipe } = data.recipe_id
+    ? await supabase.from('recipes').select('target_abv, target_og_plato').eq('id', data.recipe_id).maybeSingle()
+    : { data: null }
+
   const { data: brew, error } = await supabase.from('brews').insert({
     tank_id: data.tank_id,
     recipe_id: data.recipe_id || null,
+    target_abv: recipe?.target_abv ?? null,
+    target_og_plato: recipe?.target_og_plato ?? null,
     beer_name: data.beer_name.trim(),
     style: data.style || null,
     brew_day: data.brew_day,

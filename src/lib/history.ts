@@ -50,6 +50,13 @@ export const PACK_REPORT_FIELDS = [
   'stock_sales_kegs', 'stock_sales_cartons', 'notes',
 ] as const
 
+/** Dissolved oxygen limits, in ppb. A batch is inside when its highest reading is under the line. */
+export const DO_SPEC = { brite: 20, pack: 40 }
+
+/** The worst DO reading written down for a batch, or null when there is none. */
+export const doWorst = (low: number | null | undefined, high: number | null | undefined) =>
+  low == null && high == null ? null : Math.max(Number(low ?? high), Number(high ?? low))
+
 /** A DO reading as text: "59 to 73 ppb", "23 ppb", or "-" when nothing was recorded. */
 export function doRange(low: number | null | undefined, high: number | null | undefined): string {
   if (low == null && high == null) return '-'
@@ -76,8 +83,9 @@ export interface BrewHistoryItem {
   final_plato: number | null
   final_ph: number | null
   abv: number | null
-  /** The recipe's target, when the batch is linked to a recipe that has one */
+  /** What the batch was brewed to: its own target, or the linked recipe's */
   target_abv: number | null
+  target_og_plato: number | null
   stage: string
   notes: string | null
   reading_count: number
@@ -146,11 +154,12 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
   const brews = await all<{
     id: string; batch_code: string | null; beer_name: string; style: string | null; brew_day: string; deleted_at: string
     volume_l: number; og_plato: number | null; stage: string; notes: string | null; recipe_id: string | null
+    target_abv: number | null; target_og_plato: number | null
     tanks: { name: string } | { name: string }[] | null
   }>((from, to) =>
     supabase
       .from('brews')
-      .select('id, batch_code, beer_name, style, brew_day, deleted_at, volume_l, og_plato, stage, notes, recipe_id, tanks(name)')
+      .select('id, batch_code, beer_name, style, brew_day, deleted_at, volume_l, og_plato, stage, notes, recipe_id, target_abv, target_og_plato, tanks(name)')
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false })
       .range(from, to),
@@ -190,12 +199,13 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       supabase.from('packaging_reports').select(`brew_id, ${PACK_REPORT_FIELDS.join(', ')}`).range(from, to),
     ),
     recipeIds.length
-      ? all<{ id: string; target_abv: number | null }>((from, to) =>
-          supabase.from('recipes').select('id, target_abv').in('id', recipeIds).range(from, to),
+      ? all<{ id: string; target_abv: number | null; target_og_plato: number | null }>((from, to) =>
+          supabase.from('recipes').select('id, target_abv, target_og_plato').in('id', recipeIds).range(from, to),
         )
       : Promise.resolve([]),
   ])
-  const targetAbv = new Map(recipes.map((r) => [r.id, r.target_abv != null ? Number(r.target_abv) : null]))
+  const recipeBy = new Map(recipes.map((r) => [r.id, r]))
+  const num = (v: number | null | undefined) => (v != null ? Number(v) : null)
 
   const packedBy = new Map<string, PackCounts>()
   const FORMAT_KEY: Record<string, keyof PackCounts> = { keg20: 'keg20', keg30: 'keg30', keg50: 'keg50', '24x375': 'c24', '16x440': 'c16' }
@@ -245,7 +255,8 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       final_plato: finalPlato,
       final_ph: f?.final_ph != null ? Number(f.final_ph) : null,
       abv: og != null && finalPlato != null ? calcAbv(og, finalPlato) : null,
-      target_abv: b.recipe_id ? targetAbv.get(b.recipe_id) ?? null : null,
+      target_abv: num(b.target_abv) ?? num(b.recipe_id ? recipeBy.get(b.recipe_id)?.target_abv : null),
+      target_og_plato: num(b.target_og_plato) ?? num(b.recipe_id ? recipeBy.get(b.recipe_id)?.target_og_plato : null),
       stage: b.stage,
       notes: b.notes,
       reading_count: f?.reading_count ?? 0,

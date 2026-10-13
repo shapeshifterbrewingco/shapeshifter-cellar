@@ -36,6 +36,7 @@ interface Draft {
   briteTempPost: string
   postReadAt: string
   britePressure: string
+  briteVolume: string
   initialCarb: boolean
   fvCoolingOff: boolean
 }
@@ -103,7 +104,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
       destTankId: preferred?.tank.id ?? '', batchCode: brew.batch_code ?? '', notes: '',
       briteSet: BRITE_SET_C, briteSetDone: '', fvTempPre: '', briteTempPre: '', preReadAt: '',
       purgeStart: '', purgeFinish: '', transferStart: '', transferFinish: '',
-      briteTempPost: '', postReadAt: '', britePressure: '', initialCarb: false, fvCoolingOff: false,
+      briteTempPost: '', postReadAt: '', britePressure: '', briteVolume: '', initialCarb: false, fvCoolingOff: false,
     }
     const merged = { ...base, ...saved }
     // A saved destination that has since been filled is no use
@@ -171,6 +172,8 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
 
   const num = (s: string) => (s.trim() && Number.isFinite(parseFloat(s)) ? parseFloat(s) : null)
 
+  const arrived = num(f.briteVolume)
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!dest || !briteIsSet) return
@@ -179,6 +182,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
         brew_id: brew.id,
         source_tank_id: sourceTank.id,
         dest_tank_id: dest.id,
+        volume_out_l: num(f.briteVolume),
         batch_code: f.batchCode.trim() || null,
         notes: f.notes,
         brite_cooling_on: true,
@@ -195,7 +199,7 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
       })
       if (!result.ok) { toast.error(result.message); return }
       try { localStorage.removeItem(draftKey(brew.id)) } catch { /* nothing to clear */ }
-      toast.success(`${brew.beer_name} is in ${dest.name}. Tap its volume to set what arrived.`)
+      toast.success(num(f.briteVolume) != null ? `${brew.beer_name} is in ${dest.name}.` : `${brew.beer_name} is in ${dest.name}. Tap its volume to set what arrived.`)
       onClose()
     })
   }
@@ -320,7 +324,21 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
               <label className={LABEL}>Notes (optional)</label>
               <input type="text" value={f.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="e.g. Gas arm left open" className={INPUT} />
             </div>
-            <p className="text-xs text-gray-500">The beer moves across at {Math.round(brew.volume_l).toLocaleString('en-AU')} L. Once you know what arrived, tap the volume on the {dest?.name ?? 'brite'} card.</p>
+            <div>
+              <label className={LABEL}>Volume in {dest?.name ?? 'the brite'}</label>
+              <div className="relative">
+                <input type="text" inputMode="decimal" autoComplete="off" value={f.briteVolume} placeholder={String(Math.round(brew.volume_l))}
+                  onChange={(e) => set({ briteVolume: e.target.value.replace(/[^0-9.]/g, '') })} className={`${INPUT} h-12 text-xl font-bold pr-8`} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">L</span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500 tabular-nums">
+                {arrived == null
+                  ? `Was ${Math.round(brew.volume_l).toLocaleString('en-AU')} L in ${sourceTank.name}. Leave blank to carry that across and fix it later.`
+                  : arrived > brew.volume_l
+                  ? `That is more than the ${Math.round(brew.volume_l).toLocaleString('en-AU')} L that was in ${sourceTank.name}. Check the figure.`
+                  : `${Math.round(brew.volume_l - arrived)} L lost in the transfer (${(((brew.volume_l - arrived) / brew.volume_l) * 100).toFixed(1)}%)`}
+              </p>
+            </div>
             <div className="flex gap-2">
               <button type="button" onClick={onClose} className="flex-1 h-11 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">Close</button>
               <button type="submit" disabled={isPending || !dest || !briteIsSet}

@@ -250,6 +250,8 @@ export async function transferBrew(data: {
   brew_id: string
   source_tank_id: string
   dest_tank_id: string
+  /** What arrived in the destination, measured at the end. Left out, the brew keeps its volume. */
+  volume_out_l?: number | null
   batch_code: string | null
   notes: string
   // Transfer report fields
@@ -283,9 +285,11 @@ export async function transferBrew(data: {
   const occupant = await brewInTank(supabase, data.dest_tank_id, data.brew_id)
   if (occupant) return fail(`The destination tank already holds ${occupant.beer_name}.`)
 
-  // What arrives is not known until the transfer is over, so the brew carries
-  // its volume across and the brewer corrects it on the tank card afterwards.
-  const volume = Number(before.volume_l)
+  // What arrives is only known once the transfer is over. If it was measured it
+  // is used; if not, the brew carries its volume across to be corrected later.
+  const volumeIn = Number(before.volume_l)
+  if (data.volume_out_l != null && !(data.volume_out_l > 0 && data.volume_out_l < 20000)) return fail('The brite volume must be more than zero.')
+  const volume = data.volume_out_l ?? volumeIn
 
   const batchCode = data.batch_code?.trim() || null
   if (batchCode) {
@@ -297,6 +301,7 @@ export async function transferBrew(data: {
   // record then fails, the move is undone so the two never disagree.
   const { error: moveError } = await supabase.from('brews').update({
     tank_id: data.dest_tank_id,
+    volume_l: volume,
     stage: 'on_chill',
     batch_code: batchCode,
     updated_at: new Date().toISOString(),
@@ -307,7 +312,7 @@ export async function transferBrew(data: {
     brew_id: data.brew_id,
     source_tank_id: data.source_tank_id,
     dest_tank_id: data.dest_tank_id,
-    volume_in_l: volume,
+    volume_in_l: volumeIn,
     volume_out_l: volume,
     transferred_by: user.email ?? user.id,
     notes: data.notes.trim() || null,
@@ -340,7 +345,7 @@ export async function transferBrew(data: {
     plato: null,
     ph: null,
     recorded_by: user.email ?? user.id,
-    notes: `→ Transferred (${volume} L in the fermenter)`,
+    notes: data.volume_out_l != null ? `→ Transferred (${volume} L arrived, ${volumeIn} L in the fermenter)` : `→ Transferred (${volumeIn} L in the fermenter, arrival not measured)`,
   })
   if (noteError) console.error('[transferBrew] transfer note failed:', noteError.message)
 
@@ -352,7 +357,7 @@ export async function transferBrew(data: {
     ])
     // The fermenter it left is empty: stop holding it cold
     await coolingOff(data.source_tank_id)
-    logActivity(`${who(user.email)} transferred *${esc(b?.beer_name ?? 'a beer')}* from ${from} to ${to}.`)
+    logActivity(`${who(user.email)} transferred *${esc(b?.beer_name ?? 'a beer')}* from ${from} to ${to}${data.volume_out_l != null ? `: ${volume} L arrived${volumeIn - volume > 0 ? ` (${Math.round(volumeIn - volume)} L lost)` : ''}` : ''}.`)
   }
 
   revalidatePath('/')

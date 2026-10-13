@@ -146,7 +146,7 @@ export function EditBrewModal({ item, onClose }: Props) {
                 type="number" inputMode="decimal"
                 value={ogPlato}
                 onChange={e => setOgPlato(e.target.value)}
-                step="0.1"
+                step="any"
                 placeholder="—"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />

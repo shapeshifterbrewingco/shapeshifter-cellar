@@ -17,12 +17,13 @@ const digits = (s: string) => s.replace(/[^0-9.]/g, '')
 export function VolumeDialog({ name, current, onSave, onClose }: {
   name: string
   current: number
-  onSave: (volume: number) => void
+  onSave: (volume: number, note: string) => void
   onClose: () => void
 }) {
   const [mode, setMode] = useState<'taken' | 'direct'>('taken')
   const [taken, setTaken] = useState('')
   const [direct, setDirect] = useState(String(current))
+  const [note, setNote] = useState('')
 
   const t = parseFloat(taken)
   const d = parseFloat(direct)
@@ -80,13 +81,27 @@ export function VolumeDialog({ name, current, onSave, onClose }: {
           {tooMuch && <p className="text-xs text-malt-dark">That is more than the tank holds.</p>}
         </div>
 
+        <div>
+          <label className="block">
+            <span className="block text-xs text-gray-500 mb-1.5">Note (optional)</span>
+            <input type="text" autoComplete="off" maxLength={120} value={note} placeholder="e.g. Cold break" onChange={(e) => setNote(e.target.value)}
+              className="w-full h-11 rounded-xl border border-gray-200 px-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </label>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {['Cold break', 'Dropped bottoms', 'Yeast harvest', 'Sample'].map((q) => (
+              <button key={q} type="button" onClick={() => setNote(q)} aria-pressed={note === q}
+                className={`h-8 px-2.5 rounded-full text-xs font-medium ${note === q ? 'bg-primary text-white' : 'bg-black/[0.04] text-gray-600'}`}>{q}</button>
+            ))}
+          </div>
+        </div>
+
         <button type="button" onClick={() => setMode(mode === 'taken' ? 'direct' : 'taken')} className="text-sm font-medium text-primary">
           {mode === 'taken' ? 'Type the volume instead' : 'Type what was taken off instead'}
         </button>
 
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 h-11 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl active:bg-gray-50">Cancel</button>
-          <button type="button" disabled={!ok} onClick={() => { onSave(next); onClose() }}
+          <button type="button" disabled={!ok} onClick={() => { onSave(next, note); onClose() }}
             className="flex-1 h-11 bg-primary text-primary-foreground text-sm font-semibold rounded-xl disabled:opacity-40 active:opacity-90">Save</button>
         </div>
       </div>

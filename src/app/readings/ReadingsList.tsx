@@ -161,7 +161,7 @@ export function ReadingsList({ readings: initial }: Props) {
                         {isEditing ? (
                           <input
                             type="number" inputMode="decimal"
-                            step="0.1"
+                            step="any"
                             value={editState!.plato}
                             onChange={e => setEditState(s => s ? { ...s, plato: e.target.value } : s)}
                             placeholder="—"

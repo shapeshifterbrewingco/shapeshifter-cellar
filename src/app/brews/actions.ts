@@ -684,7 +684,7 @@ export async function getBrewVdkReadings(brew_id: string) {
 
 // ── Update batch code ─────────────────────────────────────────
 
-export async function updateBrewVolume(brew_id: string, volume_l: number) {
+export async function updateBrewVolume(brew_id: string, volume_l: number, reason = '') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!(volume_l > 0 && volume_l < 20000)) throw new Error('Volume must be more than zero.')
@@ -701,7 +701,7 @@ export async function updateBrewVolume(brew_id: string, volume_l: number) {
     const diff = Math.round(Math.abs(volume_l - was) * 10) / 10
     await supabase.from('gravity_readings').insert({
       brew_id, tank_id: before.tank_id, plato: null, ph: null,
-      notes: `Volume changed from ${was} L to ${volume_l} L (${diff} L ${volume_l < was ? 'off' : 'added'})`,
+      notes: `Volume changed from ${was} L to ${volume_l} L (${diff} L ${volume_l < was ? 'off' : 'added'})${reason.trim() ? `. ${reason.trim().slice(0, 120)}` : ''}`,
       recorded_by: user.email ?? user.id,
     })
   }

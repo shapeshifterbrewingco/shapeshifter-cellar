@@ -60,7 +60,7 @@ export function LogReadingModal({ brew, tank, currentUser, onClose }: Props) {
               <input
                 autoFocus
                 type="number" inputMode="decimal"
-                step="0.1"
+                step="any"
                 min="0"
                 max="30"
                 value={plato}
@@ -73,7 +73,7 @@ export function LogReadingModal({ brew, tank, currentUser, onClose }: Props) {
               <label className="block text-xs font-medium text-gray-600 mb-1">pH</label>
               <input
                 type="number" inputMode="decimal"
-                step="0.1"
+                step="any"
                 min="0"
                 max="14"
                 value={ph}

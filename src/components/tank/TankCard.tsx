@@ -976,7 +976,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         )}
         {showEditVolume && brew && (
         <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} onClose={() => setShowEditVolume(false)}
-          onSave={(v) => run(() => updateBrewVolume(brew.id, v), 'Could not save the volume. Try again.')} />
+          onSave={(v, note) => run(() => updateBrewVolume(brew.id, v, note), 'Could not save the volume. Try again.')} />
       )}
       </>
     )
@@ -1463,7 +1463,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       )}
       {showEditVolume && brew && (
         <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} onClose={() => setShowEditVolume(false)}
-          onSave={(v) => run(() => updateBrewVolume(brew.id, v), 'Could not save the volume. Try again.')} />
+          onSave={(v, note) => run(() => updateBrewVolume(brew.id, v, note), 'Could not save the volume. Try again.')} />
       )}
     </>
   )

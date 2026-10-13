@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getFrigidReadings } from '@/lib/frigid'
 import { addPackedStock } from '@/lib/sales-stock'
+import { after } from 'next/server'
 import { coolingOff } from '@/lib/cooling'
+import { writeSplitVolume } from '@/lib/tank-splits'
 import { logActivity, who, esc, logGroupedActivity } from '@/lib/slack'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
@@ -357,6 +359,7 @@ export async function transferBrew(data: {
     ])
     // The fermenter it left is empty: stop holding it cold
     await coolingOff(data.source_tank_id)
+    if (data.volume_out_l != null) after(() => writeSplitVolume(data.brew_id).then(() => undefined))
     logActivity(`${who(user.email)} transferred *${esc(b?.beer_name ?? 'a beer')}* from ${from} to ${to}${data.volume_out_l != null ? `: ${volume} L arrived${volumeIn - volume > 0 ? ` (${Math.round(volumeIn - volume)} L lost)` : ''}` : ''}.`)
   }
 
@@ -702,6 +705,8 @@ export async function updateBrewVolume(brew_id: string, volume_l: number) {
       recorded_by: user.email ?? user.id,
     })
   }
+  // The Splits sheet plans off this number
+  if (was !== volume_l) after(() => writeSplitVolume(brew_id).then(() => undefined))
   revalidatePath('/')
 }
 

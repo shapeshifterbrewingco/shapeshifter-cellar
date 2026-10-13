@@ -253,6 +253,17 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .dark .bg-yeast { --color-charcoal: #323230; }
 .dark .bg-water { --color-hops: #09434D; --primary: #09434D; }
 
+/* A popup at night was the same dark as the cards behind it. Lift the panel a
+   shade, give it a light edge, and dim the page harder so it stands off. */
+.dark .fixed.inset-0[class*="bg-black/"] { background-color: rgb(0 0 0 / 0.72); }
+.dark .fixed.inset-0[class*="bg-black/"] > .bg-white,
+.dark .fixed.inset-0[class*="bg-black/"] > form > .bg-white {
+  --color-white: #24353a;
+  --color-gray-200: #3a4d53;
+  --color-gray-300: #4c6067;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16), 0 24px 60px rgb(0 0 0 / 0.6);
+}
+
 /* Hairline card edges are black-on-white in day mode; at night they need to be light */
 .dark [class*="ring-black/"] { --tw-ring-color: rgb(255 255 255 / 0.07); }
 

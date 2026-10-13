@@ -194,6 +194,14 @@ export async function sheetAppend(spreadsheetId: string, range: string, rows: (s
   )
 }
 
+/** Overwrite a range. USER_ENTERED, so a number lands as a number. The service account must be able to edit the sheet. */
+export async function sheetUpdate(spreadsheetId: string, range: string, rows: (string | number)[][]): Promise<void> {
+  await google(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
+    { method: 'PUT', body: JSON.stringify({ values: rows }) },
+  )
+}
+
 export async function sheetTabs(spreadsheetId: string): Promise<string[]> {
   const meta = await google(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`)
   return meta.sheets.map((s: { properties: { title: string } }) => s.properties.title)

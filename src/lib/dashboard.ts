@@ -35,7 +35,7 @@ export async function getDashboardData(
       .select('name, hex_colour'),
     supabase
       .from('brews')
-      .select('id, recipe_id, tank_id, brew_day, volume_l, og_plato, stage, beer_name, style, notes, batch_code, colour')
+      .select('id, recipe_id, tank_id, brew_day, volume_l, og_plato, stage, beer_name, style, notes, batch_code, colour, pack_checks, target_abv')
       .is('deleted_at', null)
       .not('stage', 'in', '(empty,transferred,packaged)'),
   ])

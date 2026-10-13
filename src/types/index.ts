@@ -140,7 +140,21 @@ export interface Brew {
   batch_code?: string | null
   /** Hand-picked colour for this beer on its tank. Null = the style's colour. */
   colour?: string | null
+  /** Packaging materials ticked off. A key is there when that item is done. */
+  pack_checks?: PackChecks | null
+  target_abv?: number | null
 }
+
+export type PackCheckKey = 'cans' | 'labels' | 'clips' | 'collars'
+export type PackChecks = Partial<Record<PackCheckKey, { by: string; at: string }>>
+
+/** The materials a pack run waits on. `needs` says which side of a split it belongs to. */
+export const PACK_CHECKS: { key: PackCheckKey; label: string; done: string; needs: 'cans' | 'kegs' }[] = [
+  { key: 'cans', label: 'Cans', done: 'Cans ordered', needs: 'cans' },
+  { key: 'labels', label: 'Labels', done: 'Labels ordered', needs: 'cans' },
+  { key: 'clips', label: 'Clips', done: 'Clips and cartons ready', needs: 'cans' },
+  { key: 'collars', label: 'Collars', done: 'Keg collars and decals ready', needs: 'kegs' },
+]
 
 export interface GravityReading {
   id: string

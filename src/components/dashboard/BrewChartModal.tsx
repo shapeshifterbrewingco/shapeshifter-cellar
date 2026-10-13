@@ -12,7 +12,6 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
-  Legend,
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import { getBrewChartData } from '@/app/brews/actions'
@@ -114,7 +113,21 @@ export function useBrewChart(brew: Brew, tank: Tank, refreshKey = '') {
   return { data, loading }
 }
 
-/** Gravity, pH and temperature over the life of a brew. */
+type SeriesKey = 'plato' | 'ph' | 'temp'
+const SERIES: { key: SeriesKey; label: string; colour: string }[] = [
+  { key: 'plato', label: 'Gravity', colour: 'var(--chart-gravity)' },
+  { key: 'ph', label: 'pH', colour: 'var(--chart-ph)' },
+  { key: 'temp', label: 'Temp', colour: 'var(--chart-temp)' },
+]
+// Which lines are drawn is a personal choice, remembered on the device
+const SHOWN_KEY = 'ferment-chart-lines'
+function loadShown(): Record<SeriesKey, boolean> {
+  const all = { plato: true, ph: true, temp: true }
+  if (typeof window === 'undefined') return all
+  try { return { ...all, ...(JSON.parse(localStorage.getItem(SHOWN_KEY) ?? '{}') as Partial<Record<SeriesKey, boolean>>) } } catch { return all }
+}
+
+/** Gravity, pH and temperature over the life of a brew. Each line can be switched off. */
 export function FermentChart({ brew, data, loading, height = 280 }: {
   brew: Brew
   data: ChartData | null
@@ -136,6 +149,13 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
   const tempMax = tempVals.length ? Math.ceil(Math.max(...tempVals)) + 2 : 30
 
   const hasTemp = tempVals.length > 0
+  const [show, setShow] = useState<Record<SeriesKey, boolean>>(loadShown)
+  const flip = (k: SeriesKey) => setShow((s) => {
+    const next = { ...s, [k]: !s[k] }
+    try { localStorage.setItem(SHOWN_KEY, JSON.stringify(next)) } catch { /* private mode: it still works for this visit */ }
+    return next
+  })
+  const showTemp = hasTemp && show.temp
   const spanDays = chartData.length > 1 ? (chartData[chartData.length - 1].ts - chartData[0].ts) / 86_400_000 : 0
   const hasReadings = gravityReadings.length > 0 || stageEvents.length > 0
 
@@ -193,7 +213,9 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             axisLine={false}
             tickFormatter={(v) => `${Math.round(Number(v))}°C`}
             allowDecimals={false}
-            width={40}
+            // With temperature switched off the axis goes too, and the chart takes the room
+            hide={!showTemp}
+            width={showTemp ? 40 : 0}
           />
 
           {/* pH axis: hidden, domain [3,6] keeps the line in a sensible position. Width 0 because a
@@ -201,10 +223,6 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
           <YAxis yAxisId="ph" orientation="right" domain={[3, 6]} hide width={0} />
 
           <Tooltip content={<CustomTooltip />} />
-          <Legend
-            wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-            formatter={(value) => <span className="text-gray-500">{value}</span>}
-          />
 
           {/* OG reference */}
           {brew.og_plato != null && (
@@ -230,7 +248,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
           ))}
 
           {/* Temperature line */}
-          {hasTemp && (
+          {showTemp && (
             <Line
               yAxisId="temp"
               type="monotone"
@@ -245,7 +263,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
           )}
 
           {/* Gravity line */}
-          <Line
+          {show.plato && <Line
             yAxisId="plato"
             type="monotone"
             dataKey="plato"
@@ -255,10 +273,10 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             dot={{ r: 4, fill: 'var(--chart-gravity)', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls
-          />
+          />}
 
           {/* pH line */}
-          <Line
+          {show.ph && <Line
             yAxisId="ph"
             type="monotone"
             dataKey="ph"
@@ -268,9 +286,20 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             dot={{ r: 4, fill: 'var(--chart-ph)', strokeWidth: 0 }}
             activeDot={{ r: 5 }}
             connectNulls
-          />
+          />}
         </ComposedChart>
       </ResponsiveContainer>
+    )}
+    {!loading && (hasReadings || hasTemp) && (
+      <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2 pb-1">
+        {SERIES.filter((s) => s.key !== 'temp' || hasTemp).map((s) => (
+          <button key={s.key} type="button" onClick={() => flip(s.key)} aria-pressed={show[s.key]}
+            className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-xs font-medium ${show[s.key] ? 'bg-white border-gray-200 text-gray-700' : 'bg-transparent border-gray-200 text-gray-400 line-through'}`}>
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: show[s.key] ? s.colour : 'transparent', boxShadow: `inset 0 0 0 1.5px ${s.colour}` }} />
+            {s.label}
+          </button>
+        ))}
+      </div>
     )}
     </>
   )

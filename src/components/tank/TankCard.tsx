@@ -19,6 +19,7 @@ import { AdditionsDialog, additionsLabel } from './AdditionsDialog'
 import { StageBadge } from './StageBadge'
 import { TankDetailSheet } from './TankDetailSheet'
 import { VolumeDialog } from './VolumeDialog'
+import { PackPlanDialog, PackChips, fitLabel } from './PackPlan'
 import { TempTap } from './SetPoint'
 import type { SheetAction, StageOption } from './TankDetailSheet'
 import { AssignBrewModal } from '@/components/dashboard/AssignBrewModal'
@@ -27,7 +28,6 @@ import { BrewChartModal } from '@/components/dashboard/BrewChartModal'
 import { TransferModal } from '@/components/dashboard/TransferModal'
 import { PackageModal } from '@/components/dashboard/PackageModal'
 import { VdkModal } from '@/components/dashboard/VdkModal'
-import { PackagingSplitModal } from '@/components/dashboard/PackagingSplitModal'
 import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume, renameBrew } from '@/app/brews/actions'
 import { setTankTarget } from '@/app/tanks/actions'
 import { calcAbv } from '@/lib/utils'
@@ -246,6 +246,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     <div className="text-[11px] leading-snug text-gray-500 tabular-nums" title={sheet_split.label}>
       <p className="font-semibold text-gray-700 whitespace-nowrap">Pack {packDay}{sheet_split.proposed ? ' (proposed)' : ''}</p>
       {sheet_split.parts.map((part) => <p key={part} className="whitespace-nowrap">{part}</p>)}
+      {fitLabel(sheet_split.fit) && <p className="font-semibold text-malt-dark">{fitLabel(sheet_split.fit)}</p>}
     </div>
   ) : null
 
@@ -411,6 +412,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               Pack {packDay}{sheet_split.proposed ? ' (proposed)' : ''} · {sheet_split.parts.join(' · ')}
             </p>
           )}
+          {fitLabel(sheet_split?.fit) && <p className="text-xs font-semibold text-malt-dark truncate">{fitLabel(sheet_split?.fit)}</p>}
+          <div className="mt-1"><PackChips brew={brew} split={sheet_split} /></div>
         </div>
         <div className="flex-shrink-0 flex flex-col items-end gap-1">
           <span className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${look.pill}`}>
@@ -667,12 +670,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       </div>
                     )}
                     {splitLines}
-                    {packaging_split && (
-                      <button type="button" onClick={() => setShowSplitModal(true)}
-                        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 self-start">
-                        <Package className="h-3 w-3" /> Show splits
-                      </button>
-                    )}
+                    {brew && <PackChips brew={brew} split={sheet_split} onOpen={() => setShowSplitModal(true)} />}
                   </div>
                 </div>
               )}
@@ -956,9 +954,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             onVdkPass={() => { setShowVdkModal(false); setChillTemp(String(settings.on_chill_temp_c)); setShowChillModal(true) }} />
         )}
         {showSplitModal && brew && (
-          <PackagingSplitModal brewId={brew.id} title={brew.beer_name} subtitle={`${brew.volume_l} L in tank`}
-            volume_l={brew.volume_l} defaultHopLoad={settings.default_hop_load} settings={settings} onClose={() => setShowSplitModal(false)} />
-        )}
+        <PackPlanDialog brew={brew} tank={tank.name} split={sheet_split} abvNow={abv} targetAbv={brew.target_abv} onClose={() => setShowSplitModal(false)} />
+      )}
         {renameDialog}
         {additionsDialog}
         {showEditBatch && brew && (
@@ -1109,13 +1106,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
               {/* Planned pack from the Splits sheet, then the app's own plan if there is one */}
               {splitLines}
-              {packaging_split && (
-                <button type="button" onClick={() => setShowSplitModal(true)}
-                  className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors leading-tight mt-0.5 self-start">
-                  <Package className="h-3 w-3 flex-shrink-0" />
-                  Show splits
-                </button>
-              )}
+              {brew && <PackChips brew={brew} split={sheet_split} onOpen={() => setShowSplitModal(true)} />}
             </div>
           </div>
         )}
@@ -1432,15 +1423,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         />
       )}
       {showSplitModal && brew && (
-        <PackagingSplitModal
-          brewId={brew.id}
-          title={brew.beer_name}
-          subtitle={`${brew.volume_l} L in tank`}
-          volume_l={brew.volume_l}
-          defaultHopLoad={settings.default_hop_load}
-          settings={settings}
-          onClose={() => setShowSplitModal(false)}
-        />
+        <PackPlanDialog brew={brew} tank={tank.name} split={sheet_split} abvNow={abv} targetAbv={brew.target_abv} onClose={() => setShowSplitModal(false)} />
       )}
       {renameDialog}
         {additionsDialog}

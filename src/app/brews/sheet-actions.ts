@@ -1,5 +1,8 @@
 'use server'
 
+import { after } from 'next/server'
+import { writeSplitVolume } from '@/lib/tank-splits'
+
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { sanitiseSheet, sheetNumber, sheetFromRecipe, withRecipeDefaults, recipeChanges, LIST_KEYS } from '@/lib/brew-sheet'
@@ -88,6 +91,8 @@ export async function saveBrewSheet(input: {
   const sheetVolumeChanged = input.finish || sheetNumber((already as { fv_volume?: string | null } | null)?.fv_volume ?? '') !== volume
   if (volume != null && volume > 0 && volume < 20000 && firstTank && !brew.deleted_at && sheetVolumeChanged && Number(brew.volume_l) !== volume) {
     patch.volume_l = volume
+    // The Splits sheet plans off this number
+    after(() => writeSplitVolume(input.brew_id).then(() => undefined))
   }
   // OG and pH together are the brew's first reading: the start of its ferment
   // chart. Written once both are in, and kept in step if either is corrected.

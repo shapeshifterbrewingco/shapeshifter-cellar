@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { getPeriodRange } from '@/lib/reports'
 import type { ReportPeriod } from '@/lib/reports'
 import type { PackedRun } from '@/lib/history'
@@ -15,8 +15,7 @@ const PERIODS: { id: ReportPeriod; label: string }[] = [
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
 
 /** What was packed in a period: the numbers that used to live on the Reports page. */
-export function PackedSummary({ runs }: { runs: PackedRun[] }) {
-  const [period, setPeriod] = useState<ReportPeriod>('this_month')
+export function PackedSummary({ runs, period, onPeriod: setPeriod }: { runs: PackedRun[]; period: ReportPeriod; onPeriod: (p: ReportPeriod) => void }) {
 
   const { label, totals } = useMemo(() => {
     const { label, start, end } = getPeriodRange(period)

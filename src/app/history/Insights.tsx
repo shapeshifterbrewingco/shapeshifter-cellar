@@ -6,6 +6,8 @@ import { breweryToday, daysBetweenISO } from '@/lib/dates'
 import { DO_SPEC, doWorst } from '@/lib/history'
 import type { BrewHistoryItem } from '@/lib/history'
 import { yearBg } from './year-colour'
+import { getPeriodRange } from '@/lib/reports'
+import type { ReportPeriod } from '@/lib/reports'
 
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -70,11 +72,16 @@ function Headline({ value, text, note }: { value: string; text: string; note?: s
 }
 
 /** What the finished batches say when you add them up. Hidden until asked for. */
-export function Insights({ items }: { items: BrewHistoryItem[] }) {
+export function Insights({ items, period }: { items: BrewHistoryItem[]; period: ReportPeriod }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>('yield')
 
-  const rows = useMemo<Row[]>(() => items.filter((i) => i.packed_l > 0 && i.packed_at).map((item) => {
+  const range = useMemo(() => getPeriodRange(period), [period])
+  const rows = useMemo<Row[]>(() => items.filter((i) => {
+    if (!(i.packed_l > 0) || !i.packed_at) return false
+    const at = new Date(i.packed_at).getTime()
+    return at >= range.start.getTime() && at <= range.end.getTime()
+  }).map((item) => {
     const y = item.fv_volume_l > 0 ? (item.packed_l / item.fv_volume_l) * 100 : null
     return {
       item,
@@ -88,9 +95,10 @@ export function Insights({ items }: { items: BrewHistoryItem[] }) {
       abvGap: item.abv != null && item.target_abv != null && item.abv > 0 ? item.abv - item.target_abv : null,
       ogGap: item.og_plato != null && item.target_og_plato != null ? item.og_plato - item.target_og_plato : null,
     }
-  }), [items])
+  }), [items, range])
 
-  if (rows.length < 3) return null
+  // Averages off one or two batches would read as facts they are not
+  const enough = rows.length >= 3
   const tag = (r: Row) => `${r.item.batch_code ? `${r.item.batch_code} ` : ''}${r.item.beer_name}`
 
   function body() {
@@ -202,7 +210,7 @@ export function Insights({ items }: { items: BrewHistoryItem[] }) {
         <Lightbulb className="h-5 w-5 flex-shrink-0 text-malt" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900">Insights</p>
-          <p className="text-xs text-gray-500">What {rows.length} packaged batches add up to</p>
+          <p className="text-xs text-gray-500">{enough ? `What ${rows.length} batches packed in ${range.label} add up to` : `Needs 3 or more batches. ${rows.length} packed in ${range.label}`}</p>
         </div>
         <ChevronDown className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -216,7 +224,7 @@ export function Insights({ items }: { items: BrewHistoryItem[] }) {
               </button>
             ))}
           </div>
-          {body()}
+          {enough ? body() : <p className="text-sm text-gray-500">Only {rows.length} batch{rows.length === 1 ? '' : 'es'} packed in {range.label}. Pick Calendar year or Financial year above for enough to compare.</p>}
         </div>
       )}
     </section>

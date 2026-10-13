@@ -26,6 +26,21 @@ export function checksFor(split: SheetSplit | null | undefined) {
   return PACK_CHECKS.filter((c) => (c.needs === 'cans' ? cans : kegs))
 }
 
+/**
+ * Which ticks belong on the tank card right now. Cans and labels matter once
+ * the beer is nearly done fermenting; clips and collars only once it is in a
+ * brite. The plan dialog always lists all of them.
+ */
+export function checksDue(brew: Brew, split: SheetSplit | null | undefined, tankName: string, plato: number | null | undefined) {
+  const inBrite = split?.fit?.basis === 'brite' || /bbt|brite/i.test(tankName)
+  const recipe = Array.isArray(brew.recipes) ? brew.recipes[0] : brew.recipes
+  const fg = recipe?.target_fg_plato != null ? Number(recipe.target_fg_plato) : null
+  // Within 1°P of where it should finish. With no recipe to say where that is,
+  // leaving active ferment is the nearest thing to "nearly done".
+  const nearlyDone = fg != null ? plato != null && plato <= fg + 1 : brew.stage !== 'active_ferment'
+  return checksFor(split).filter((c) => (c.key === 'clips' || c.key === 'collars' ? inBrite : inBrite || nearlyDone))
+}
+
 /** One hook for ticking materials, shared by the card chips and the dialog so they never disagree. */
 function usePackChecks(brew: Brew) {
   const [checks, setChecks] = useState<PackChecks>(brew.pack_checks ?? {})
@@ -49,16 +64,19 @@ function usePackChecks(brew: Brew) {
 }
 
 /** Small ticks on a tank card: which materials are sorted. Tap one to change it. */
-export function PackChips({ brew, split, onOpen }: {
+export function PackChips({ brew, split, tankName, plato, onOpen }: {
   brew: Brew
   split: SheetSplit | null | undefined
+  tankName: string
+  /** Latest gravity reading */
+  plato: number | null | undefined
   /** Given, the chips collapse to one count that opens the plan: for cards too narrow for a row of them */
   onOpen?: () => void
 }) {
   const { checks, toggle } = usePackChecks(brew)
-  const items = checksFor(split)
-  // Nothing planned and nothing ticked: the card stays clean
-  if (!split && Object.keys(checks).length === 0) return null
+  const items = checksDue(brew, split, tankName, plato)
+  // Nothing due yet, or nothing planned and nothing ticked: the card stays clean
+  if (items.length === 0 || (!split && Object.keys(checks).length === 0)) return null
   if (onOpen) {
     const done = items.filter((c) => checks[c.key]).length
     const all = done === items.length

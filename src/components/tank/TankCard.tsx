@@ -413,7 +413,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             </p>
           )}
           {fitLabel(sheet_split?.fit) && <p className="text-xs font-semibold text-malt-dark truncate">{fitLabel(sheet_split?.fit)}</p>}
-          <div className="mt-1"><PackChips brew={brew} split={sheet_split} /></div>
+          <div className="mt-1 empty:hidden"><PackChips brew={brew} split={sheet_split} tankName={tank.name} plato={latest_gravity?.plato} /></div>
         </div>
         <div className="flex-shrink-0 flex flex-col items-end gap-1">
           <span className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium ${look.pill}`}>
@@ -670,7 +670,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       </div>
                     )}
                     {splitLines}
-                    {brew && <PackChips brew={brew} split={sheet_split} onOpen={() => setShowSplitModal(true)} />}
+                    {brew && <PackChips brew={brew} split={sheet_split} tankName={tank.name} plato={latest_gravity?.plato} onOpen={() => setShowSplitModal(true)} />}
                   </div>
                 </div>
               )}
@@ -1106,7 +1106,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
               {/* Planned pack from the Splits sheet, then the app's own plan if there is one */}
               {splitLines}
-              {brew && <PackChips brew={brew} split={sheet_split} onOpen={() => setShowSplitModal(true)} />}
+              {brew && <PackChips brew={brew} split={sheet_split} tankName={tank.name} plato={latest_gravity?.plato} onOpen={() => setShowSplitModal(true)} />}
             </div>
           </div>
         )}

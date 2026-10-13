@@ -143,6 +143,8 @@ export interface Brew {
   /** Packaging materials ticked off. A key is there when that item is done. */
   pack_checks?: PackChecks | null
   target_abv?: number | null
+  /** The linked recipe, for its expected final gravity. Absent on a one-off with no recipe. */
+  recipes?: { target_fg_plato: number | null } | { target_fg_plato: number | null }[] | null
 }
 
 export type PackCheckKey = 'cans' | 'labels' | 'clips' | 'collars'

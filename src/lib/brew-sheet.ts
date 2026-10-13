@@ -203,10 +203,10 @@ export function sheetFromRecipe(lines: RecipeLine[]): BrewSheetData {
 /** How much of the sheet has something in it, for a progress hint. */
 export function sheetProgress(s: BrewSheetData, rtd = false): { filled: number; total: number } {
   // A hard lemonade has no mash, runnings, gravity or yeast to record
-  const scalars = rtd ? [s.kettle.volume_l, s.fv.volume_l, s.fv.temp_c, s.signoffs.frigid_set] : [
+  const scalars = rtd ? [s.kettle.volume_l, s.fv.volume_l, s.fv.temp_c] : [
     s.mash.actual_temp_c, s.mash.ph, s.runnings.first.plato, s.runnings.last.plato,
     s.kettle.volume_l, s.kettle.post_boil_plato, s.fv.volume_l, s.fv.plato, s.fv.ph,
-    s.yeast.strain, s.yeast.lot, s.signoffs.aldc, s.signoffs.frigid_set,
+    s.yeast.strain, s.yeast.lot,
   ]
   // Dry hops and cellar additions go in days later, so they never count against
   // the brew day. Day 0 additions do: they go in before the day is done.

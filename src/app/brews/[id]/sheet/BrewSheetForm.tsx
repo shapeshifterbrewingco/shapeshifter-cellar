@@ -430,20 +430,6 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     )
   }
 
-  const signOff = ({ label, k }: { label: string; k: 'aldc' | 'frigid_set' }) => {
-    const by = data.signoffs[k]
-    return (
-      <button type="button" onClick={() => update({ ...data, signoffs: { ...data.signoffs, [k]: by ? '' : (me || 'Yes') } })} aria-pressed={!!by}
-        className={`w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left ${by ? 'bg-water/25 border-transparent' : 'bg-white border-gray-200'} ${unsure(`signoffs.${k}`) ? UNSURE : ''}`}>
-        <span className={`h-9 w-9 flex-shrink-0 rounded-lg border flex items-center justify-center ${by ? 'bg-hops border-hops text-white' : 'bg-white border-gray-300 text-transparent'}`}>
-          <Check className="h-5 w-5" />
-        </span>
-        <span className="flex-1 text-[15px] font-medium text-gray-900">{label}</span>
-        {by && <span className="text-sm text-gray-500">{by}</span>}
-      </button>
-    )
-  }
-
   // Something else went in instead: the line takes the new name and keeps a note of what it replaced
   function substitute(listKey: ListKey, index: number) {
     const line = data[listKey][index]
@@ -725,11 +711,6 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         {list({ title: "Additions", listKey: "dry_hops", whenLabel: "Day / °P", unit: "g", only: isDayZero, newWhen: "Day 0" })}
       </Section>
       </>}
-
-      <Section title="Sign off">
-        {!rtd && signOff({ label: "ALDC enzyme added", k: "aldc" })}
-        {signOff({ label: rtd ? "Tank temp set in Frigid" : "FV temp set in Frigid", k: "frigid_set" })}
-      </Section>
 
       <Section id="all-in-fv" title={rtd ? "All in tank" : "All in FV"} hint={rtd ? "Volume and temperature are all that is measured. No gravity or pH for a lemonade." : "Volume and gravity here set the tank card's volume and OG."}>
         <div className="grid grid-cols-2 gap-3">

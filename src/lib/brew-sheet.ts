@@ -17,7 +17,12 @@ export interface SheetLine {
   done: boolean
   /** Lot number, date added, anything scribbled beside the line */
   note: string
+  /** Supplier batch code off the bag, for the malts we trace (see needsBatchCode) */
+  batch?: string
 }
+
+/** Malts whose bag batch code gets written down: anything from Coopers, and Blue Lake Milling's oats, spelt and flaked rice. */
+export const needsBatchCode = (name: string) => /coopers|\bblm\b|blue lake|(rolled|flaked|quick)\s+oats|oat flakes|flaked rice|spelt/i.test(name)
 
 // A type alias, not an interface, so it can be passed where a plain string map is expected
 export type Runnings = { time: string; plato: string; ph: string }
@@ -92,7 +97,8 @@ function line(v: unknown): SheetLine | null {
   const o = v as Record<string, unknown>
   const name = text(o.name, 120)
   if (!name) return null
-  return { name, amount: text(o.amount, 20), unit: text(o.unit, 12), when: text(o.when, 40), done: o.done === true, note: text(o.note, 120) }
+  const batch = text(o.batch, 40)
+  return { name, amount: text(o.amount, 20), unit: text(o.unit, 12), when: text(o.when, 40), done: o.done === true, note: text(o.note, 120), ...(batch ? { batch } : {}) }
 }
 
 function group<T extends Record<string, string>>(shape: T, v: unknown): T {

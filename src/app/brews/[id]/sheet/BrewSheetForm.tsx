@@ -12,7 +12,7 @@ import { importSheetReadings, applySheetToRecipe, cancelBrewDay } from '@/app/br
 import Link from 'next/link'
 import { setTankTarget } from '@/app/tanks/actions'
 import { useRouter } from 'next/navigation'
-import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber } from '@/lib/brew-sheet'
+import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber, needsBatchCode } from '@/lib/brew-sheet'
 import { dilution, spiritDose } from '@/lib/utils'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
@@ -318,6 +318,15 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     confirm(`${key}.${i}`)
   }
 
+  // The first Coopers line is the base malt. Its code also fills the sheet's
+  // older single "base malt batch" slot, so sheets saved before this still show theirs.
+  const baseMaltIndex = data.malt.findIndex((l) => /coopers/i.test(l.name))
+  const isBaseMalt = (i: number) => i === baseMaltIndex
+  const setBatch = (i: number, value: string) => {
+    const malt = data.malt.map((l, j) => (j === i ? { ...l, batch: value.slice(0, 40) } : l))
+    update({ ...data, malt, ...(isBaseMalt(i) ? { base_malt_batch: value.slice(0, 40) } : {}) })
+  }
+
   const list = ({ title, listKey, whenLabel, unit, only, newWhen = '' }: {
     title: string; listKey: ListKey; whenLabel: string; unit: string
     /** Show just the lines that pass. Indexes still point into the whole list. */
@@ -365,6 +374,14 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
                 Substitute
               </button>
             </div>
+            {listKey === 'malt' && needsBatchCode(l.name) && (
+              <label className="flex items-center gap-2 pl-11 pr-1 mt-1 mb-0.5">
+                <span className="text-xs text-gray-500 whitespace-nowrap">Batch code</span>
+                <input type="text" autoComplete="off" autoCapitalize="characters" value={l.batch ?? (isBaseMalt(i) ? data.base_malt_batch : '')} placeholder="Off the bag" aria-label={`${l.name} batch code`}
+                  onChange={(e) => setBatch(i, e.target.value)}
+                  className="flex-1 min-w-0 h-9 rounded-lg bg-black/[0.04] px-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </label>
+            )}
             {l.note && <p className="pl-11 pr-1 pb-0.5 text-xs text-malt-dark break-words">{l.note}</p>}
           </li>
         ))}
@@ -723,7 +740,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       {!rtd && <>
       <Section title="Malt">
         {list({ title: "Grain bill", listKey: "malt", whenLabel: "Bags", unit: "kg" })}
-        {field({ label: "Base malt batch no.", path: "base_malt_batch", mode: "text" })}
+        {/* With a Coopers line on the bill the code is entered beside it */}
+        {baseMaltIndex < 0 && field({ label: "Base malt batch no.", path: "base_malt_batch", mode: "text" })}
       </Section>
 
       <Section title="Mash">

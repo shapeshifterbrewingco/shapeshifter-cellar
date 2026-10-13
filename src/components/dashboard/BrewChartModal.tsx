@@ -45,7 +45,7 @@ function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs space-y-0.5">
-      <p className="font-medium text-gray-600 mb-1">{label}</p>
+      <p className="font-medium text-gray-600 mb-1">{typeof label === 'number' ? format(new Date(label), 'd MMM HH:mm') : label}</p>
       {payload.map((p: { color: string; name: string; value: number | null }) =>
         p.value != null ? (
           <p key={p.name} style={{ color: p.color }}>
@@ -63,8 +63,13 @@ function mergeChartData(
 ): ChartPoint[] {
   const map = new Map<number, ChartPoint>()
 
+  // Tank temperatures arrive every ten minutes. Over weeks that is thousands of
+  // points for a line that barely moves, so a long history is thinned to one an hour.
+  const HOUR = 3_600_000
+  const thin = temps.length > 300
   for (const t of temps) {
-    const ts = new Date(t.recorded_at).getTime()
+    const at = new Date(t.recorded_at).getTime()
+    const ts = thin ? Math.floor(at / HOUR) * HOUR : at
     map.set(ts, {
       ts,
       label: format(parseISO(t.recorded_at), 'd MMM HH:mm'),
@@ -129,6 +134,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
   const tempMax = tempVals.length ? Math.ceil(Math.max(...tempVals)) + 2 : 30
 
   const hasTemp = tempVals.length > 0
+  const spanDays = chartData.length > 1 ? (chartData[chartData.length - 1].ts - chartData[0].ts) / 86_400_000 : 0
   const hasReadings = gravityReadings.length > 0 || stageEvents.length > 0
 
   return (
@@ -147,12 +153,19 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+          {/* A true time axis: a day is the same width wherever it falls. Spacing the points
+              evenly instead gave two days of ten-minute tank temperatures most of the chart
+              and squeezed five weeks of gravity readings into the left edge. */}
           <XAxis
-            dataKey="label"
+            dataKey="ts"
+            type="number"
+            scale="time"
+            domain={['dataMin', 'dataMax']}
+            tickCount={6}
+            tickFormatter={(t) => format(new Date(Number(t)), spanDays > 2 ? 'd MMM' : 'd MMM HH:mm')}
             tick={{ fontSize: 10, fill: 'var(--chart-muted)' }}
             tickLine={false}
             axisLine={false}
-            interval="preserveStartEnd"
           />
 
           {/* Left: Gravity °P */}
@@ -207,7 +220,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
             <ReferenceLine
               key={e.id}
               yAxisId="plato"
-              x={format(parseISO(e.recorded_at), 'd MMM HH:mm')}
+              x={new Date(e.recorded_at).getTime()}
               stroke="var(--chart-muted)"
               strokeDasharray="3 3"
               label={{ value: e.notes ?? '', fontSize: 8, fill: 'var(--chart-muted)', position: 'insideTopLeft', angle: -90 }}

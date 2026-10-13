@@ -639,10 +639,10 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       return <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border self-start ${VDK_STYLES[latest_vdk.result] ?? ''}`}>{VDK_LABELS[latest_vdk.result] ?? latest_vdk.result}</span>
                     })()}
                     {(showGravity || showPh) && (
-                      <div className="flex items-baseline gap-1.5 flex-wrap leading-tight">
-                        {showGravity && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.plato}°P</span>}
-                        {abv != null && <span className="text-sm font-bold text-hops tabular-nums">{abv.toFixed(1)}% ABV</span>}
-                        {showPh && <span className="text-sm font-bold text-gray-900 tabular-nums">{latest_gravity!.ph} pH</span>}
+                      <div className="flex flex-col gap-0.5 leading-tight">
+                        {showGravity && <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.plato}°P</span>}
+                        {showPh && <span className="text-sm font-bold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.ph} pH</span>}
+                        {abv != null && <span className="text-sm font-bold text-hops tabular-nums whitespace-nowrap">{abv.toFixed(1)}% ABV</span>}
                       </div>
                     )}
                     {packaging_split && (
@@ -1093,22 +1093,13 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
               })()}
 
               {/* Gravity / ABV / pH */}
+              {/* Always three lines, in the same order, so the eye finds each one in the same place */}
               {(showGravity || showPh) && (
-                stage === 'active_ferment' ? (
-                  <div className="flex flex-col gap-0.5 leading-tight">
-                    <div className="flex items-baseline gap-1.5">
-                      {showGravity && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.plato}°P</span>}
-                      {showPh && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.ph} pH</span>}
-                    </div>
-                    {abv != null && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{abv.toFixed(1)}% ABV</span>}
-                  </div>
-                ) : (
-                  <div className="flex items-baseline gap-1.5 flex-wrap leading-tight">
-                    {showGravity && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.plato}°P</span>}
-                    {abv != null && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{abv.toFixed(1)}% ABV</span>}
-                    {showPh && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.ph} pH</span>}
-                  </div>
-                )
+                <div className="flex flex-col gap-0.5 leading-tight">
+                  {showGravity && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.plato}°P</span>}
+                  {showPh && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{latest_gravity!.ph} pH</span>}
+                  {abv != null && <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{abv.toFixed(1)}% ABV</span>}
+                </div>
               )}
 
               {/* Packaging split button */}

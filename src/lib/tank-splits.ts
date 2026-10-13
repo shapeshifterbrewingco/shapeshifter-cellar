@@ -104,10 +104,14 @@ async function typicalYields() {
   return yields
 }
 
-function fitFor(volume: number, plannedL: number, inBrite: boolean, yieldShare: number): SplitFit | null {
+function fitFor(volume: number, plannedL: number, inBrite: boolean, yieldShare: number, brewDayVolume: number | null): SplitFit | null {
   if (!(volume > 0) || !(plannedL > 0)) return null
-  const share = inBrite ? BRITE_YIELD : yieldShare
-  const packable = volume * share
+  // Past yields are measured from the brew day volume. If bottoms have already
+  // come off, that loss is behind us: work from the brew day figure, not the
+  // lower one, or it would be taken off twice.
+  const fromBrewDay = !inBrite && brewDayVolume != null && brewDayVolume > volume
+  const packable = inBrite ? volume * BRITE_YIELD : Math.min(volume * BRITE_YIELD, (fromBrewDay ? brewDayVolume : volume) * yieldShare)
+  const share = packable / volume
   const diff = packable - plannedL
   // A fermenter estimate is rough, so it has to be well out before it is worth saying.
   // "Spare" starts at a keg's worth: less than that is not a decision anyone can make.
@@ -143,14 +147,18 @@ export async function splitsByTank(tanks: Pick<TankDashboardData, 'tank' | 'brew
 
   // A recent row on the sheet may already have been packed. If a batch of that
   // beer was packaged within a few days of the row's date, the row is spent.
-  const [{ data: recent }, { data: moved }, typical] = await Promise.all([
+  const [{ data: recent }, { data: moved }, typical, { data: daySheets }] = await Promise.all([
     db.from('packaging_runs').select('packaged_at, brews(beer_name)')
       .gte('packaged_at', new Date(+from - 7 * 86_400_000).toISOString()),
     live.length
       ? db.from('transfers').select('brew_id').in('brew_id', live.map((t) => t.brew!.id))
       : Promise.resolve({ data: [] as { brew_id: string }[] }),
     typicalYields(),
+    live.length
+      ? db.from('brew_sheets').select('brew_id, fv:data->fv->>volume_l').in('brew_id', live.map((t) => t.brew!.id))
+      : Promise.resolve({ data: [] as { brew_id: string; fv: string | null }[] }),
   ])
+  const brewDay = new Map((daySheets ?? []).map((d) => [d.brew_id as string, parseFloat((d as { fv: string | null }).fv ?? '') || null]))
   for (const run of (recent ?? []) as { packaged_at: string; brews: { beer_name: string } | { beer_name: string }[] | null }[]) {
     const name = (Array.isArray(run.brews) ? run.brews[0] : run.brews)?.beer_name
     if (!name) continue
@@ -175,7 +183,7 @@ export async function splitsByTank(tanks: Pick<TankDashboardData, 'tank' | 'brew
       qty: { c24: hit.qty['24PK'] ?? 0, c16: hit.qty['16PK'] ?? 0, keg50: hit.qty['50L'] ?? 0, keg30: hit.qty['30L'] ?? 0, keg20: hit.qty['20L'] ?? 0 },
       plannedL: Math.round(plannedL * 10) / 10,
       proposed: /\(proposed\)/i.test(hit.beer),
-      fit: fitFor(Number(t.brew!.volume_l), plannedL, transferred.has(t.brew!.id), typical.by.get(brand) ?? typical.all),
+      fit: fitFor(Number(t.brew!.volume_l), plannedL, transferred.has(t.brew!.id), typical.by.get(brand) ?? typical.all, brewDay.get(t.brew!.id) ?? null),
     })
   }
   return out

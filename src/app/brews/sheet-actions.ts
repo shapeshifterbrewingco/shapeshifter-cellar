@@ -330,7 +330,7 @@ export async function recordAddition(input: { brew_id: string; index: number; na
       recorded_by: user.email ?? user.id, notes: `Added ${what}`,
     })
     if (noteError) console.error('[recordAddition] log note failed:', noteError.message)
-    logActivity(`${who(user.email)} added ${esc(what)} to *${esc(brew.beer_name)}*.`)
+    // No Slack message for additions: they are routine, and the log and the sheet already hold them
   }
   revalidatePath('/')
   return { ok: true }

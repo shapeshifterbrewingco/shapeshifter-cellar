@@ -412,7 +412,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         {result ? (
           <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">
             <p className="text-xs text-gray-500">Add</p>
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{Math.round(result.waterL)} L of water</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{Math.round(result.waterL)} L of cold liquor</p>
             <p className="text-sm text-gray-600 tabular-nums">for {Math.round(result.finalL).toLocaleString('en-AU')} L at {t}°P</p>
             <button type="button"
               onClick={() => { update(setPath(data, 'kettle.dilution_l', String(Math.round(result.waterL)))); toast.success(`${Math.round(result.waterL)} L put in the Dilution box. Measure volume and gravity again after adding it.`) }}
@@ -422,7 +422,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           </div>
         ) : (
           <p className="text-xs text-gray-500">
-            {tooHigh ? 'The gravity wanted has to be lower than the gravity now. Water only brings it down.' : 'Enter the gravity you want and it works out the water to add.'}
+            {tooHigh ? 'The gravity wanted has to be lower than the gravity now. Cold liquor only brings it down.' : 'Enter the gravity you want and it works out the cold liquor to add.'}
           </p>
         )}
         <p className="text-[11px] text-gray-400">This is a working-out tool. Nothing here is saved unless you tap the button, and All in FV still needs the measured numbers.</p>

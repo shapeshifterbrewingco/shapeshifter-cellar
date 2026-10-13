@@ -19,7 +19,8 @@ import { formatUserName } from '@/lib/utils'
 
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
 
-const plural = (n: number, word: string) => `${n.toLocaleString('en-AU')} ${word}${n === 1 ? '' : 's'}`
+// One decimal at most: part cartons are real, 1107.4500000000003 is not
+const plural = (n: number, word: string) => { const r = Math.round(n * 10) / 10; return `${r.toLocaleString('en-AU')} ${word}${r === 1 ? '' : 's'}` }
 
 /** "86 cartons · 12 kegs", or null when nothing was packed. */
 function packedSummary(p: PackCounts): string | null {

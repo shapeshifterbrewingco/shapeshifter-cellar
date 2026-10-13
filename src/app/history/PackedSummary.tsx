@@ -35,12 +35,15 @@ export function PackedSummary({ runs, period, onPeriod: setPeriod }: { runs: Pac
     return { label, totals: t }
   }, [runs, period])
 
+  // Part cartons and part kegs are recorded (93.75 cartons), and adding decimals
+  // drifts (4646.620000000001), so every count is rounded to one place for display
+  const n = (x: number) => (Math.round(x * 10) / 10).toLocaleString('en-AU')
   const kegs = totals.keg20 + totals.keg30 + totals.keg50
   const cartons = totals.c24 + totals.c16
   const tiles: { label: string; value: string; sub: string }[] = [
     { label: 'Volume packed', value: `${Math.round(totals.litres).toLocaleString('en-AU')} L`, sub: `${totals.runs} packaging run${totals.runs === 1 ? '' : 's'}` },
-    { label: 'Cartons', value: cartons.toLocaleString('en-AU'), sub: [totals.c24 > 0 && `${totals.c24} × 24 pack`, totals.c16 > 0 && `${totals.c16} × 16 pack`].filter(Boolean).join(' · ') || 'None' },
-    { label: 'Kegs', value: kegs.toLocaleString('en-AU'), sub: [totals.keg50 > 0 && `${totals.keg50} × 50 L`, totals.keg30 > 0 && `${totals.keg30} × 30 L`, totals.keg20 > 0 && `${totals.keg20} × 20 L`].filter(Boolean).join(' · ') || 'None' },
+    { label: 'Cartons', value: n(cartons), sub: [totals.c24 > 0 && `${n(totals.c24)} × 24 pack`, totals.c16 > 0 && `${n(totals.c16)} × 16 pack`].filter(Boolean).join(' · ') || 'None' },
+    { label: 'Kegs', value: n(kegs), sub: [totals.keg50 > 0 && `${n(totals.keg50)} × 50 L`, totals.keg30 > 0 && `${n(totals.keg30)} × 30 L`, totals.keg20 > 0 && `${n(totals.keg20)} × 20 L`].filter(Boolean).join(' · ') || 'None' },
   ]
 
   return (

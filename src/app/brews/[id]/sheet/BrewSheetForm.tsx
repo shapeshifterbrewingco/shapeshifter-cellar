@@ -384,6 +384,10 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     const v = sheetNumber(volume), t = sheetNumber(spirit.target), st = sheetNumber(spirit.strength)
     const result = v != null && t != null && st != null ? spiritDose(v, t, st) : null
     const litres = result ? Math.round(result.spiritL * 10) / 10 : 0
+    // Spirit comes in 4 L jugs, so that is how it is measured out
+    const jugs = (litres / 4).toFixed(1)
+    const fullJugs = Math.floor(litres / 4)
+    const partL = Math.round((litres - fullJugs * 4) * 10) / 10
     const lineIndex = data.dry_hops.findIndex((l) => /spirit|ethanol/i.test(l.name))
     const box = (label: string, value: string, key: 'volume' | 'target' | 'strength', placeholder: string) => (
       <label className="block min-w-0">
@@ -403,21 +407,22 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         {result ? (
           <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">
             <p className="text-xs text-gray-500">Add</p>
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{litres} L of spirit</p>
-            <p className="text-sm text-gray-600 tabular-nums">
-              {(litres / 4).toFixed(1)} x 4 L jugs · new volume {Math.round(result.finalL).toLocaleString('en-AU')} L at {t}%
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{jugs} jugs</p>
+            <p className="text-sm font-medium text-gray-900 tabular-nums">
+              {fullJugs} full 4 L jug{fullJugs === 1 ? '' : 's'}{partL > 0 ? ` + ${partL} L` : ''} · {litres} L of spirit
             </p>
+            <p className="text-sm text-gray-600 tabular-nums">New volume {Math.round(result.finalL).toLocaleString('en-AU')} L at {t}%</p>
             <button type="button"
               onClick={() => {
-                const line = { amount: String(litres), unit: 'L', note: `${(litres / 4).toFixed(1)} x 4 L jugs. ${v} L in tank to ${t}% with ${st}% spirit. New volume ${Math.round(result.finalL)} L` }
+                const line = { amount: String(litres), unit: 'L', note: `${jugs} jugs (${fullJugs} full 4 L${partL > 0 ? ` + ${partL} L` : ''}). ${v} L in tank to ${t}% with ${st}% spirit. New volume ${Math.round(result.finalL)} L` }
                 const list = lineIndex >= 0
                   ? data.dry_hops.map((l, i) => (i === lineIndex ? { ...l, ...line } : l))
                   : [...data.dry_hops, { name: 'Tarac Grape Spirit', when: 'Brite tank', done: false, ...line }]
                 update({ ...data, dry_hops: list })
-                toast.success(`${litres} L put on the grape spirit line.`)
+                toast.success(`${jugs} jugs (${litres} L) put on the grape spirit line.`)
               }}
               className="mt-2 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
-              Put {litres} L on the grape spirit line
+              Put {jugs} jugs on the grape spirit line
             </button>
           </div>
         ) : (

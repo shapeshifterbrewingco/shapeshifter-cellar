@@ -4,7 +4,7 @@ import { breweryInstant, breweryYearMonth } from '@/lib/dates'
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-export type ReportPeriod = 'this_month' | 'last_month' | 'ytd_calendar' | 'ytd_financial'
+export type ReportPeriod = 'this_month' | 'last_month' | 'ytd_calendar' | 'ytd_financial' | 'all_time'
 
 export interface PeriodRange {
   label: string
@@ -20,6 +20,9 @@ export function getPeriodRange(period: ReportPeriod, now = new Date()): PeriodRa
   const monthLabel = (yy: number, mm: number) => `${MONTH_NAMES[mm]} ${yy}`
 
   switch (period) {
+    case 'all_time':
+      // Everything on file. The label is written to follow "packed in"
+      return { label: 'every month on file', start: new Date(0), end: new Date(now) }
     case 'this_month':
       return { label: monthLabel(y, m), start: breweryInstant(y, m, 1), end: new Date(now) }
     case 'last_month': {

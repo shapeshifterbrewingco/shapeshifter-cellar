@@ -10,6 +10,7 @@ const PERIODS: { id: ReportPeriod; label: string }[] = [
   { id: 'last_month',    label: 'Last month' },
   { id: 'ytd_calendar',  label: 'Calendar year' },
   { id: 'ytd_financial', label: 'Financial year' },
+  { id: 'all_time',      label: 'All time' },
 ]
 
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
@@ -47,7 +48,7 @@ export function PackedSummary({ runs, period, onPeriod: setPeriod }: { runs: Pac
       <div className="grid grid-cols-2 gap-1.5 mb-2 sm:flex sm:flex-wrap">
         {PERIODS.map((p) => (
           <button key={p.id} type="button" onClick={() => setPeriod(p.id)} aria-pressed={period === p.id}
-            className={`whitespace-nowrap rounded-full px-3.5 py-2 text-center text-sm font-medium transition-colors ${period === p.id ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-black/5'}`}>
+            className={`whitespace-nowrap rounded-full px-3.5 py-2 text-center text-sm font-medium transition-colors last:col-span-2 ${period === p.id ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-black/5'}`}>
             {p.label}
           </button>
         ))}

@@ -44,8 +44,12 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
   // The last time this beer was brewed, to compare against through the day
   let previous: { id: string; brew_day: string; batch_code: string | null; data: ReturnType<typeof sanitiseSheet> } | null = null
   {
+    // Same recipe or same name: a batch loaded from a paper sheet may carry only the name
     const earlier = supabase.from('brews').select('id, brew_day, batch_code').neq('id', brew.id).lte('brew_day', brew.brew_day).order('brew_day', { ascending: false }).limit(12)
-    const { data: candidates } = await (brew.recipe_id ? earlier.eq('recipe_id', brew.recipe_id) : earlier.ilike('beer_name', brew.beer_name))
+    const name = brew.beer_name.replace(/[,()]/g, ' ').trim()
+    const { data: candidates } = await (brew.recipe_id
+      ? earlier.or(`recipe_id.eq.${brew.recipe_id},beer_name.ilike.${name}`)
+      : earlier.ilike('beer_name', name))
     const ids = (candidates ?? []).map((c) => c.id)
     const { data: sheets } = ids.length ? await supabase.from('brew_sheets').select('brew_id, data').in('brew_id', ids) : { data: [] }
     const hit = (candidates ?? []).find((c) => (sheets ?? []).some((sh) => sh.brew_id === c.id))

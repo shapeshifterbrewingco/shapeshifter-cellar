@@ -59,9 +59,9 @@
     },
     "FV10": {
       "type": "brite",
-      "large": false,
+      "large": true,
       "racking_arm": true,
-      "note": "Dedicated brite. Also takes quick lemonade turnarounds (~1 week, unfermented). Not a general fermenter."
+      "note": "Large, with a racking arm. Dedicated brite. Also takes quick lemonade turnarounds (~1 week, unfermented). Not a general fermenter."
     },
     "FV11": {
       "type": "fermenter",

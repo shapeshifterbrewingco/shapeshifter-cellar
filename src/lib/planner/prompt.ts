@@ -53,8 +53,8 @@ Do not invent a turnaround you have not been given.
 |---|---|---|---|
 | FV1, FV2, FV3 | standard | yes | general fermenters |
 | FV4, FV5, FV8, FV9 | large | yes | general, plus beers that need volume |
-| FV6, FV7 | standard | **no** | lager or dark, very low hop only. **Never a dry-hopped beer.** |
-| FV10 | standard | yes | **dedicated brite**, plus quick lemonade turnarounds |
+| FV6, FV7 | small | **no** | lager or dark, very low hop only. **Never a dry-hopped beer.** |
+| FV10 | **large** | yes | **dedicated brite**, plus quick lemonade turnarounds. Not like FV6/FV7: bigger, and it has a racking arm |
 | FV11 | large | yes | swing tank, doubles as an extra brite for high-volume beers |
 | BBTA, BBTB | - | - | bright tanks |
 

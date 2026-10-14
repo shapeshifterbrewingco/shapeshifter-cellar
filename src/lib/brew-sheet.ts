@@ -178,6 +178,8 @@ interface RecipeLine {
   trigger: string | null
 }
 
+const SPIRIT = /spirit|ethanol/i
+
 /** A fresh sheet for a brew, with the recipe's lines laid out ready to tick off. */
 export function sheetFromRecipe(lines: RecipeLine[]): BrewSheetData {
   const sheet = emptySheet()
@@ -191,6 +193,8 @@ export function sheetFromRecipe(lines: RecipeLine[]): BrewSheetData {
       done: false,
       note: '',
     }
+    // The spirit dose is worked out from what lands in the tank, so it never carries a figure over from the recipe
+    if (SPIRIT.test(l.name)) { entry.amount = ''; entry.unit = 'L' }
     switch (l.addition_stage) {
       case 'malt': sheet.malt.push(entry); break
       case 'mash_addition': case 'mash_hop': sheet.mash_additions.push(entry); break
@@ -267,7 +271,7 @@ export function recipeChanges(recipe: BrewSheetData, sheet: BrewSheetData): stri
       const swapped = /^Substituted for (.+)$/.exec(l.note)?.[1]
       if (!before) out.push(swapped ? `${l.name} in place of ${swapped}` : `Added ${l.name} (${amount(l)}) as a ${LIST_WORDS[key]}`)
       else {
-        if (!sameAmount(before.amount, l.amount)) out.push(`${l.name}: ${amount(before)} is now ${amount(l)}`)
+        if (!sameAmount(before.amount, l.amount) && !SPIRIT.test(l.name)) out.push(`${l.name}: ${amount(before)} is now ${amount(l)}`)
         if (before.when.trim() !== l.when.trim() && key !== 'malt') out.push(`${l.name}: timing "${before.when || 'none'}" is now "${l.when || 'none'}"`)
       }
     }

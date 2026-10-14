@@ -611,6 +611,21 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     })
   }
 
+  // Lemonade: the grape spirit line follows the calculator until it is ticked off,
+  // so the dose on the sheet is always the one for this batch's volume
+  const spiritBase = spirit.volume || data.fv.volume_l
+  useEffect(() => {
+    if (!rtd || done) return
+    const v = sheetNumber(spiritBase), t = sheetNumber(spirit.target), st = sheetNumber(spirit.strength)
+    const dose = v != null && t != null && st != null ? spiritDose(v, t, st) : null
+    if (!dose) return
+    const litres = String(Math.round(dose.spiritL * 10) / 10)
+    const now = latest.current.data
+    const i = now.dry_hops.findIndex((l) => /spirit|ethanol/i.test(l.name))
+    if (i < 0 || now.dry_hops[i].done || (now.dry_hops[i].amount === litres && now.dry_hops[i].unit === 'L')) return
+    update({ ...now, dry_hops: now.dry_hops.map((l, n) => (n === i ? { ...l, amount: litres, unit: 'L' } : l)) })
+  }, [rtd, done, spiritBase, spirit.target, spirit.strength, update])
+
   const progress = sheetProgress(data, rtd)
   // What the tank card will show for a lemonade: what was knocked out plus the spirit
   const spiritL = rtd ? spiritLitres(data.dry_hops) : 0

@@ -88,6 +88,8 @@ export interface BrewHistoryItem {
   /** What the batch was brewed to: its own target, or the linked recipe's */
   target_abv: number | null
   target_og_plato: number | null
+  /** An old paper sheet with no packaging report: brewed, but what it packed was never written down */
+  packaging_unrecorded: boolean
   stage: string
   notes: string | null
   reading_count: number
@@ -156,12 +158,12 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
   const brews = await all<{
     id: string; batch_code: string | null; beer_name: string; style: string | null; brew_day: string; deleted_at: string
     volume_l: number; og_plato: number | null; stage: string; notes: string | null; recipe_id: string | null
-    target_abv: number | null; target_og_plato: number | null
+    target_abv: number | null; target_og_plato: number | null; packaging_unrecorded: boolean | null
     tanks: { name: string } | { name: string }[] | null
   }>((from, to) =>
     supabase
       .from('brews')
-      .select('id, batch_code, beer_name, style, brew_day, deleted_at, volume_l, og_plato, stage, notes, recipe_id, target_abv, target_og_plato, tanks(name)')
+      .select('id, batch_code, beer_name, style, brew_day, deleted_at, volume_l, og_plato, stage, notes, recipe_id, target_abv, target_og_plato, packaging_unrecorded, tanks(name)')
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false })
       .range(from, to),
@@ -260,6 +262,7 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       abv: og != null && finalPlato != null ? calcAbv(og, finalPlato) : null,
       target_abv: num(b.target_abv) ?? num(b.recipe_id ? recipeBy.get(b.recipe_id)?.target_abv : null),
       target_og_plato: num(b.target_og_plato) ?? num(b.recipe_id ? recipeBy.get(b.recipe_id)?.target_og_plato : null),
+      packaging_unrecorded: b.packaging_unrecorded === true,
       stage: b.stage,
       notes: b.notes,
       reading_count: f?.reading_count ?? 0,

@@ -137,8 +137,9 @@ export function HistoryList({ items, top }: {
     const leftAt = item.packed_at ?? item.completed_at
     const summary = packedSummary(item.packed)
     // Fermenter time runs to the transfer if there was one, otherwise to the day it left
-    const fvDays = differenceInDays(parseISO(item.transferred_at ?? leftAt), parseISO(item.brew_day))
-    const briteDays = item.transferred_at ? Math.max(0, differenceInDays(parseISO(leftAt), parseISO(item.transferred_at))) : null
+    // With no packaging on record there is no day it left, so no time in tank to show
+    const fvDays = item.packaging_unrecorded ? null : differenceInDays(parseISO(item.transferred_at ?? leftAt), parseISO(item.brew_day))
+    const briteDays = item.packaging_unrecorded ? null : item.transferred_at ? Math.max(0, differenceInDays(parseISO(leftAt), parseISO(item.transferred_at))) : null
     // The beer limits do not apply to a hard lemonade: show its readings, flag nothing
     const lemonade = isRtd(item.beer_name, item.style)
     const briteDo = lemonade ? null : doWorst(item.report?.bbt_do_ppb, item.report?.bbt_do_ppb_high)
@@ -160,12 +161,12 @@ export function HistoryList({ items, top }: {
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-gray-500 tabular-nums">
-                {day(leftAt)}{item.batch_code ? <span className="text-gray-400"> · {item.batch_code}</span> : ''}
+                {item.packaging_unrecorded ? `Brewed ${day(item.brew_day)}` : day(leftAt)}{item.batch_code ? <span className="text-gray-400"> · {item.batch_code}</span> : ''}
               </p>
               <p className="mt-0.5 text-[17px] font-semibold leading-snug text-gray-900 break-words">{item.beer_name}</p>
               {item.style && <p className="text-[13px] text-gray-500">{item.style}</p>}
               <p className={`mt-1.5 text-sm tabular-nums ${summary ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
-                {summary ?? (item.stage === 'packaged' ? 'No packaging runs logged' : 'Emptied, not packaged')}
+                {summary ?? (item.packaging_unrecorded ? 'Packaging not recorded' : item.stage === 'packaged' ? 'No packaging runs logged' : 'Emptied, not packaged')}
               </p>
               {why && <p className="mt-1.5 text-xs"><span className="rounded-md bg-yeast/40 px-1.5 py-0.5 font-medium text-charcoal">{why}</span></p>}
             </div>

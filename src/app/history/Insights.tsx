@@ -75,12 +75,24 @@ export function Insights({ items, range }: { items: BrewHistoryItem[]; range: Pe
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>('yield')
 
-  const rows = useMemo<Row[]>(() => items.filter((i) => {
-    if (!(i.packed_l > 0) || !i.packed_at) return false
-    const at = new Date(i.packed_at).getTime()
-    return at >= range.start.getTime() && at <= range.end.getTime()
-  }).map((item) => {
-    const y = item.fv_volume_l > 0 ? (item.packed_l / item.fv_volume_l) * 100 : null
+  const rows = useMemo<Row[]>(() => {
+    const inRange = items.filter((i) => {
+      if (!(i.packed_l > 0) || !i.packed_at) return false
+      const at = new Date(i.packed_at).getTime()
+      return at >= range.start.getTime() && at <= range.end.getTime()
+    })
+    // Two tanks of the same beer packed on the same day run through the line as one
+    // lot, and the paper report puts the cartons on whichever sheet was to hand. The
+    // split between them is not real, so their yield is worked out together.
+    const lot = (i: BrewHistoryItem) => `${i.beer_name}|${breweryToday(new Date(i.packed_at!))}`
+    const pooled = new Map<string, { packed: number; fv: number }>()
+    for (const i of inRange) {
+      const t = pooled.get(lot(i)) ?? { packed: 0, fv: 0 }
+      pooled.set(lot(i), { packed: t.packed + i.packed_l, fv: t.fv + (i.fv_volume_l > 0 ? i.fv_volume_l : NaN) })
+    }
+    return inRange.map((item) => {
+    const both = pooled.get(lot(item))!
+    const y = both.fv > 0 ? (both.packed / both.fv) * 100 : null
     return {
       item,
       // Blends and barrel pulls pack far more or far less than went into the tank; they are not a yield
@@ -95,7 +107,8 @@ export function Insights({ items, range }: { items: BrewHistoryItem[]; range: Pe
       abvGap: item.abv != null && item.target_abv != null && item.abv > 0 ? item.abv - item.target_abv : null,
       ogGap: item.og_plato != null && item.target_og_plato != null ? item.og_plato - item.target_og_plato : null,
     }
-  }), [items, range])
+    })
+  }, [items, range])
 
   // Averages off one or two batches would read as facts they are not
   const enough = rows.length >= 3

@@ -206,10 +206,19 @@ export function sheetFromRecipe(lines: RecipeLine[]): BrewSheetData {
   return sheet
 }
 
+/** Litres of spirit on a lemonade's sheet. It goes into the tank, so it is part of the volume. */
+export function spiritLitres(lines: { name?: string; amount?: string; unit?: string }[] | null | undefined): number {
+  return (lines ?? []).reduce((sum, l) => {
+    if (!/spirit|ethanol/i.test(l.name ?? '') || (l.unit ?? '').trim().toLowerCase() !== 'l') return sum
+    const n = sheetNumber(l.amount)
+    return n != null && n > 0 && n < 2000 ? sum + n : sum
+  }, 0)
+}
+
 /** How much of the sheet has something in it, for a progress hint. */
 export function sheetProgress(s: BrewSheetData, rtd = false): { filled: number; total: number } {
   // A hard lemonade has no mash, runnings, gravity or yeast to record
-  const scalars = rtd ? [s.kettle.volume_l, s.fv.volume_l, s.fv.temp_c] : [
+  const scalars = rtd ? [s.kettle.volume_l, s.fv.volume_l] : [
     s.mash.actual_temp_c, s.mash.ph, s.runnings.first.plato, s.runnings.last.plato,
     s.kettle.volume_l, s.kettle.post_boil_plato, s.fv.volume_l, s.fv.plato, s.fv.ph,
     s.yeast.strain, s.yeast.lot,

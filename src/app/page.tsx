@@ -126,7 +126,7 @@ export default async function DashboardPage() {
         filled: progress.filled,
         total: progress.total,
         missing: (rtd
-          ? [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.temp_c.trim() && 'temperature']
+          ? [!sheet.fv.volume_l.trim() && 'volume']
           : [!sheet.fv.volume_l.trim() && 'volume', !sheet.fv.plato.trim() && 'gravity', !sheet.fv.ph.trim() && 'pH']
         ).filter((x): x is string => !!x),
         next: brewDayLines(sheet).filter(({ line }) => !line.done).slice(0, 3)

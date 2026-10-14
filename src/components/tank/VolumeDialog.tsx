@@ -14,13 +14,15 @@ const digits = (s: string) => s.replace(/[^0-9.]/g, '')
  * was taken and the new volume is worked out. Typing the volume itself is
  * still there for a correction.
  */
-export function VolumeDialog({ name, current, onSave, onClose }: {
+export function VolumeDialog({ name, current, simple = false, onSave, onClose }: {
   name: string
+  /** Just a box for the new volume: no deduction, buckets or note */
+  simple?: boolean
   current: number
   onSave: (volume: number, note: string) => void
   onClose: () => void
 }) {
-  const [mode, setMode] = useState<'taken' | 'direct'>('taken')
+  const [mode, setMode] = useState<'taken' | 'direct'>(simple ? 'direct' : 'taken')
   const [taken, setTaken] = useState('')
   const [direct, setDirect] = useState(String(current))
   const [note, setNote] = useState('')
@@ -38,7 +40,7 @@ export function VolumeDialog({ name, current, onSave, onClose }: {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-label="Change volume" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Volume in tank</h2>
+          <h2 className="text-base font-semibold text-gray-900">{simple ? 'Edit volume' : 'Volume in tank'}</h2>
           <p className="text-sm text-gray-500">{name} · {litres(current)} now</p>
         </div>
 
@@ -66,15 +68,16 @@ export function VolumeDialog({ name, current, onSave, onClose }: {
           </>
         ) : (
           <label className="block">
-            <span className="block text-xs text-gray-500 mb-1.5">What is in the tank</span>
+            <span className="block text-xs text-gray-500 mb-1.5">{simple ? 'New volume' : 'What is in the tank'}</span>
             <div className="flex items-center gap-2">
-              <input type="text" inputMode="decimal" autoComplete="off" autoFocus value={direct}
+              <input type="text" inputMode="decimal" autoComplete="off" autoFocus value={direct} onFocus={(e) => e.target.select()}
                 onChange={(e) => setDirect(digits(e.target.value))} className={INPUT} />
               <span className="text-base text-gray-500 font-medium flex-shrink-0">L</span>
             </div>
           </label>
         )}
 
+        {!simple && <>
         <div className="rounded-xl bg-water/25 px-3 py-2.5">
           <p className="text-xs text-gray-600">New volume</p>
           <p className="text-2xl font-bold tabular-nums text-gray-900">{tooMuch || !Number.isFinite(next) ? '-' : litres(next)}</p>
@@ -98,6 +101,7 @@ export function VolumeDialog({ name, current, onSave, onClose }: {
         <button type="button" onClick={() => setMode(mode === 'taken' ? 'direct' : 'taken')} className="text-sm font-medium text-primary">
           {mode === 'taken' ? 'Type the volume instead' : 'Type what was taken off instead'}
         </button>
+        </>}
 
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 h-11 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl active:bg-gray-50">Cancel</button>

@@ -10,9 +10,9 @@ import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { importSheetReadings, applySheetToRecipe, cancelBrewDay } from '@/app/brews/sheet-actions'
 import Link from 'next/link'
-import { setTankTarget } from '@/app/tanks/actions'
+import { readTankTemps, setTankTarget } from '@/app/tanks/actions'
 import { useRouter } from 'next/navigation'
-import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber, needsBatchCode } from '@/lib/brew-sheet'
+import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber, needsBatchCode, spiritLitres } from '@/lib/brew-sheet'
 import { dilution, spiritDose } from '@/lib/utils'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
 
@@ -519,14 +519,24 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   // The one deliberate step of the day: the All in FV figures go onto the tank
   // Step one: check the numbers are there, then ask what the tank should be set to
   function askToFinish() {
-    const { volume_l, plato, ph, temp_c } = latest.current.data.fv
+    const { volume_l, plato, ph } = latest.current.data.fv
     const missing = (rtd
-      ? [!volume_l.trim() && 'volume', !temp_c.trim() && 'temperature']
+      ? [!volume_l.trim() && 'volume']
       : [!volume_l.trim() && 'volume', !plato.trim() && 'gravity', !ph.trim() && 'pH']).filter(Boolean)
     if (missing.length) { toast.error(`Enter ${missing.join(', ')} first.`); return }
     // A lemonade goes straight on chill, so that is the temperature to offer
     setSetTemp(latest.current.data.yeast.set_temp_c.trim() || (rtd ? '-0.5' : ''))
     setConfirming(true)
+    // The tank temperature is whatever the probe says right now, so nobody types it.
+    // On a beer it only fills the box if the brewer left it empty.
+    if (rtd || !latest.current.data.fv.temp_c.trim()) {
+      readTankTemps([brew.tank_id]).then((temps) => {
+        const t = temps[brew.tank_id]
+        if (t == null) return
+        const now = latest.current.data
+        update({ ...now, fv: { ...now.fv, temp_c: String(t) } })
+      }).catch(() => undefined)
+    }
   }
 
   // Step two, the one deliberate act of the day: the All in FV figures go onto
@@ -602,6 +612,9 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   }
 
   const progress = sheetProgress(data, rtd)
+  // What the tank card will show for a lemonade: what was knocked out plus the spirit
+  const spiritL = rtd ? spiritLitres(data.dry_hops) : 0
+  const tankTotal = Math.round(((sheetNumber(data.fv.volume_l) ?? 0) + spiritL) * 10) / 10
   // What differs from the recipe, worked out only while the finish box is up
   const changes = confirming && baseline ? recipeChanges(baseline, data) : []
   const statusText = { idle: 'Nothing entered yet', unsaved: 'Saving…', saving: 'Saving…', saved: 'All saved', error: 'Not saved - will retry on your next change' }[status]
@@ -615,7 +628,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
             <p className="text-sm text-gray-500">{brew.beer_name} in {brew.tank_name}</p>
             <dl className={`grid gap-2 mt-4 ${rtd ? 'grid-cols-2' : 'grid-cols-3'}`}>
               {((rtd
-                ? [['Volume', `${data.fv.volume_l} L`], ['Temp', `${data.fv.temp_c}°C`]]
+                ? [['Volume', `${tankTotal} L`], ['Tank probe', data.fv.temp_c.trim() ? `${data.fv.temp_c}°C` : 'Reading…']]
                 : [['Volume', `${data.fv.volume_l} L`], ['Gravity', `${data.fv.plato}°P`], ['pH', data.fv.ph]]) as [string, string][]).map(([label, value]) => (
                 <div key={label} className="rounded-xl bg-background px-3 py-2">
                   <dt className="text-[11px] text-gray-400">{label}</dt>
@@ -625,8 +638,13 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
             </dl>
             <label className="block mt-4">
               <span className="block text-sm font-medium text-gray-900 mb-1">Set {brew.tank_name} to (°C)</span>
-              <input type="text" inputMode="decimal" value={setTemp} onChange={(e) => setSetTemp(e.target.value.replace(/[^0-9.\-]/g, ''))} placeholder="e.g. 19"
-                className="w-full h-14 rounded-xl border border-gray-200 bg-white px-3 text-center text-xl font-semibold tabular-nums text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <span className="flex gap-2">
+                {/* The iPhone number pad has no minus key */}
+                <button type="button" aria-label="Switch between plus and minus" onClick={() => setSetTemp(setTemp.startsWith('-') ? setTemp.slice(1) : `-${setTemp}`)}
+                  className="h-14 w-14 flex-shrink-0 rounded-xl bg-black/[0.04] text-xl font-semibold text-gray-900 active:bg-black/10">+/-</button>
+                <input type="text" inputMode="decimal" value={setTemp} onChange={(e) => setSetTemp(e.target.value.replace(/[^0-9.\-]/g, ''))} placeholder="e.g. 19"
+                  className="min-w-0 flex-1 h-14 rounded-xl border border-gray-200 bg-white px-3 text-center text-xl font-semibold tabular-nums text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </span>
               <span className="block text-xs text-gray-400 mt-1">{rtd ? 'It goes straight on chill. ' : ''}This is sent to Frigid when you finish.</span>
             </label>
             {changes.length > 0 && (
@@ -800,12 +818,12 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       </Section>
       </>}
 
-      <Section id="all-in-fv" title={rtd ? "All in tank" : "All in FV"} hint={rtd ? "Knock out to the tank, enter the volume, then dose the spirit from the calculator. No gravity or pH for a lemonade." : "Volume and gravity here set the tank card's volume and OG."}>
+      <Section id="all-in-fv" title={rtd ? "All in tank" : "All in FV"} hint={rtd ? "Knock out to the tank, enter the volume, then dose the spirit from the calculator. The spirit is added to the tank volume for you." : "Volume and gravity here set the tank card's volume and OG."}>
         <div className="grid grid-cols-2 gap-3">
-          {field({ label: "Volume (L)", path: "fv.volume_l" })}
+          {field({ label: rtd ? "Volume before spirit (L)" : "Volume (L)", path: "fv.volume_l", wide: rtd })}
           {!rtd && field({ label: "Gravity °P", path: "fv.plato" })}
           {!rtd && field({ label: "pH", path: "fv.ph" })}
-          {field({ label: "Temp °C", path: "fv.temp_c" })}
+          {!rtd && field({ label: "Temp °C", path: "fv.temp_c", placeholder: "From the probe" })}
         </div>
         {!rtd && dilutionCalc()}
         {rtd && spiritCalc()}
@@ -814,9 +832,15 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
             {list({ title: "Spirit and tank additions", listKey: "dry_hops", whenLabel: "Note", unit: "g" })}
           </div>
         )}
+        {rtd && sheetNumber(data.fv.volume_l) != null && (
+          <p className="mt-3 rounded-xl bg-background px-3 py-2 text-sm text-gray-900 tabular-nums">
+            Tank volume <span className="font-semibold">{tankTotal.toLocaleString('en-AU')} L</span>
+            <span className="text-gray-500"> · {data.fv.volume_l.trim()} L{spiritL > 0 ? ` + ${spiritL} L spirit` : ', no spirit on the sheet yet'}</span>
+          </p>
+        )}
         {done ? (
           <p className="mt-3 rounded-xl bg-water/30 px-3 py-2 text-xs text-hops">
-            {rtd ? 'Finished and on chill. To correct the volume, change it here and the tank card follows.' : 'Brew day finished. To correct volume, gravity or pH, change it here: the tank card and the first reading follow.'}
+            {rtd ? 'Finished and on chill. To correct the volume or the spirit, change it here and the tank card follows.' : 'Brew day finished. To correct volume, gravity or pH, change it here: the tank card and the first reading follow.'}
           </p>
         ) : (
           <>
@@ -824,7 +848,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
               className="mt-3 w-full h-12 rounded-xl bg-malt text-white text-base font-semibold inline-flex items-center justify-center gap-2 active:opacity-90 disabled:opacity-60">
               {finishing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}Finish brew day
             </button>
-            <p className="mt-1.5 text-xs text-gray-400">{rtd ? 'Check the volume and temperature first. This sets the tank card and puts it straight on chill.' : 'Check the three numbers first. This sets the tank card and starts the ferment chart.'}</p>
+            <p className="mt-1.5 text-xs text-gray-400">{rtd ? 'Check the volume first. The tank temperature is read off the probe. This sets the tank card to the volume plus the spirit and puts it straight on chill.' : 'Check the three numbers first. This sets the tank card and starts the ferment chart.'}</p>
           </>
         )}
       </Section>

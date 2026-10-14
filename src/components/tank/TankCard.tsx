@@ -73,7 +73,8 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const [showSplitModal, setShowSplitModal] = useState(false)
   const [showEditBatch, setShowEditBatch] = useState(false)
   const [batchInput, setBatchInput] = useState(brew?.batch_code ?? '')
-  const [showEditVolume, setShowEditVolume] = useState(false)
+  // 'taken' is the tap on the volume (bottoms off); 'simple' is the menu's plain correction
+  const [showEditVolume, setShowEditVolume] = useState<false | 'taken' | 'simple'>(false)
   const [showRename, setShowRename] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
   const [nameInput, setNameInput] = useState(brew?.beer_name ?? '')
@@ -284,7 +285,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     { label: 'Packaging plan', onSelect: () => setShowSplitModal(true) },
     { label: 'Rename beer, style or colour', onSelect: () => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) } },
     { label: 'Edit batch code', onSelect: () => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) } },
-    { label: 'Edit volume', onSelect: () => setShowEditVolume(true) },
+    { label: 'Edit volume', onSelect: () => setShowEditVolume('simple') },
     { label: 'Transfer to tank', onSelect: () => setShowTransferModal(true) },
     { label: 'Package / keg', onSelect: () => setShowPackageModal(true) },
     { label: 'Empty for cleaning', onSelect: handleCip, danger: true },
@@ -298,7 +299,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
       logLabel={nextStep.label}
       onLog={nextStep.run}
       onStage={handleStageChange}
-      onVolume={() => setShowEditVolume(true)}
+      onVolume={() => setShowEditVolume('taken')}
       onClose={() => setShowDetail(false)}
     />
   ) : null
@@ -718,7 +719,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -756,7 +757,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -790,7 +791,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -828,7 +829,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                             <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -941,7 +942,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />
         )}
         {showChartModal && brew && (
-          <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} onVolume={() => setShowEditVolume(true)} onClose={() => setShowChartModal(false)} />
+          <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} onVolume={() => setShowEditVolume('taken')} onClose={() => setShowChartModal(false)} />
         )}
         {showTransferModal && brew && (
           <TransferModal brew={brew} sourceTank={tank} allTanks={allTanks} onClose={() => setShowTransferModal(false)} />
@@ -975,7 +976,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           </div>
         )}
         {showEditVolume && brew && (
-        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} onClose={() => setShowEditVolume(false)}
+        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} simple={showEditVolume === 'simple'} onClose={() => setShowEditVolume(false)}
           onSave={(v, note) => run(() => updateBrewVolume(brew.id, v, note), 'Could not save the volume. Try again.')} />
       )}
       </>
@@ -1149,7 +1150,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -1185,7 +1186,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -1217,7 +1218,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={handleCip}>Empty for Cleaning</DropdownMenuItem>
@@ -1255,7 +1256,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
                       <DropdownMenuItem onClick={openBrewSheet}>Brew sheet…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setNameInput(brew?.beer_name ?? ''); setStyleInput(brew?.style ?? ''); setColourInput(brew?.colour ?? null); setShowRename(true) }}>Rename beer or style…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setBatchInput(brew?.batch_code ?? ''); setShowEditBatch(true) }}>Edit batch code…</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowEditVolume(true)}>Edit volume…</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowEditVolume('simple')}>Edit volume…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowTransferModal(true)}>Transfer to tank…</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowPackageModal(true)}>Package / Keg…</DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -1407,7 +1408,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />
       )}
       {showChartModal && brew && (
-        <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} onVolume={() => setShowEditVolume(true)} onClose={() => setShowChartModal(false)} />
+        <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} onVolume={() => setShowEditVolume('taken')} onClose={() => setShowChartModal(false)} />
       )}
       {showTransferModal && brew && (
         <TransferModal brew={brew} sourceTank={tank} allTanks={allTanks} onClose={() => setShowTransferModal(false)} />
@@ -1462,7 +1463,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         </div>
       )}
       {showEditVolume && brew && (
-        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} onClose={() => setShowEditVolume(false)}
+        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} simple={showEditVolume === 'simple'} onClose={() => setShowEditVolume(false)}
           onSave={(v, note) => run(() => updateBrewVolume(brew.id, v, note), 'Could not save the volume. Try again.')} />
       )}
     </>

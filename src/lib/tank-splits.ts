@@ -7,6 +7,10 @@ import { getPacks, brandOf, brandMatches, SPLITS_SHEET_ID } from '@/lib/planner/
 import { adelaideNow, dayKey, sheetTabs, sheetValues, sheetUpdate } from '@/lib/planner/google'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { TankDashboardData } from '@/types'
+import { isRtd } from '@/lib/rtd'
+import { spiritLitres } from '@/lib/brew-sheet'
+
+type SpiritLines = Parameters<typeof spiritLitres>[0]
 
 export interface SplitFit {
   /** short: not enough beer for the splits. spare: more than a keg left over. */
@@ -155,10 +159,16 @@ export async function splitsByTank(tanks: Pick<TankDashboardData, 'tank' | 'brew
       : Promise.resolve({ data: [] as { brew_id: string }[] }),
     typicalYields(),
     live.length
-      ? db.from('brew_sheets').select('brew_id, fv:data->fv->>volume_l').in('brew_id', live.map((t) => t.brew!.id))
-      : Promise.resolve({ data: [] as { brew_id: string; fv: string | null }[] }),
+      ? db.from('brew_sheets').select('brew_id, fv:data->fv->>volume_l, dry_hops:data->dry_hops').in('brew_id', live.map((t) => t.brew!.id))
+      : Promise.resolve({ data: [] as { brew_id: string; fv: string | null; dry_hops: SpiritLines }[] }),
   ])
-  const brewDay = new Map((daySheets ?? []).map((d) => [d.brew_id as string, parseFloat((d as { fv: string | null }).fv ?? '') || null]))
+  const rtdIds = new Set(live.filter((t) => isRtd(t.brew!.beer_name, t.brew!.style)).map((t) => t.brew!.id))
+  // A lemonade's brew day volume is what was knocked out plus the spirit
+  const brewDay = new Map((daySheets ?? []).map((d) => {
+    const row = d as { brew_id: string; fv: string | null; dry_hops: SpiritLines }
+    const v = parseFloat(row.fv ?? '') || null
+    return [row.brew_id, v != null && rtdIds.has(row.brew_id) ? v + spiritLitres(row.dry_hops) : v]
+  }))
   for (const run of (recent ?? []) as { packaged_at: string; brews: { beer_name: string } | { beer_name: string }[] | null }[]) {
     const name = (Array.isArray(run.brews) ? run.brews[0] : run.brews)?.beer_name
     if (!name) continue

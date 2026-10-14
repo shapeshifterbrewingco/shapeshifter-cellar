@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { calcAbv } from './utils'
+import { isRtd } from './rtd'
+import { spiritLitres } from './brew-sheet'
 
 export interface BrewReading {
   id: string
@@ -177,10 +179,10 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       supabase.from('brew_finals').select('brew_id, final_plato, final_ph, reading_count, packed_at, packed_l').range(from, to),
     ),
     // Only the parts of each brew sheet that name a hop or a yeast
-    all<{ brew_id: string; kettle_hops: Line[] | null; dry_hops: Line[] | null; mash_additions: Line[] | null; yeast: string | null; fv_volume: string | null }>((from, to) =>
+    all<{ brew_id: string; kettle_hops: Line[] | null; dry_hops: Line[] | null; mash_additions: Line[] | null; yeast: string | null; fv_volume: string | null; source: string | null }>((from, to) =>
       supabase
         .from('brew_sheets')
-        .select('brew_id, kettle_hops:data->kettle_hops, dry_hops:data->dry_hops, mash_additions:data->mash_additions, yeast:data->yeast->>strain, fv_volume:data->fv->>volume_l')
+        .select('brew_id, kettle_hops:data->kettle_hops, dry_hops:data->dry_hops, mash_additions:data->mash_additions, yeast:data->yeast->>strain, fv_volume:data->fv->>volume_l, source')
         .range(from, to),
     ),
     recipeIds.length
@@ -255,7 +257,10 @@ export async function getBrewHistory(supabase: SupabaseClient): Promise<BrewHist
       brew_day: b.brew_day,
       completed_at: b.deleted_at,
       volume_l: Number(b.volume_l),
-      fv_volume_l: parseFloat(s?.fv_volume ?? '') > 0 ? parseFloat(s!.fv_volume!) : Number(b.volume_l),
+      // Paper sheets already wrote a lemonade's volume with its spirit in; the app's sheet keeps them apart
+      fv_volume_l: parseFloat(s?.fv_volume ?? '') > 0
+        ? parseFloat(s!.fv_volume!) + (s!.source !== 'photo' && isRtd(b.beer_name, b.style) ? spiritLitres(s!.dry_hops) : 0)
+        : Number(b.volume_l),
       og_plato: og,
       final_plato: finalPlato,
       final_ph: f?.final_ph != null ? Number(f.final_ph) : null,

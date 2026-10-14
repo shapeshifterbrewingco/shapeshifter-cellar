@@ -51,7 +51,7 @@ Do not invent a turnaround you have not been given.
 
 | Vessel | Size | Racking arm | Role |
 |---|---|---|---|
-| FV1, FV2, FV3 | standard | yes | general fermenters |
+| FV1, FV2, FV3 | medium | yes | general fermenters |
 | FV4, FV5, FV8, FV9 | large | yes | general, plus beers that need volume |
 | FV6, FV7 | small | **no** | lager or dark, very low hop only. **Never a dry-hopped beer.** |
 | FV10 | **large** | yes | **dedicated brite**, plus quick lemonade turnarounds. Not like FV6/FV7: bigger, and it has a racking arm |

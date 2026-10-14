@@ -249,6 +249,12 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
   --color-hops: #8fd3dd;
 }
 
+/* The History year cards are solid blocks with white text. At night charcoal and
+   malt-dark turn pale so they read as TEXT; as a card background that left white
+   on cream. Exact class match, so the faint "bg-charcoal/8" pills are untouched. */
+.dark [class~="bg-charcoal"] { --color-charcoal: #46535a; }
+.dark [class~="bg-malt-dark"] { --color-malt-dark: #A8563A; }
+
 /* Solid brand backgrounds keep their own dark text, exactly as in day mode */
 .dark .bg-yeast { --color-charcoal: #323230; }
 .dark .bg-water { --color-hops: #09434D; --primary: #09434D; }

@@ -53,7 +53,11 @@ function matchReason(item: BrewHistoryItem, q: string): string | null {
   return null
 }
 
-export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
+export function HistoryList({ items, top }: {
+  items: BrewHistoryItem[]
+  /** The period totals and insights. Shown under the search box, and put away while a search is on so the results sit right under it. */
+  top?: React.ReactNode
+}) {
   const [search, setSearch] = useState('')
   // The newest month starts open; the rest wait to be tapped
   const [openMonths, setOpenMonths] = useState<Set<string>>(() => new Set(items[0] ? [items[0].month] : []))
@@ -298,6 +302,8 @@ export function HistoryList({ items }: { items: BrewHistoryItem[] }) {
           </button>
         )}
       </div>
+
+      {!results && top}
 
       {results ? (
         <>

@@ -15,8 +15,7 @@ export default async function HistoryPage() {
           <p className="text-sm text-gray-500 mt-0.5">{items.length} finished batch{items.length !== 1 ? 'es' : ''}, with what each one packed</p>
         </div>
 
-        <HistoryTop runs={runs} items={items} />
-        <HistoryList items={items} />
+        <HistoryList items={items} top={<HistoryTop runs={runs} items={items} />} />
       </div>
     </main>
   )

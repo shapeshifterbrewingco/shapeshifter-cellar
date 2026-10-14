@@ -6,8 +6,7 @@ import { breweryToday, daysBetweenISO } from '@/lib/dates'
 import { DO_SPEC, doWorst } from '@/lib/history'
 import type { BrewHistoryItem } from '@/lib/history'
 import { yearBg } from './year-colour'
-import { getPeriodRange } from '@/lib/reports'
-import type { ReportPeriod } from '@/lib/reports'
+import type { PeriodRange } from '@/lib/reports'
 
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -72,11 +71,10 @@ function Headline({ value, text, note }: { value: string; text: string; note?: s
 }
 
 /** What the finished batches say when you add them up. Hidden until asked for. */
-export function Insights({ items, period }: { items: BrewHistoryItem[]; period: ReportPeriod }) {
+export function Insights({ items, range }: { items: BrewHistoryItem[]; range: PeriodRange }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>('yield')
 
-  const range = useMemo(() => getPeriodRange(period), [period])
   const rows = useMemo<Row[]>(() => items.filter((i) => {
     if (!(i.packed_l > 0) || !i.packed_at) return false
     const at = new Date(i.packed_at).getTime()

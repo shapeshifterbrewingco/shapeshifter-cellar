@@ -1,29 +1,37 @@
 'use client'
 
 import { useMemo } from 'react'
-import { getPeriodRange } from '@/lib/reports'
-import type { ReportPeriod } from '@/lib/reports'
+import type { PeriodRange } from '@/lib/reports'
+import type { HistoryPeriod } from './HistoryTop'
 import type { PackedRun } from '@/lib/history'
 
-const PERIODS: { id: ReportPeriod; label: string }[] = [
+const PERIODS: { id: HistoryPeriod; label: string }[] = [
   { id: 'this_month',    label: 'This month' },
   { id: 'last_month',    label: 'Last month' },
   { id: 'ytd_calendar',  label: 'Calendar year' },
   { id: 'ytd_financial', label: 'Financial year' },
   { id: 'all_time',      label: 'All time' },
+  { id: 'custom',        label: 'Custom dates' },
 ]
 
 const CARD = 'rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]'
 
 /** What was packed in a period: the numbers that used to live on the Reports page. */
-export function PackedSummary({ runs, period, onPeriod: setPeriod }: { runs: PackedRun[]; period: ReportPeriod; onPeriod: (p: ReportPeriod) => void }) {
+export function PackedSummary({ runs, period, onPeriod: setPeriod, range, dates }: {
+  runs: PackedRun[]
+  period: HistoryPeriod
+  onPeriod: (p: HistoryPeriod) => void
+  /** Null while a custom range is half picked */
+  range: PeriodRange | null
+  /** The From and To boxes, shown under the pills for a custom range */
+  dates?: React.ReactNode
+}) {
 
   const { label, totals } = useMemo(() => {
-    const { label, start, end } = getPeriodRange(period)
     const t = { runs: 0, litres: 0, keg20: 0, keg30: 0, keg50: 0, c24: 0, c16: 0 }
-    for (const r of runs) {
+    for (const r of range ? runs : []) {
       const at = new Date(r.packaged_at).getTime()
-      if (at < start.getTime() || at > end.getTime()) continue
+      if (at < range!.start.getTime() || at > range!.end.getTime()) continue
       t.runs += 1
       t.litres += r.volume_l
       if (r.format === 'keg20') t.keg20 += r.qty
@@ -32,8 +40,8 @@ export function PackedSummary({ runs, period, onPeriod: setPeriod }: { runs: Pac
       else if (r.format === '24x375') t.c24 += r.qty
       else if (r.format === '16x440') t.c16 += r.qty
     }
-    return { label, totals: t }
-  }, [runs, period])
+    return { label: range?.label ?? '', totals: t }
+  }, [runs, range])
 
   // Part cartons and part kegs are recorded (93.75 cartons), and adding decimals
   // drifts (4646.620000000001), so every count is rounded to one place for display
@@ -51,12 +59,13 @@ export function PackedSummary({ runs, period, onPeriod: setPeriod }: { runs: Pac
       <div className="grid grid-cols-2 gap-1.5 mb-2 sm:flex sm:flex-wrap">
         {PERIODS.map((p) => (
           <button key={p.id} type="button" onClick={() => setPeriod(p.id)} aria-pressed={period === p.id}
-            className={`whitespace-nowrap rounded-full px-3.5 py-2 text-center text-sm font-medium transition-colors last:col-span-2 ${period === p.id ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-black/5'}`}>
+            className={`whitespace-nowrap rounded-full px-3.5 py-2 text-center text-sm font-medium transition-colors ${period === p.id ? 'bg-primary text-white' : 'bg-white text-gray-600 ring-1 ring-black/5'}`}>
             {p.label}
           </button>
         ))}
       </div>
-      <p className="px-1 mb-2 text-xs text-gray-500">Packed in {label}</p>
+      {dates}
+      <p className="px-1 mb-2 text-xs text-gray-500">{range ? `Packed in ${label}` : ' '}</p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
         {tiles.map((t, i) => (
           <div key={t.label} className={`${CARD} px-4 py-3 min-w-0 ${i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>

@@ -119,7 +119,7 @@ export const TOOLS: Anthropic.Tool[] = [
               event_id: { type: 'string', description: 'Required for update and delete. From get_calendar.' },
               date: { ...DATE, description: 'Start date. Required for create; for update only if moving it.' },
               end_date: { ...DATE, description: 'Last day, for multi-day events. Omit for single-day.' },
-              title: { type: 'string', description: 'Use the schedule grammar: "BREW FV8 - Party Shirt CARTONS", "TRANSFER FV2 > BBT - Golden Ratio CARTONS", "PACK BBT - Nordic SPLIT".' },
+              title: { type: 'string', description: 'Use the schedule grammar: "BREW FV8 - Party Shirt CARTONS", "TRANSFER FV2 > BBT - Golden Ratio CARTONS", "PACK BBT - Nordic SPLIT". Any FV can be the brite: "TRANSFER FV2 > FV5 - Nordic SPLIT" then "PACK FV5 - Nordic SPLIT".' },
               description: { type: 'string' },
               reason: { type: 'string', description: 'Why, in a few words.' },
             },

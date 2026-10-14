@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isOwnerEmail } from '@/lib/auth-domain'
 
 export async function updateReading(id: string, data: {
   plato: number | null
@@ -19,8 +20,11 @@ export async function updateReading(id: string, data: {
   revalidatePath('/readings')
 }
 
+/** James only. The button is hidden for everyone else, and this check is the real lock. */
 export async function deleteReading(id: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isOwnerEmail(user?.email)) throw new Error('Only James can delete readings')
   const { data: removed, error } = await supabase
     .from('gravity_readings')
     .delete()
@@ -29,4 +33,5 @@ export async function deleteReading(id: string) {
   if (error) throw error
   if (!removed?.length) throw new Error('Reading was not deleted (no permission or already gone)')
   revalidatePath('/readings')
+  revalidatePath('/')
 }

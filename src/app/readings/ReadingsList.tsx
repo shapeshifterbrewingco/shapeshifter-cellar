@@ -28,9 +28,11 @@ interface EditState {
 
 interface Props {
   readings: ReadingRow[]
+  /** James only */
+  canDelete?: boolean
 }
 
-export function ReadingsList({ readings: initial }: Props) {
+export function ReadingsList({ readings: initial, canDelete = false }: Props) {
   const [readings, setReadings] = useState(initial)
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -252,14 +254,16 @@ export function ReadingsList({ readings: initial }: Props) {
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(r)}
-                              className="p-1 rounded text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(r)}
+                                className="p-1 rounded text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

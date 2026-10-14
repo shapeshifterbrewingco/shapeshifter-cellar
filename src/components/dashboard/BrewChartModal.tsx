@@ -2,7 +2,9 @@
 
 import { logDayTime } from '@/lib/log-date'
 import { useState, useEffect } from 'react'
-import { X, FlaskConical } from 'lucide-react'
+import { X, FlaskConical, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { deleteReading } from '@/app/readings/actions'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -100,6 +102,7 @@ function mergeChartData(
 export function useBrewChart(brew: Brew, tank: Tank, refreshKey = '') {
   const [data, setData] = useState<ChartData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [reloads, setReloads] = useState(0)
 
   useEffect(() => {
     let live = true
@@ -108,9 +111,30 @@ export function useBrewChart(brew: Brew, tank: Tank, refreshKey = '') {
       .catch(() => { /* chart stays empty; the rest of the screen still works */ })
       .finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [brew.id, tank.id, brew.brew_day, refreshKey])
+  }, [brew.id, tank.id, brew.brew_day, refreshKey, reloads])
 
-  return { data, loading }
+  // James only: take a reading off. It goes from the list straight away and
+  // comes back if the delete does not go through.
+  const remove = (id: string, label: string) => {
+    if (!confirm(`Delete the reading from ${label}? This cannot be undone.`)) return
+    setData((d) => (d ? { ...d, readings: d.readings.filter((r) => r.id !== id) } : d))
+    deleteReading(id).catch(() => {
+      toast.error('Could not delete that reading. It has been put back.')
+      setReloads((n) => n + 1)
+    })
+  }
+
+  return { data, loading, remove }
+}
+
+/** The bin button on a reading, for James only */
+export function DeleteReading({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-label="Delete reading"
+      className="flex-shrink-0 -my-1 h-8 w-8 inline-flex items-center justify-center rounded-full text-gray-300 hover:text-malt-dark active:bg-gray-100">
+      <Trash2 className="h-4 w-4" />
+    </button>
+  )
 }
 
 type SeriesKey = 'plato' | 'ph' | 'temp'
@@ -306,7 +330,8 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
 }
 
 export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: Props) {
-  const { data, loading } = useBrewChart(brew, tank)
+  const { data, loading, remove } = useBrewChart(brew, tank)
+  const canDelete = !!data?.canDelete
 
   const readings = data?.readings ?? []
   const gravityReadings = readings.filter((r) => r.plato != null || r.ph != null)
@@ -378,6 +403,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: 
                     <th className="px-3 py-2 text-right font-medium text-gray-400">Gravity</th>
                     <th className="px-3 py-2 text-right font-medium text-gray-400">pH</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-400">By</th>
+                    {canDelete && <th className="w-8" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -391,6 +417,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: 
                             {r.notes && <span className="ml-2 text-gray-500">{r.notes}</span>}
                           </td>
                           <td className="px-3 py-1.5 text-gray-400">{formatUserName(r.recorded_by)}</td>
+                          {canDelete && <td />}
                         </tr>
                       )
                     }
@@ -407,6 +434,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: 
                             </span>
                           </td>
                           <td className="px-3 py-1.5 text-gray-400">{formatUserName(r.recorded_by)}</td>
+{canDelete && <td className="px-1"><DeleteReading onClick={() => remove(r.id, logDayTime(r.recorded_at, ', '))} /></td>}
                         </tr>
                       )
                     }
@@ -422,6 +450,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: 
                           {r.ph != null ? r.ph : '—'}
                         </td>
                         <td className="px-3 py-1.5 text-gray-400">{formatUserName(r.recorded_by)}</td>
+{canDelete && <td className="px-1"><DeleteReading onClick={() => remove(r.id, logDayTime(r.recorded_at, ', '))} /></td>}
                       </tr>
                     )
                   })}

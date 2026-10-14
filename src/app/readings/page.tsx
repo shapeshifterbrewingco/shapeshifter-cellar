@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { ReadingsList } from './ReadingsList'
+import { isOwnerEmail } from '@/lib/auth-domain'
 import type { ReadingRow } from './ReadingsList'
 
 export default async function ReadingsPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: rows, error } = await supabase
     .from('gravity_readings')
@@ -33,7 +35,7 @@ export default async function ReadingsPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="px-6 py-6 max-w-5xl mx-auto">
-        <ReadingsList readings={readings} />
+        <ReadingsList readings={readings} canDelete={isOwnerEmail(user?.email)} />
       </div>
     </main>
   )

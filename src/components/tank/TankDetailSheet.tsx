@@ -3,7 +3,7 @@
 import { logDay } from '@/lib/log-date'
 import { useEffect, useState } from 'react'
 import { X, FlaskConical, ArrowRightLeft, MoreHorizontal } from 'lucide-react'
-import { FermentChart, useBrewChart } from '@/components/dashboard/BrewChartModal'
+import { FermentChart, useBrewChart, DeleteReading } from '@/components/dashboard/BrewChartModal'
 import { StageBadge } from './StageBadge'
 import { TempTap } from './SetPoint'
 import { calcAbv, formatUserName } from '@/lib/utils'
@@ -43,7 +43,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
 }) {
   const { tank, latest_gravity, temperature, set_point_c, days_in_tank } = data
   const brew = data.brew!
-  const { data: chart, loading } = useBrewChart(brew, tank, `${latest_gravity?.recorded_at ?? ''}|${brew.stage}|${data.latest_vdk?.recorded_at ?? ''}|${data.latest_vdk?.result ?? ''}`)
+  const { data: chart, loading, remove } = useBrewChart(brew, tank, `${latest_gravity?.recorded_at ?? ''}|${brew.stage}|${data.latest_vdk?.recorded_at ?? ''}|${data.latest_vdk?.result ?? ''}`)
   const [panel, setPanel] = useState<'stage' | 'more' | null>(null)
 
   // The page behind must not scroll while the sheet is up
@@ -142,6 +142,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
                     )}
                     {/* Who logged it, as the desktop chart shows */}
                     <span className="ml-auto flex-shrink-0 text-xs text-gray-400">{formatUserName(r.recorded_by)}</span>
+                    {chart?.canDelete && !r.vdk && <DeleteReading onClick={() => remove(r.id, logDay(r.recorded_at))} />}
                   </li>
                 )
               })}

@@ -1,5 +1,6 @@
 'use server'
 
+import { isOwnerEmail } from '@/lib/auth-domain'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getFrigidReadings } from '@/lib/frigid'
@@ -589,7 +590,7 @@ export async function getBrewCogs(brew_id: string): Promise<{
 export async function getBrewChartData(brew_id: string, tank_id: string, brew_day: string) {
   const supabase = await createClient()
 
-  const [{ data: readings }, { data: temps }, { data: vdk }] = await Promise.all([
+  const [{ data: readings }, { data: temps }, { data: vdk }, { data: { user } }] = await Promise.all([
     supabase.from('gravity_readings')
       .select('id, recorded_at, plato, ph, temperature_c, recorded_by, notes')
       .eq('brew_id', brew_id)
@@ -603,6 +604,7 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
       .select('id, recorded_at, result, recorded_by, notes')
       .eq('brew_id', brew_id)
       .order('recorded_at'),
+    supabase.auth.getUser(),
   ])
 
   const tempsByHour = new Map<string, { recorded_at: string; temperature_c: number }>()
@@ -615,6 +617,8 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
     readings: readings ?? [],
     temps: [...tempsByHour.values()],
     vdk: (vdk ?? []) as { id: string; recorded_at: string; result: string; recorded_by: string; notes: string | null }[],
+    /** Whether this viewer gets the delete button on readings (James only) */
+    canDelete: isOwnerEmail(user?.email),
   }
 }
 

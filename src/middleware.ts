@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const publicPaths = ['/login', '/auth/callback', '/api/frigid-poll', '/manifest.webmanifest']
+  const publicPaths = ['/login', '/auth/callback', '/api/frigid-poll', '/api/pack-report-post', '/manifest.webmanifest']
   const isPublic = publicPaths.some((p) => request.nextUrl.pathname.startsWith(p))
 
   // TEMPORARY (Oct 2026): tracing why the iPhone home-screen app forgets its

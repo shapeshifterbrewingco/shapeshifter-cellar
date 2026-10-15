@@ -705,7 +705,7 @@ export async function updateBrewVolume(brew_id: string, volume_l: number, reason
     const diff = Math.round(Math.abs(volume_l - was) * 10) / 10
     await supabase.from('gravity_readings').insert({
       brew_id, tank_id: before.tank_id, plato: null, ph: null,
-      notes: `Volume changed from ${was} L to ${volume_l} L (${diff} L ${volume_l < was ? 'off' : 'added'})${reason.trim() ? `. ${reason.trim().slice(0, 120)}` : ''}`,
+      notes: `${volume_l < was ? 'Removed' : 'Added'} ${diff} L, now ${volume_l} L${reason.trim() ? `. ${reason.trim().slice(0, 120)}` : ''}`,
       recorded_by: user.email ?? user.id,
     })
   }

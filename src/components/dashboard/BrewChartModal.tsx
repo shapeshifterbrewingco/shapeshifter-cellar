@@ -438,6 +438,16 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: 
                         </tr>
                       )
                     }
+                    if (r.plato == null && r.ph == null && r.notes) {
+                      return (
+                        <tr key={r.id} className="border-t border-gray-50">
+                          <td className="px-3 py-1.5 text-gray-500">{logDayTime(r.recorded_at, ', ')}</td>
+                          <td colSpan={2} className="px-3 py-1.5 text-gray-700">{r.notes}</td>
+                          <td className="px-3 py-1.5 text-gray-400">{formatUserName(r.recorded_by)}</td>
+                          {canDelete && <td className="px-1"><DeleteReading onClick={() => remove(r.id, logDayTime(r.recorded_at, ', '))} /></td>}
+                        </tr>
+                      )
+                    }
                     return (
                       <tr key={r.id} className="border-t border-gray-50">
                         <td className="px-3 py-1.5 text-gray-500">

@@ -123,8 +123,8 @@ export function packReportMessage(input: {
  * Post the report for one batch, or update its post. `create` is for the
  * moment of packaging; otherwise a post is only made if the batch is recent.
  */
-export async function publishPackReport(brewId: string, { create = false, actor }: { create?: boolean; actor?: string | null } = {}) {
-  if (!botConfigured()) return
+export async function publishPackReport(brewId: string, { create = false, actor }: { create?: boolean; actor?: string | null } = {}): Promise<string | null> {
+  if (!botConfigured()) return null
   try {
     const db = createServiceClient()
     const [{ data: brew }, { data: runs }, { data: report }, { data: photos }] = await Promise.all([
@@ -133,12 +133,12 @@ export async function publishPackReport(brewId: string, { create = false, actor 
       db.from('packaging_reports').select('*').eq('brew_id', brewId).maybeSingle(),
       db.from('pack_photos').select('id, path, slack_file_id').eq('brew_id', brewId).order('created_at'),
     ])
-    if (!brew || !runs?.length) return
+    if (!brew || !runs?.length) return null
 
     const ts = (report?.slack_ts as string | null) ?? null
     const packagedAt = runs[0].packaged_at as string
     const recent = Date.now() - new Date(packagedAt).getTime() < POST_WINDOW_DAYS * 86_400_000
-    if (!ts && !create && !recent) return
+    if (!ts && !create && !recent) return null
 
     // Photos go to Slack once; the file ID is kept so later edits reuse it
     const fileIds: string[] = []
@@ -170,13 +170,15 @@ export async function publishPackReport(brewId: string, { create = false, actor 
     if (newTs && newTs !== ts) {
       await db.from('packaging_reports').upsert({ brew_id: brewId, slack_ts: newTs }, { onConflict: 'brew_id' })
     }
+    return newTs
   } catch (err) {
     console.error('[pack-report-post]', err instanceof Error ? err.message : err)
+    return null
   }
 }
 
 /** Run after the response has gone back, so nobody waits on Slack. */
 export function publishPackReportLater(brewId: string, opts: { create?: boolean; actor?: string | null } = {}) {
   if (!botConfigured()) return
-  try { after(() => publishPackReport(brewId, opts)) } catch { void publishPackReport(brewId, opts) }
+  try { after(async () => { await publishPackReport(brewId, opts) }) } catch { void publishPackReport(brewId, opts) }
 }

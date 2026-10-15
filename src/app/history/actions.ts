@@ -1,7 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { PHOTO_BUCKET, publishPackReportLater } from '@/lib/pack-report-post'
 import { getBrewHistoryDetail, PACK_REPORT_FIELDS } from '@/lib/history'
 import type { PackReport } from '@/lib/history'
 
@@ -78,7 +79,8 @@ export async function savePackagingReport(brew_id: string, report: PackReport): 
     if (v == null || v === '') { row[f] = null; continue }
     if (NUMERIC.has(f)) {
       const n = Number(v)
-      if (!Number.isFinite(n) || n < 0) return { ok: false, message: `${f.replace(/_/g, ' ')} is not a valid number.` }
+      // Brite temperature sits just under zero; nothing else can be negative
+      if (!Number.isFinite(n) || (n < 0 && f !== 'bbt_temp_c')) return { ok: false, message: `${f.replace(/_/g, ' ')} is not a valid number.` }
       row[f] = n
     } else row[f] = String(v).trim() || null
   }
@@ -87,6 +89,18 @@ export async function savePackagingReport(brew_id: string, report: PackReport): 
     .from('packaging_reports')
     .upsert({ brew_id, ...row, updated_by: user.email ?? user.id, updated_at: new Date().toISOString() }, { onConflict: 'brew_id' })
   if (error) return { ok: false, message: error.message }
+  publishPackReportLater(brew_id, { actor: user.email })
   revalidatePath('/history')
   return { ok: true }
+}
+
+/** A batch's packaging photos, with links that work for an hour. */
+export async function getPackPhotos(brew_id: string): Promise<{ id: string; url: string | null }[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data: rows } = await supabase.from('pack_photos').select('id, path').eq('brew_id', brew_id).order('created_at')
+  if (!rows?.length) return []
+  const { data: signed } = await createServiceClient().storage.from(PHOTO_BUCKET).createSignedUrls(rows.map((r) => r.path), 3600)
+  return rows.map((r, i) => ({ id: r.id, url: signed?.[i]?.signedUrl ?? null }))
 }

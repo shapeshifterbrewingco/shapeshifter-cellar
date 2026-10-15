@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import { toast } from 'sonner'
-import { X, Package, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, Package, Loader2, ChevronDown, ChevronUp, Camera } from 'lucide-react'
+import { shrinkPhoto, uploadPackPhoto } from '@/lib/shrink-photo'
 import { packageBrew, getBrewCogs } from '@/app/brews/actions'
 import { PACKAGE_FORMATS } from '@/types'
 import type { Brew, Tank, PackageFormat } from '@/types'
@@ -89,6 +90,26 @@ export function PackageModal({ brew, tank, onClose }: Props) {
   const [salesKegs, setSalesKegs] = useState('')
   const [salesCartons, setSalesCartons] = useState('')
 
+  // Photos (usually a can beside the paper report). Shrunk when picked, sent
+  // just before the packaging is saved, so the Slack post goes out with them.
+  const [photos, setPhotos] = useState<{ key: string; data: string; uploaded: boolean }[]>([])
+  const [shrinking, setShrinking] = useState(false)
+  const photoInput = useRef<HTMLInputElement>(null)
+
+  async function addPhotos(files: FileList | null) {
+    if (!files?.length) return
+    setShrinking(true)
+    try {
+      const picked = await Promise.all([...files].slice(0, 6 - photos.length).map((f) => shrinkPhoto(f, 1600)))
+      setPhotos((p) => [...p, ...picked.map((data) => ({ key: crypto.randomUUID(), data, uploaded: false }))])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'That photo could not be opened.')
+    } finally {
+      setShrinking(false)
+      if (photoInput.current) photoInput.current.value = ''
+    }
+  }
+
   const [cogs, setCogs] = useState<Awaited<ReturnType<typeof getBrewCogs>> | null>(null)
   const [cogsLoading, setCogsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -128,6 +149,18 @@ export function PackageModal({ brew, tank, onClose }: Props) {
         volume_l: parseInt(qtys[f.format]) * f.volume_l,
       }))
     startTransition(async () => {
+      // Photos first. Ones already sent on an earlier try are not sent twice.
+      for (const p of photos) {
+        if (p.uploaded) continue
+        try {
+          await uploadPackPhoto(brew.id, p.data, false)
+          p.uploaded = true
+        } catch (err) {
+          toast.error(`${err instanceof Error ? err.message : 'A photo did not upload.'} Packaging was not saved. Try again, or remove the photo.`, { duration: 10000 })
+          setPhotos((prev) => [...prev])
+          return
+        }
+      }
       const result = await packageBrew({
         brew_id: brew.id,
         tank_id: tank.id,
@@ -397,6 +430,33 @@ export function PackageModal({ brew, tank, onClose }: Props) {
           {/* Notes + submit */}
           <div className="p-5 pt-3 space-y-4 border-t border-gray-100">
             <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Photos (optional)</label>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {photos.map((p) => (
+                  <div key={p.key} className="relative h-16 w-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- local preview */}
+                    <img src={p.data} alt="Packaging photo" className="h-full w-full object-cover" />
+                    {!p.uploaded && (
+                      <button type="button" onClick={() => setPhotos((prev) => prev.filter((x) => x.key !== p.key))} aria-label="Remove photo"
+                        className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {photos.length < 6 && (
+                  <button type="button" onClick={() => photoInput.current?.click()} disabled={shrinking || isPending}
+                    className="h-16 w-16 flex-shrink-0 rounded-lg border border-dashed border-gray-300 text-primary flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold disabled:opacity-50">
+                    {shrinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                    Add photo
+                  </button>
+                )}
+              </div>
+              <input ref={photoInput} type="file" accept="image/*" multiple className="hidden" onChange={(e) => void addPhotos(e.target.files)} />
+              <p className="text-[11px] text-gray-400 mt-1">Posted with the report in #packagingreports.</p>
+            </div>
+
+            <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Notes (optional)</label>
               <input
                 type="text"
@@ -417,7 +477,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
               </button>
               <button
                 type="submit"
-                disabled={isPending || !canSubmit}
+                disabled={isPending || shrinking || !canSubmit}
                 className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}

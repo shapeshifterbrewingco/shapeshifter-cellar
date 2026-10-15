@@ -5,7 +5,7 @@
 import { after } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
-const APP_URL = 'https://shapeshifter-cellar.vercel.app'
+export const APP_URL = 'https://shapeshifter-cellar.vercel.app'
 
 export const slackConfigured = () => !!process.env.SLACK_WEBHOOK_URL
 

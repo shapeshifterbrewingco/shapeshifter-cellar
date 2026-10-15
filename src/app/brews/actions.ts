@@ -9,6 +9,7 @@ import { after } from 'next/server'
 import { coolingOff } from '@/lib/cooling'
 import { writeSplitVolume } from '@/lib/tank-splits'
 import { logActivity, who, esc, logGroupedActivity } from '@/lib/slack'
+import { publishPackReportLater } from '@/lib/pack-report-post'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
 
@@ -465,6 +466,10 @@ export async function packageBrew(data: {
     ].filter(Boolean).join(' ')
     logActivity(`${who(user.email)} packaged *${esc(b?.beer_name ?? 'a beer')}* (batch ${esc(batchCode)}) from ${await tankName(supabase, data.tank_id)}: ${parts}. ${Math.round(total)} L in total. ${esc(stockNote)}`.trim())
   }
+
+  // The report in #packagingreports. Runs after the response, by which time the
+  // QC and stock figures below are saved too.
+  publishPackReportLater(data.brew_id, { create: true, actor: user.email })
 
   // QC readings and stock distribution are the packaging report, the same one
   // History shows and edits.

@@ -6,6 +6,7 @@
 /* eslint-disable react-hooks/refs */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { shrinkPhoto } from '@/lib/shrink-photo'
 import { Camera, Check, Loader2, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { importSheetReadings, applySheetToRecipe, cancelBrewDay } from '@/app/brews/sheet-actions'
@@ -62,26 +63,6 @@ function setPath<T>(obj: T, path: string, value: string): T {
 }
 
 /** Shrink a phone photo so it uploads quickly and stays under the size limits. */
-async function shrink(file: File, maxSide = 2200): Promise<string> {
-  const url = URL.createObjectURL(file)
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image()
-      i.onload = () => resolve(i)
-      i.onerror = () => reject(new Error('That file is not a photo the app can open.'))
-      i.src = url
-    })
-    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(img.naturalWidth * scale)
-    canvas.height = Math.round(img.naturalHeight * scale)
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', 0.82)
-  } finally {
-    URL.revokeObjectURL(url)
-  }
-}
-
 function Section({ title, hint, id, children }: { title: string; hint?: string; id?: string; children: React.ReactNode }) {
   return (
   <section id={id} className={`${CARD} p-4 space-y-3 scroll-mt-20`}>
@@ -222,7 +203,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     if (sheetProgress(data).filled > 0 && !window.confirm('Fill the sheet from this photo? Anything you have already typed is kept; only empty boxes and the ingredient lists are filled.')) return
     setReading(true)
     try {
-      const images = await Promise.all([...files].slice(0, 4).map((f) => shrink(f)))
+      const images = await Promise.all([...files].slice(0, 4).map((f) => shrinkPhoto(f)))
       const res = await fetch('/api/parse-brew-sheet', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ images, brew_day: brew.brew_day, beer_name: brew.beer_name }),

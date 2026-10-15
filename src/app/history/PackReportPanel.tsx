@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns'
 import { savePackagingReport } from './actions'
 import { doRange } from '@/lib/history'
 import type { PackReport } from '@/lib/history'
+import { PackPhotos } from '@/components/packaging/PackPhotos'
 
 const EMPTY: PackReport = {
   best_before: null, bbt_temp_c: null, bbt_co2_vol: null, bbt_do_ppb: null, bbt_do_ppb_high: null, pack_co2_vol: null, pack_do_ppb: null, pack_do_ppb_high: null, unders: null,
@@ -41,8 +42,18 @@ const STOCK: { where: string; kegs: Key; cartons: Key }[] = [
 const INPUT = 'w-full h-11 rounded-xl border border-gray-200 bg-white px-3 text-base text-gray-900 tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30'
 const show = (v: number | string | null, unit = '') => (v == null || v === '' ? '-' : `${v}${unit ? ` ${unit}` : ''}`)
 
-/** The packaging report for one batch: read by default, a form when Edit is tapped. */
+/** The packaging report for one batch and its photos. */
 export function PackReportPanel({ brewId, report }: { brewId: string; report: PackReport | null }) {
+  return (
+    <div className="space-y-3">
+      <ReportBody brewId={brewId} report={report} />
+      <PackPhotos brewId={brewId} />
+    </div>
+  )
+}
+
+/** The report itself: read by default, a form when Edit is tapped. */
+function ReportBody({ brewId, report }: { brewId: string; report: PackReport | null }) {
   const [saved, setSaved] = useState<PackReport>(report ?? EMPTY)
   const [draft, setDraft] = useState<Record<Key, string> | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -124,7 +135,7 @@ export function PackReportPanel({ brewId, report }: { brewId: string; report: Pa
         {MEASURES.map((m) => (
           <label key={m.key} className="block min-w-0">
             <span className="block text-xs text-gray-500 mb-1">{m.label} ({m.unit})</span>
-            <input type="number" inputMode="decimal" step={m.whole ? '1' : '0.01'} min="0" value={draft[m.key]} onChange={(e) => set(m.key, e.target.value)} className={INPUT} />
+            <input type="number" inputMode="decimal" step={m.whole ? '1' : '0.01'} min={m.key === 'bbt_temp_c' ? undefined : '0'} value={draft[m.key]} onChange={(e) => set(m.key, e.target.value)} className={INPUT} />
           </label>
         ))}
         <label className="block min-w-0">

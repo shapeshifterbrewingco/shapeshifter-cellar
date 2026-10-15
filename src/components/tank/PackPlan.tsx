@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
-import { Check, Loader2, Send, X, AlertTriangle } from 'lucide-react'
-import { setPackCheck, sendVolumeToSplits } from '@/app/brews/pack-plan-actions'
+import { Check, Loader2, Send, X, AlertTriangle, Pencil } from 'lucide-react'
+import { setPackCheck, sendVolumeToSplits, saveSplitQty } from '@/app/brews/pack-plan-actions'
 import { formatUserName } from '@/lib/utils'
 import { PACK_CHECKS } from '@/types'
 import type { Brew, PackCheckKey, PackChecks } from '@/types'
@@ -155,6 +155,75 @@ function FitNote({ fit, brief = false }: { fit: SplitFit; brief?: boolean }) {
   )
 }
 
+const QTY_FIELDS: { key: keyof SheetSplit['qty']; label: string; each: number }[] = [
+  { key: 'c24', label: '24 × 375 mL cartons', each: 9 },
+  { key: 'c16', label: '16 × 440 mL cartons', each: 7.04 },
+  { key: 'keg50', label: '50 L kegs', each: 50 },
+  { key: 'keg30', label: '30 L kegs', each: 30 },
+  { key: 'keg20', label: '20 L kegs', each: 20 },
+]
+
+/**
+ * Change the formats on the Splits sheet row, watching the left over or short
+ * figure move as you type. Saves straight to the sheet.
+ */
+function SplitEditor({ brew, split, onDone }: { brew: Brew; split: SheetSplit; onDone: () => void }) {
+  const [draft, setDraft] = useState<Record<keyof SheetSplit['qty'], string>>(
+    () => Object.fromEntries(QTY_FIELDS.map((f) => [f.key, split.qty[f.key] ? String(split.qty[f.key]) : ''])) as Record<keyof SheetSplit['qty'], string>,
+  )
+  const [saving, startSaving] = useTransition()
+  const qty = Object.fromEntries(QTY_FIELDS.map((f) => [f.key, Math.max(0, Math.round(Number(draft[f.key]) || 0))])) as SheetSplit['qty']
+  const planned = QTY_FIELDS.reduce((s, f) => s + qty[f.key] * f.each, 0)
+  const fit = split.fit
+  // The same lines the card uses: how far out before it is worth saying
+  const volume = Number(brew.volume_l)
+  const diff = fit ? fit.packable - planned : null
+  const brite = fit?.basis === 'brite'
+  const kind = diff == null ? null : diff < -(brite ? 20 : volume * 0.05) ? 'short' : diff > (brite ? 50 : Math.max(50, volume * 0.07)) ? 'spare' : 'ok'
+  // 20 L kegs only where the sheet already plans them; most months have no column for them
+  const fields = QTY_FIELDS.filter((f) => f.key !== 'keg20' || split.qty.keg20 > 0)
+
+  function save() {
+    startSaving(async () => {
+      const res = await saveSplitQty(brew.id, qty).catch(() => ({ ok: false as const, message: 'Could not reach the app.' }))
+      if (!res.ok) { toast.error(res.message, { duration: 10000 }); return }
+      toast.success(res.message)
+      onDone()
+    })
+  }
+
+  return (
+    <div className="space-y-2">
+      {fields.map((f) => (
+        <label key={f.key} className="flex items-center gap-3">
+          <span className="flex-1 text-sm text-gray-700">{f.label}</span>
+          <input type="number" inputMode="numeric" min="0" step="1" value={draft[f.key]} placeholder="0"
+            onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+            className="w-20 h-10 rounded-lg border border-gray-200 bg-white px-2 text-base text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          <span className="w-16 text-right text-xs text-gray-500 tabular-nums">{litres(qty[f.key] * f.each)}</span>
+        </label>
+      ))}
+      <div className="border-t border-gray-200 pt-2 text-sm tabular-nums space-y-0.5">
+        <p className="flex justify-between font-semibold text-gray-900"><span>Splits add up to</span><span>{litres(planned)}</span></p>
+        {fit && diff != null && (
+          <p className={`flex justify-between font-semibold ${kind === 'ok' ? 'text-hops' : 'text-malt-dark'}`}>
+            <span>Expect about {litres(fit.packable)} to pack</span>
+            <span>{kind === 'ok' ? 'Fits' : diff > 0 ? `${litres(diff)} left over` : `${litres(-diff)} short`}</span>
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={onDone} disabled={saving} className="flex-1 h-10 rounded-xl ring-1 ring-black/10 text-sm font-medium text-gray-700">Cancel</button>
+        <button type="button" onClick={save} disabled={saving}
+          className="flex-1 h-10 rounded-xl bg-primary text-white text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}Save to Splits sheet
+        </button>
+      </div>
+      <p className="text-[11px] text-gray-400">Changes this beer&apos;s row on the Packaging Splits sheet, which the Sales App reads too.</p>
+    </div>
+  )
+}
+
 /**
  * The plan at the top of an opened brite tank: pack day, formats, whether it
  * fits and the materials ticks, with the full plan a tap away.
@@ -167,15 +236,25 @@ export function PackPlanSummary({ brew, tank, split, plato, abvNow }: {
   abvNow: number | null
 }) {
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
   return (
     <section className="rounded-xl bg-background ring-1 ring-black/5 p-3 space-y-2">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
           {split ? <>Pack {packDayLabel(split)}{split.proposed ? ' (proposed)' : ''}</> : 'Packaging plan'}
         </p>
-        <button type="button" onClick={() => setOpen(true)} className="text-xs font-semibold text-primary whitespace-nowrap">Full plan</button>
+        <div className="flex items-center gap-3">
+          {split && !editing && (
+            <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-primary whitespace-nowrap">
+              <Pencil className="h-3 w-3" />Edit splits
+            </button>
+          )}
+          <button type="button" onClick={() => setOpen(true)} className="text-xs font-semibold text-primary whitespace-nowrap">Full plan</button>
+        </div>
       </div>
-      {split ? (
+      {split && editing ? (
+        <SplitEditor brew={brew} split={split} onDone={() => setEditing(false)} />
+      ) : split ? (
         <>
           {split.label && <p className="text-sm font-medium text-gray-900 break-words">{split.label}</p>}
           <SplitTable split={split} />

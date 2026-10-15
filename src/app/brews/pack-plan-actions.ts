@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { writeSplitVolume } from '@/lib/tank-splits'
+import { writeSplitVolume, writeSplitQty } from '@/lib/tank-splits'
+import type { SheetSplit } from '@/lib/tank-splits'
 import { PACK_CHECKS } from '@/types'
 import type { PackCheckKey, PackChecks } from '@/types'
 
@@ -41,5 +42,25 @@ export async function sendVolumeToSplits(brewId: string): Promise<Result> {
     message: res.changed
       ? `Splits sheet updated: ${res.row} now says ${litres}${res.was != null ? ` (was ${res.was.toLocaleString('en-AU')} L)` : ''}.`
       : `The Splits sheet already says ${litres} for ${res.row}.`,
+  }
+}
+
+/**
+ * Change the planned formats on a beer's Splits sheet row, from its tank card.
+ * Brewers and admins only, as with the rest of the cellar.
+ */
+export async function saveSplitQty(brewId: string, qty: SheetSplit['qty']): Promise<Result> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, message: 'You are signed out. Sign in again and retry.' }
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  if (me?.role !== 'admin' && me?.role !== 'brewer') return { ok: false, message: 'Only brewers can change the splits.' }
+
+  const res = await writeSplitQty(brewId, qty)
+  if (!res.ok) return res
+  revalidatePath('/')
+  return {
+    ok: true,
+    message: res.changed.length ? `Splits sheet updated for ${res.row}: ${res.changed.join(', ')}.` : 'Nothing changed.',
   }
 }

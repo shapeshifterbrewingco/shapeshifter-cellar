@@ -595,16 +595,30 @@ export async function getBrewCogs(brew_id: string): Promise<{
 export async function getBrewChartData(brew_id: string, tank_id: string, brew_day: string) {
   const supabase = await createClient()
 
-  const [{ data: readings }, { data: temps }, { data: vdk }, { data: { user } }] = await Promise.all([
+  // A transferred beer was in another tank before: its temperatures come from
+  // whichever tank it was in at the time, not from where it sits now.
+  const { data: moves } = await supabase.from('transfers')
+    .select('source_tank_id, dest_tank_id, transferred_at').eq('brew_id', brew_id).order('transferred_at')
+  const legs: { tank: string; from: string; to: string | null }[] = moves?.length
+    ? [
+        { tank: moves[0].source_tank_id, from: brew_day, to: moves[0].transferred_at },
+        ...moves.map((m, i) => ({ tank: m.dest_tank_id, from: m.transferred_at, to: moves[i + 1]?.transferred_at ?? null })),
+      ]
+    : [{ tank: tank_id, from: brew_day, to: null }]
+
+  const [{ data: readings }, tempLegs, { data: vdk }, { data: { user } }] = await Promise.all([
     supabase.from('gravity_readings')
       .select('id, recorded_at, plato, ph, temperature_c, recorded_by, notes')
       .eq('brew_id', brew_id)
       .order('recorded_at'),
-    supabase.from('temperature_readings')
-      .select('recorded_at, temperature_c')
-      .eq('tank_id', tank_id)
-      .gte('recorded_at', brew_day)
-      .order('recorded_at'),
+    Promise.all(legs.map((leg) => {
+      let q = supabase.from('temperature_readings')
+        .select('recorded_at, temperature_c')
+        .eq('tank_id', leg.tank)
+        .gte('recorded_at', leg.from)
+      if (leg.to) q = q.lt('recorded_at', leg.to)
+      return q.order('recorded_at')
+    })),
     supabase.from('vdk_readings')
       .select('id, recorded_at, result, recorded_by, notes')
       .eq('brew_id', brew_id)
@@ -613,7 +627,8 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
   ])
 
   const tempsByHour = new Map<string, { recorded_at: string; temperature_c: number }>()
-  for (const t of temps ?? []) {
+  const temps = tempLegs.flatMap((r) => r.data ?? [])
+  for (const t of temps) {
     const hour = t.recorded_at.slice(0, 13)
     if (!tempsByHour.has(hour)) tempsByHour.set(hour, t)
   }
@@ -622,6 +637,8 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
     readings: readings ?? [],
     temps: [...tempsByHour.values()],
     vdk: (vdk ?? []) as { id: string; recorded_at: string; result: string; recorded_by: string; notes: string | null }[],
+    /** When it last moved tank, or null. The chart starts here unless asked for the whole brew. */
+    transferredAt: (moves?.at(-1)?.transferred_at as string | undefined) ?? null,
     /** Whether this viewer gets the delete button on readings (James only) */
     canDelete: isOwnerEmail(user?.email),
   }

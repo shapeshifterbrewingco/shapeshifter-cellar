@@ -53,6 +53,11 @@ const LITRES: Record<string, number> = { '24PK': 9, '16PK': 7.04, '50L': 50, '30
 let cache: { at: number; packs: Pack[] } | null = null
 const TEN_MINUTES = 10 * 60_000
 
+/** After Cellar edits the sheet, so the next read shows the change rather than a ten-minute-old copy */
+export function forgetSplitsCache() {
+  cache = null
+}
+
 async function packs(): Promise<Pack[]> {
   if (cache && Date.now() - cache.at < TEN_MINUTES) return cache.packs
   try {
@@ -215,47 +220,70 @@ export type SplitWrite =
   | { ok: true; changed: boolean; was: number | null; now: number; row: string }
   | { ok: false; message: string }
 
+type Located = {
+  tab: string
+  rows: unknown[][]
+  headerAt: number
+  rowAt: number
+  split: SheetSplit
+  brew: { id: string; volume_l: number; beer_name: string }
+}
+
+/** Find a brew's row on the Splits sheet: the same row its tank card shows. */
+async function locateSplitRow(brewId: string): Promise<Located | { error: string }> {
+  const db = createServiceClient()
+  const { data: brews } = await db
+    .from('brews').select('id, tank_id, beer_name, brew_day, stage, volume_l')
+    .is('deleted_at', null).not('stage', 'in', '(empty,transferred,packaged)')
+  const mine = (brews ?? []).find((b) => b.id === brewId)
+  if (!mine) return { error: 'That beer is no longer in a tank.' }
+
+  // Match every tank, not just this one, so two tanks of one beer take the same rows the cards show
+  const asTanks = (brews ?? []).map((b) => ({ tank: { id: b.tank_id }, brew: b })) as unknown as Pick<TankDashboardData, 'tank' | 'brew'>[]
+  const split = (await splitsByTank(asTanks)).get(mine.tank_id)
+  if (!split) return { error: `No row on the Splits sheet matches ${mine.beer_name}.` }
+
+  const [y, m] = split.date.split('-').map(Number)
+  const tab = (await sheetTabs(SPLITS_SHEET_ID)).find((t) => {
+    const hit = /^([A-Za-z]+)\s+(\d{4})$/.exec(t.trim())
+    return hit && Number(hit[2]) === y && MONTHS.indexOf(hit[1].slice(0, 3).toLowerCase()) === m - 1
+  })
+  if (!tab) return { error: 'Could not find that month on the Splits sheet.' }
+
+  const rows = await sheetValues(SPLITS_SHEET_ID, `'${tab}'!A1:Z60`, { unformatted: true })
+  const headerAt = rows.findIndex((r) => r.some((c) => String(c).trim().toUpperCase() === 'FV VOL'))
+  if (headerAt < 0) return { error: `The ${tab} tab has no FV VOL column.` }
+
+  let date = ''
+  let rowAt = -1
+  for (let i = headerAt + 1; i < rows.length; i++) {
+    const label = rows[i][1]
+    if (typeof label === 'string' && /^total/i.test(label.trim())) break
+    if (typeof label === 'number' && label > 40000) { date = serialKey(label); continue }
+    if (date === split.date && typeof label === 'string' && label.trim() === split.rawLabel.trim()) { rowAt = i; break }
+  }
+  if (rowAt < 0) return { error: `Could not find the ${split.label} row on the ${tab} tab. It may have just been edited.` }
+  return { tab, rows, headerAt, rowAt, split, brew: { id: mine.id, volume_l: Number(mine.volume_l), beer_name: mine.beer_name } }
+}
+
+const failMessage = (err: unknown, what: string) => {
+  const message = err instanceof Error ? err.message : String(err)
+  console.error(`[tank-splits] ${what}:`, message)
+  return /\b403\b/.test(message) ? 'Cellar is not allowed to edit the Splits sheet yet.' : 'The Splits sheet could not be updated.'
+}
+
 /**
  * Put a brew's current volume into the FV VOL cell of its row on the Splits
  * sheet. Only that one cell is touched. Never throws.
  */
 export async function writeSplitVolume(brewId: string): Promise<SplitWrite> {
   try {
-    const db = createServiceClient()
-    const { data: brews } = await db
-      .from('brews').select('id, tank_id, beer_name, brew_day, stage, volume_l')
-      .is('deleted_at', null).not('stage', 'in', '(empty,transferred,packaged)')
-    const mine = (brews ?? []).find((b) => b.id === brewId)
-    if (!mine) return { ok: false, message: 'That beer is no longer in a tank.' }
-
-    // Match every tank, not just this one, so two tanks of one beer take the same rows the cards show
-    const asTanks = (brews ?? []).map((b) => ({ tank: { id: b.tank_id }, brew: b })) as unknown as Pick<TankDashboardData, 'tank' | 'brew'>[]
-    const split = (await splitsByTank(asTanks)).get(mine.tank_id)
-    if (!split) return { ok: false, message: `No row on the Splits sheet matches ${mine.beer_name}.` }
-
-    const [y, m] = split.date.split('-').map(Number)
-    const tab = (await sheetTabs(SPLITS_SHEET_ID)).find((t) => {
-      const hit = /^([A-Za-z]+)\s+(\d{4})$/.exec(t.trim())
-      return hit && Number(hit[2]) === y && MONTHS.indexOf(hit[1].slice(0, 3).toLowerCase()) === m - 1
-    })
-    if (!tab) return { ok: false, message: 'Could not find that month on the Splits sheet.' }
-
-    const rows = await sheetValues(SPLITS_SHEET_ID, `'${tab}'!A1:Z60`, { unformatted: true })
-    const headerAt = rows.findIndex((r) => r.some((c) => String(c).trim().toUpperCase() === 'FV VOL'))
-    if (headerAt < 0) return { ok: false, message: `The ${tab} tab has no FV VOL column.` }
+    const found = await locateSplitRow(brewId)
+    if ('error' in found) return { ok: false, message: found.error }
+    const { tab, rows, headerAt, rowAt, split, brew } = found
     const col = rows[headerAt].findIndex((c) => String(c).trim().toUpperCase() === 'FV VOL')
 
-    let date = ''
-    let rowAt = -1
-    for (let i = headerAt + 1; i < rows.length; i++) {
-      const label = rows[i][1]
-      if (typeof label === 'string' && /^total/i.test(label.trim())) break
-      if (typeof label === 'number' && label > 40000) { date = serialKey(label); continue }
-      if (date === split.date && typeof label === 'string' && label.trim() === split.rawLabel.trim()) { rowAt = i; break }
-    }
-    if (rowAt < 0) return { ok: false, message: `Could not find the ${split.label} row on the ${tab} tab. It may have just been edited.` }
-
-    const now = Math.round(Number(mine.volume_l))
+    const now = Math.round(brew.volume_l)
     const before = rows[rowAt][col]
     const was = typeof before === 'number' ? before : parseFloat(String(before ?? '')) || null
     const where = `${split.label}, ${tab}`
@@ -263,8 +291,47 @@ export async function writeSplitVolume(brewId: string): Promise<SplitWrite> {
     await sheetUpdate(SPLITS_SHEET_ID, `'${tab}'!${colLetter(col)}${rowAt + 1}`, [[now]])
     return { ok: true, changed: true, was, now, row: where }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error('[tank-splits] volume not written:', message)
-    return { ok: false, message: /\b403\b/.test(message) ? 'Cellar is not allowed to edit the Splits sheet yet.' : 'The Splits sheet could not be updated.' }
+    return { ok: false, message: failMessage(err, 'volume not written') }
+  }
+}
+
+/** The format columns Cellar can change, by their header on the sheet */
+const QTY_HEADERS: [keyof SheetSplit['qty'], string][] = [['c16', '16PK'], ['c24', '24PK'], ['keg20', '20L'], ['keg30', '30L'], ['keg50', '50L']]
+
+/**
+ * Change how many of each format a brew's row plans. Only the format cells that
+ * changed are written; totals and excise are formulas on the sheet and follow.
+ * A format the month's tab has no column for cannot be set. Never throws.
+ */
+export async function writeSplitQty(brewId: string, qty: SheetSplit['qty']): Promise<{ ok: true; row: string; changed: string[] } | { ok: false; message: string }> {
+  try {
+    for (const [k] of QTY_HEADERS) {
+      const n = qty[k]
+      if (!Number.isFinite(n) || n < 0 || n > 2000) return { ok: false, message: 'Quantities must be whole numbers from 0 up.' }
+    }
+    const found = await locateSplitRow(brewId)
+    if ('error' in found) return { ok: false, message: found.error }
+    const { tab, rows, headerAt, rowAt, split } = found
+    const header = rows[headerAt].map((c) => String(c).trim().toUpperCase())
+
+    const writes: { cell: string; value: number | string; what: string }[] = []
+    for (const [k, h] of QTY_HEADERS) {
+      const col = header.indexOf(h)
+      const want = Math.round(qty[k])
+      if (col < 0) {
+        if (want > 0) return { ok: false, message: `The ${tab} tab has no ${h} column, so ${h} cannot be planned there.` }
+        continue
+      }
+      const before = rows[rowAt][col]
+      const was = typeof before === 'number' ? before : parseFloat(String(before ?? '')) || 0
+      if (was === want) continue
+      // Zero is left blank, as the sheet does
+      writes.push({ cell: `'${tab}'!${colLetter(col)}${rowAt + 1}`, value: want || '', what: `${h} ${was} to ${want}` })
+    }
+    for (const w of writes) await sheetUpdate(SPLITS_SHEET_ID, w.cell, [[w.value]])
+    if (writes.length) forgetSplitsCache()
+    return { ok: true, row: `${split.label}, ${tab}`, changed: writes.map((w) => w.what) }
+  } catch (err) {
+    return { ok: false, message: failMessage(err, 'splits not written') }
   }
 }

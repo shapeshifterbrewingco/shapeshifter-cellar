@@ -29,8 +29,10 @@ interface Props {
   days_in_tank: number | null
   /** Opens the volume dialog. Without it the volume is shown but cannot be changed. */
   onVolume?: () => void
-  /** The Splits sheet plan. A brite tank shows it first, as packing is what is next. */
+  /** The Splits sheet plan. A brite, or a beer transferred into an FV, shows it first: packing is what is next. */
   split?: SheetSplit | null
+  /** The beer has been transferred into this tank, so it is being used as a brite */
+  transferred?: boolean
   onClose: () => void
 }
 
@@ -155,13 +157,22 @@ function loadShown(): Record<SeriesKey, boolean> {
   try { return { ...all, ...(JSON.parse(localStorage.getItem(SHOWN_KEY) ?? '{}') as Partial<Record<SeriesKey, boolean>>) } } catch { return all }
 }
 
-/** Gravity, pH and temperature over the life of a brew. Each line can be switched off. */
-export function FermentChart({ brew, data, loading, height = 280 }: {
+/**
+ * Gravity, pH and temperature over the life of a brew. Each line can be
+ * switched off. A transferred beer starts at the transfer, with the whole
+ * brew (fermenter included) one tap away.
+ */
+export function FermentChart({ brew, data: all, loading, height = 280 }: {
   brew: Brew
   data: ChartData | null
   loading: boolean
   height?: number
 }) {
+  const [whole, setWhole] = useState(false)
+  const since = all?.transferredAt && !whole ? all.transferredAt : null
+  const data = all && since
+    ? { ...all, readings: all.readings.filter((r) => r.recorded_at >= since), temps: all.temps.filter((t) => t.recorded_at >= since) }
+    : all
   const readings = data?.readings ?? []
   const stageEvents = readings.filter((r) => r.plato == null && r.ph == null && r.notes?.startsWith('→'))
   const gravityReadings = readings.filter((r) => r.plato != null || r.ph != null)
@@ -169,7 +180,8 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
 
   const platoVals = readings.map((r) => r.plato).filter((v): v is number => v != null)
   const platoMin = platoVals.length ? Math.min(...platoVals) : 0
-  const platoMax = brew.og_plato ?? (platoVals.length ? Math.max(...platoVals) : 20)
+  // Since a transfer the gravity has stopped moving: scale to the readings, not the OG
+  const platoMax = (since ? null : brew.og_plato) ?? (platoVals.length ? Math.max(...platoVals) : 20)
   const platoPad = Math.max((platoMax - platoMin) * 0.2, 1)
 
   const tempVals = chartData.map((p) => p.temp).filter((v): v is number => v != null)
@@ -253,7 +265,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
           <Tooltip content={<CustomTooltip />} />
 
           {/* OG reference */}
-          {brew.og_plato != null && (
+          {brew.og_plato != null && !since && (
             <ReferenceLine
               yAxisId="plato"
               y={brew.og_plato}
@@ -318,8 +330,21 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
         </ComposedChart>
       </ResponsiveContainer>
     )}
-    {!loading && (hasReadings || hasTemp) && (
+    {!loading && (hasReadings || hasTemp || all?.transferredAt) && (
       <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2 pb-1">
+        {all?.transferredAt && (
+          <div role="group" aria-label="Chart range" className="inline-flex h-8 rounded-full border border-gray-200 p-0.5 mr-1">
+            {[
+              { on: !whole, label: `Since transfer ${format(new Date(all.transferredAt), 'd MMM')}`, pick: () => setWhole(false) },
+              { on: whole, label: 'Whole brew', pick: () => setWhole(true) },
+            ].map((o) => (
+              <button key={o.label} type="button" onClick={o.pick} aria-pressed={o.on}
+                className={`px-3 rounded-full text-xs font-semibold whitespace-nowrap ${o.on ? 'bg-primary text-white' : 'text-gray-500'}`}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
         {SERIES.filter((s) => s.key !== 'temp' || hasTemp).map((s) => (
           <button key={s.key} type="button" onClick={() => flip(s.key)} aria-pressed={show[s.key]}
             className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-xs font-medium ${show[s.key] ? 'bg-white border-gray-200 text-gray-700' : 'bg-transparent border-gray-200 text-gray-400 line-through'}`}>
@@ -333,7 +358,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
   )
 }
 
-export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, onClose }: Props) {
+export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, transferred = false, onClose }: Props) {
   const { data, loading, remove } = useBrewChart(brew, tank)
   const canDelete = !!data?.canDelete
 
@@ -374,7 +399,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, onCl
           </button>
         </div>
 
-        {tank.type === 'brite' && (
+        {(tank.type === 'brite' || transferred) && (
           <div className="px-5 pt-4">
             <PackPlanSummary brew={brew} tank={tank.name} split={split} plato={latestPlato} abvNow={abv} />
           </div>

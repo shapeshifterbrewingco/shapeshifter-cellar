@@ -93,8 +93,8 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
-        {/* In a brite, packing is what is next, so the plan comes first */}
-        {tank.type === 'brite' && (
+        {/* In a brite, or an FV the beer was transferred into, packing is what is next, so the plan comes first */}
+        {(tank.type === 'brite' || !!data.transferred_at) && (
           <PackPlanSummary brew={brew} tank={tank.name} split={data.sheet_split} plato={latest_gravity?.plato} abvNow={abv} />
         )}
         <section className="grid grid-cols-3 gap-2">

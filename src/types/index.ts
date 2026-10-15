@@ -273,6 +273,8 @@ export interface TankDashboardData {
   additions?: import('@/lib/brew-sheet').AdditionStatus | null
   packaging_split?: PackagingSplit | null
   next_scheduled_brew?: NextScheduledBrew | null
+  /** When the beer was last transferred into this tank. Set means it is being treated as a brite. */
+  transferred_at?: string | null
 }
 
 export const STAGE_LABELS: Record<TankStage, string> = {

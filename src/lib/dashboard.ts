@@ -58,6 +58,7 @@ export async function getDashboardData(
     { data: temps },
     { data: sheetRows },
     { data: recipeLines },
+    { data: transfers },
   ] = await Promise.all([
     brewIds.length > 0
       ? supabase
@@ -95,6 +96,9 @@ export async function getDashboardData(
     recipeIds.length > 0
       ? supabase.from('recipe_ingredients').select('recipe_id, name, addition_stage, quantity, unit, time_minutes, trigger').in('recipe_id', recipeIds).in('addition_stage', ['dry_hop', 'process']).order('sort_order')
       : none,
+    brewIds.length > 0
+      ? supabase.from('transfers').select('brew_id, transferred_at').in('brew_id', brewIds)
+      : none,
   ])
 
   // ── Assemble lookup maps ───────────────────────────────────────────────────
@@ -129,6 +133,12 @@ export async function getDashboardData(
   const latestTemp: Record<string, { temperature_c: number; set_point_c: number | null; recorded_at: string }> = {}
   for (const t of temps ?? []) {
     if (!latestTemp[t.tank_id]) latestTemp[t.tank_id] = t
+  }
+
+  // When each beer last moved tank. A transferred beer is being treated as a brite, whatever tank it is in.
+  const transferredAt: Record<string, string> = {}
+  for (const t of (transfers ?? []) as { brew_id: string; transferred_at: string }[]) {
+    if (!transferredAt[t.brew_id] || t.transferred_at > transferredAt[t.brew_id]) transferredAt[t.brew_id] = t.transferred_at
   }
 
   const liveByName = new Map(live.map((r) => [r.name, r]))
@@ -197,6 +207,7 @@ export async function getDashboardData(
       latest_vdk: brew ? (latestVdk[brew.id] as import('@/types').TankDashboardData['latest_vdk'] ?? null) : null,
       packaging_split: brew ? (splitsByBrew[brew.id] ?? null) : null,
       next_scheduled_brew: !brew ? (nextBrews[tank.name] ?? null) : null,
+      transferred_at: brew ? (transferredAt[brew.id] ?? null) : null,
     }
   })
 }

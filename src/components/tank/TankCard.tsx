@@ -942,7 +942,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />
         )}
         {showChartModal && brew && (
-          <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} onVolume={() => setShowEditVolume('taken')} onClose={() => setShowChartModal(false)} />
+          <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} split={sheet_split} onVolume={() => setShowEditVolume('taken')} onClose={() => setShowChartModal(false)} />
         )}
         {showTransferModal && brew && (
           <TransferModal brew={brew} sourceTank={tank} allTanks={allTanks} onClose={() => setShowTransferModal(false)} />
@@ -1408,7 +1408,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />
       )}
       {showChartModal && brew && (
-        <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} onVolume={() => setShowEditVolume('taken')} onClose={() => setShowChartModal(false)} />
+        <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} split={sheet_split} onVolume={() => setShowEditVolume('taken')} onClose={() => setShowChartModal(false)} />
       )}
       {showTransferModal && brew && (
         <TransferModal brew={brew} sourceTank={tank} allTanks={allTanks} onClose={() => setShowTransferModal(false)} />

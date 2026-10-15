@@ -102,6 +102,94 @@ export function PackChips({ brew, split, tankName, plato, onOpen }: {
   )
 }
 
+/** Each format the Splits sheet plans, as [label, count, litres each] */
+function splitRows(split: SheetSplit): [string, number, number][] {
+  return ([
+    ['24 × 375 mL cartons', split.qty.c24, 9], ['16 × 440 mL cartons', split.qty.c16, 7.04],
+    ['50 L kegs', split.qty.keg50, 50], ['30 L kegs', split.qty.keg30, 30], ['20 L kegs', split.qty.keg20, 20],
+  ] as [string, number, number][]).filter(([, n]) => n > 0)
+}
+
+const packDayLabel = (split: SheetSplit) =>
+  new Date(split.date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+
+function SplitTable({ split }: { split: SheetSplit }) {
+  return (
+    <table className="w-full text-sm tabular-nums">
+      <tbody>
+        {splitRows(split).map(([label, n, each]) => (
+          <tr key={label} className="border-t border-gray-100 first:border-t-0">
+            <td className="py-1.5 text-gray-700">{label}</td>
+            <td className="py-1.5 text-right font-semibold text-gray-900">{n}</td>
+            <td className="py-1.5 pl-3 text-right text-gray-500 w-20">{litres(n * each)}</td>
+          </tr>
+        ))}
+        <tr className="border-t border-gray-200">
+          <td className="pt-2 font-semibold text-gray-900" colSpan={2}>Splits add up to</td>
+          <td className="pt-2 pl-3 text-right font-bold text-gray-900">{litres(split.plannedL)}</td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
+
+/** Whether the splits fit the beer in the tank. `brief` drops the explanation. */
+function FitNote({ fit, brief = false }: { fit: SplitFit; brief?: boolean }) {
+  return (
+    <div className={`rounded-xl ${brief ? 'px-3 py-2' : 'p-3'} ${fit.kind === 'ok' ? 'bg-water/25' : 'bg-malt/15 ring-1 ring-malt/40'}`}>
+      <p className={`flex items-center gap-1.5 text-sm font-semibold ${fit.kind === 'ok' ? 'text-hops' : 'text-malt-dark'}`}>
+        {fit.kind === 'ok' ? <Check className="h-4 w-4 flex-shrink-0" /> : <AlertTriangle className="h-4 w-4 flex-shrink-0" />}
+        {fit.kind === 'ok' ? 'The splits fit the beer in the tank' : fit.kind === 'short' ? `About ${litres(fit.litres)} short` : `About ${litres(fit.litres)} left over`}
+      </p>
+      {!brief && (
+        <p className="mt-1 text-xs text-gray-600 tabular-nums">
+          Expect about {litres(fit.packable)} to pack: {fit.yieldPct}% of what is in the tank.{' '}
+          {fit.basis === 'brite'
+            ? 'It has been transferred, so nearly all of it packs.'
+            : 'It is still in the fermenter, so that is an estimate from past batches of this beer.'}
+          {fit.kind === 'short' && ' Trim the splits on the sheet or expect to come up short on the last format.'}
+          {fit.kind === 'spare' && ` That is roughly ${Math.floor(fit.litres / 50)} more 50 L keg${Math.floor(fit.litres / 50) === 1 ? '' : 's'} or ${Math.floor(fit.litres / 9)} more 24 packs.`}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The plan at the top of an opened brite tank: pack day, formats, whether it
+ * fits and the materials ticks, with the full plan a tap away.
+ */
+export function PackPlanSummary({ brew, tank, split, plato, abvNow }: {
+  brew: Brew
+  tank: string
+  split: SheetSplit | null | undefined
+  plato: number | null | undefined
+  abvNow: number | null
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="rounded-xl bg-background ring-1 ring-black/5 p-3 space-y-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          {split ? <>Pack {packDayLabel(split)}{split.proposed ? ' (proposed)' : ''}</> : 'Packaging plan'}
+        </p>
+        <button type="button" onClick={() => setOpen(true)} className="text-xs font-semibold text-primary whitespace-nowrap">Full plan</button>
+      </div>
+      {split ? (
+        <>
+          {split.label && <p className="text-sm font-medium text-gray-900 break-words">{split.label}</p>}
+          <SplitTable split={split} />
+          {split.fit && <FitNote fit={split.fit} brief />}
+        </>
+      ) : (
+        <p className="text-sm text-gray-500">No row on the Splits sheet for this beer yet.</p>
+      )}
+      <PackChips brew={brew} split={split} tankName={tank} plato={plato} />
+      {open && <PackPlanDialog brew={brew} tank={tank} split={split} abvNow={abvNow} targetAbv={brew.target_abv} onClose={() => setOpen(false)} />}
+    </section>
+  )
+}
+
 /**
  * The packaging plan for a beer in tank: what the Splits sheet says it is
  * being packed into, whether there is enough beer for that, and which
@@ -119,11 +207,7 @@ export function PackPlanDialog({ brew, tank, split, abvNow, targetAbv, onClose }
   const { checks, toggle } = usePackChecks(brew)
   const [sending, setSending] = useState(false)
   const fit = split?.fit ?? null
-  const packDay = split ? new Date(split.date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) : null
-  const rows: [string, number, number][] = split ? [
-    ['24 × 375 mL cartons', split.qty.c24, 9], ['16 × 440 mL cartons', split.qty.c16, 7.04],
-    ['50 L kegs', split.qty.keg50, 50], ['30 L kegs', split.qty.keg30, 30], ['20 L kegs', split.qty.keg20, 20],
-  ] : []
+  const packDay = split ? packDayLabel(split) : null
 
   async function send() {
     setSending(true)
@@ -166,40 +250,11 @@ export function PackPlanDialog({ brew, tank, split, abvNow, targetAbv, onClose }
               <p className={H}>From the Splits sheet · pack {packDay}{split.proposed ? ' (proposed)' : ''}</p>
               <div className={CARD}>
                 <p className="text-sm font-medium text-gray-900 break-words">{split.label}</p>
-                <table className="mt-2 w-full text-sm tabular-nums">
-                  <tbody>
-                    {rows.filter(([, n]) => n > 0).map(([label, n, each]) => (
-                      <tr key={label} className="border-t border-gray-100">
-                        <td className="py-1.5 text-gray-700">{label}</td>
-                        <td className="py-1.5 text-right font-semibold text-gray-900">{n}</td>
-                        <td className="py-1.5 pl-3 text-right text-gray-500 w-20">{litres(n * each)}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-t border-gray-200">
-                      <td className="pt-2 font-semibold text-gray-900" colSpan={2}>Splits add up to</td>
-                      <td className="pt-2 pl-3 text-right font-bold text-gray-900">{litres(split.plannedL)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div className="mt-2"><SplitTable split={split} /></div>
               </div>
             </div>
 
-            {fit && (
-              <div className={`rounded-xl p-3 ${fit.kind === 'ok' ? 'bg-water/25' : 'bg-malt/15 ring-1 ring-malt/40'}`}>
-                <p className={`flex items-center gap-1.5 text-sm font-semibold ${fit.kind === 'ok' ? 'text-hops' : 'text-malt-dark'}`}>
-                  {fit.kind === 'ok' ? <Check className="h-4 w-4 flex-shrink-0" /> : <AlertTriangle className="h-4 w-4 flex-shrink-0" />}
-                  {fit.kind === 'ok' ? 'The splits fit the beer in the tank' : fit.kind === 'short' ? `About ${litres(fit.litres)} short` : `About ${litres(fit.litres)} left over`}
-                </p>
-                <p className="mt-1 text-xs text-gray-600 tabular-nums">
-                  Expect about {litres(fit.packable)} to pack: {fit.yieldPct}% of what is in the tank.{' '}
-                  {fit.basis === 'brite'
-                    ? 'It has been transferred, so nearly all of it packs.'
-                    : 'It is still in the fermenter, so that is an estimate from past batches of this beer.'}
-                  {fit.kind === 'short' && ' Trim the splits on the sheet or expect to come up short on the last format.'}
-                  {fit.kind === 'spare' && ` That is roughly ${Math.floor(fit.litres / 50)} more 50 L keg${Math.floor(fit.litres / 50) === 1 ? '' : 's'} or ${Math.floor(fit.litres / 9)} more 24 packs.`}
-                </p>
-              </div>
-            )}
+            {fit && <FitNote fit={fit} />}
 
             <div>
               <button type="button" onClick={send} disabled={sending}

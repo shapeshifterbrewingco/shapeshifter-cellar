@@ -1,6 +1,8 @@
 'use client'
 
 import { logDayTime } from '@/lib/log-date'
+import { PackPlanSummary } from '@/components/tank/PackPlan'
+import type { SheetSplit } from '@/lib/tank-splits'
 import { useState, useEffect } from 'react'
 import { X, FlaskConical, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -27,6 +29,8 @@ interface Props {
   days_in_tank: number | null
   /** Opens the volume dialog. Without it the volume is shown but cannot be changed. */
   onVolume?: () => void
+  /** The Splits sheet plan. A brite tank shows it first, as packing is what is next. */
+  split?: SheetSplit | null
   onClose: () => void
 }
 
@@ -329,7 +333,7 @@ export function FermentChart({ brew, data, loading, height = 280 }: {
   )
 }
 
-export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: Props) {
+export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, onClose }: Props) {
   const { data, loading, remove } = useBrewChart(brew, tank)
   const canDelete = !!data?.canDelete
 
@@ -349,7 +353,7 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
@@ -369,6 +373,12 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, onClose }: 
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {tank.type === 'brite' && (
+          <div className="px-5 pt-4">
+            <PackPlanSummary brew={brew} tank={tank.name} split={split} plato={latestPlato} abvNow={abv} />
+          </div>
+        )}
 
         {/* Stats row */}
         <div className="grid grid-cols-5 divide-x divide-gray-100 border-b border-gray-100">

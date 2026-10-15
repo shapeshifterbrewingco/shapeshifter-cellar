@@ -1,6 +1,7 @@
 'use client'
 
 import { logDay } from '@/lib/log-date'
+import { PackPlanSummary } from './PackPlan'
 import { useEffect, useState } from 'react'
 import { X, FlaskConical, ArrowRightLeft, MoreHorizontal } from 'lucide-react'
 import { FermentChart, useBrewChart, DeleteReading } from '@/components/dashboard/BrewChartModal'
@@ -92,6 +93,10 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
+        {/* In a brite, packing is what is next, so the plan comes first */}
+        {tank.type === 'brite' && (
+          <PackPlanSummary brew={brew} tank={tank.name} split={data.sheet_split} plato={latest_gravity?.plato} abvNow={abv} />
+        )}
         <section className="grid grid-cols-3 gap-2">
           {stats.map((s) => (
             <div key={s.label} className="bg-white rounded-2xl px-2 py-2.5 text-center ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">

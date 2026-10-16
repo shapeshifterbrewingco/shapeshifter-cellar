@@ -4,7 +4,15 @@ import { logDayTime } from '@/lib/log-date'
 import { PackPlanSummary } from '@/components/tank/PackPlan'
 import type { SheetSplit } from '@/lib/tank-splits'
 import { useState, useEffect } from 'react'
-import { X, FlaskConical, Trash2 } from 'lucide-react'
+import { X, FlaskConical, Trash2, MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import type { SheetAction, StageOption } from '@/components/tank/TankDetailSheet'
 import { toast } from 'sonner'
 import { deleteReading } from '@/app/readings/actions'
 import {
@@ -33,6 +41,11 @@ interface Props {
   split?: SheetSplit | null
   /** The beer has been transferred into this tank, so it is being used as a brite */
   transferred?: boolean
+  /** The tank card's own menu, so anything it can do can be done from here too */
+  stages?: StageOption[]
+  onStage?: (stage: StageOption['stage']) => void
+  onLog?: () => void
+  more?: SheetAction[]
   onClose: () => void
 }
 
@@ -373,7 +386,7 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
   )
 }
 
-export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, transferred = false, onClose }: Props) {
+export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, transferred = false, stages, onStage, onLog, more, onClose }: Props) {
   const { data, loading, remove } = useBrewChart(brew, tank)
   const canDelete = !!data?.canDelete
 
@@ -409,9 +422,30 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, tran
                 : `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 mt-0.5">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {more && (
+              <DropdownMenu>
+                <DropdownMenuTrigger aria-label="Tank actions" className="h-7 w-7 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-50 hover:text-gray-600 cursor-pointer">
+                  <MoreHorizontal className="h-5 w-5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-sm">
+                  {stages && onStage && stages.map((st) => (
+                    <DropdownMenuItem key={st.stage} disabled={!!st.blocked} onClick={() => !st.blocked && onStage(st.stage)}>
+                      → {st.label}{st.blocked && <span className="ml-1.5 text-[10px] text-gray-400">{st.blocked}</span>}
+                    </DropdownMenuItem>
+                  ))}
+                  {stages && onStage && <DropdownMenuSeparator />}
+                  {onLog && <DropdownMenuItem onClick={onLog}>Log Reading…</DropdownMenuItem>}
+                  {more.map((a) => (
+                    <DropdownMenuItem key={a.label} className={a.danger ? 'text-red-600 focus:text-red-600' : undefined} onClick={a.onSelect}>{a.label}…</DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <button type="button" onClick={onClose} aria-label="Close" className="h-7 w-7 flex items-center justify-center text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {(tank.type === 'brite' || transferred) && (

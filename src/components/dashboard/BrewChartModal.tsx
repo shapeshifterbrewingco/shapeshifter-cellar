@@ -66,6 +66,21 @@ function CustomTooltip({ active, payload, label }: any) {
   )
 }
 
+/**
+ * The name of a stage change, written down the left of its marker line from the top
+ * of the plot. Recharts' own rotated label hangs above the plot and gets clipped.
+ */
+function StageLabel({ viewBox, text }: { viewBox?: { x: number; y: number }; text: string }) {
+  if (!viewBox || !text) return null
+  const x = viewBox.x - 3
+  const y = viewBox.y + 4
+  return (
+    <text x={x} y={y} transform={`rotate(-90 ${x} ${y})`} textAnchor="end" fontSize={9} fill="var(--chart-muted)">
+      {text}
+    </text>
+  )
+}
+
 function mergeChartData(
   readings: ChartData['readings'],
   temps: ChartData['temps']
@@ -283,7 +298,7 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
               x={new Date(e.recorded_at).getTime()}
               stroke="var(--chart-muted)"
               strokeDasharray="3 3"
-              label={{ value: e.notes ?? '', fontSize: 8, fill: 'var(--chart-muted)', position: 'insideTopLeft', angle: -90 }}
+              label={<StageLabel text={(e.notes ?? '').replace(/^→\s*/, '')} />}
             />
           ))}
 

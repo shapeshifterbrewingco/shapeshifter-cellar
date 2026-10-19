@@ -51,7 +51,6 @@ export function VdkModal({ brew, tank, currentUser, onClose, onVdkPass }: Props)
         return
       }
       toast.success(`VDK ${VDK_STYLE[result].label.toLowerCase()} logged for ${tank.name}`)
-      if (result === 'pass') { onVdkPass(); return }
       await reload()
       setPicked(null)
       setNotes('')
@@ -135,7 +134,15 @@ export function VdkModal({ brew, tank, currentUser, onClose, onVdkPass }: Props)
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {picked ? `Save: VDK ${VDK_STYLE[picked].label.toLowerCase()}` : 'Pick a result to save'}
           </button>
-          {picked === 'pass' && <p className="text-xs text-gray-500 text-center -mt-2">A pass lets this tank move on to On Chill.</p>}
+          {picked === 'pass' && <p className="text-xs text-gray-500 text-center -mt-2">A pass is logged only. The tank stays on diacetyl rest until someone moves it on.</p>}
+
+          {/* Moving on is its own step, once the team agrees the beer is ready */}
+          {latest?.result === 'pass' && (
+            <button type="button" onClick={onVdkPass} disabled={isPending}
+              className="w-full h-11 rounded-xl border-2 border-primary text-primary text-sm font-semibold disabled:opacity-40">
+              Agreed: put {tank.name} on chill
+            </button>
+          )}
 
           {!loadingReadings && readings.length > 0 && (
             <div>

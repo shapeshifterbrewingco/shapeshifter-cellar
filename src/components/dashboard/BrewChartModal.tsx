@@ -3,7 +3,7 @@
 import { logDayTime } from '@/lib/log-date'
 import { PackPlanSummary } from '@/components/tank/PackPlan'
 import type { SheetSplit } from '@/lib/tank-splits'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X, FlaskConical, Trash2, MoreHorizontal } from 'lucide-react'
 import {
   DropdownMenu,
@@ -285,24 +285,28 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
   }
 
   const since = all?.transferredAt && !whole ? all.transferredAt : null
-  // A range runs back from the latest thing on the chart, so a finished brew in History still shows its last days
-  const latest = all
-    ? Math.max(0, ...all.temps.map((t) => new Date(t.recorded_at).getTime()), ...all.readings.map((r) => new Date(r.recorded_at).getTime()))
-    : 0
-  const rangeMs = RANGES.find((r) => r.key === range)!.ms
-  const fromIso = [since, Number.isFinite(rangeMs) && latest ? new Date(latest - rangeMs).toISOString() : null]
-    .filter((x): x is string => !!x).sort().at(-1) ?? null
-  const data = all && fromIso
-    ? { ...all, readings: all.readings.filter((r) => r.recorded_at >= fromIso), temps: all.temps.filter((t) => t.recorded_at >= fromIso) }
-    : all
+  // Built once per range, not on every render. Recharts snaps the slider back to the
+  // end whenever it is handed a new data array, so rebuilding it on each drag undid the drag.
+  const { fromIso, data, chartData } = useMemo(() => {
+    // A range runs back from the latest thing on the chart, so a finished brew in History still shows its last days
+    const latest = all
+      ? Math.max(0, ...all.temps.map((t) => new Date(t.recorded_at).getTime()), ...all.readings.map((r) => new Date(r.recorded_at).getTime()))
+      : 0
+    const rangeMs = RANGES.find((r) => r.key === range)!.ms
+    const fromIso = [since, Number.isFinite(rangeMs) && latest ? new Date(latest - rangeMs).toISOString() : null]
+      .filter((x): x is string => !!x).sort().at(-1) ?? null
+    const data = all && fromIso
+      ? { ...all, readings: all.readings.filter((r) => r.recorded_at >= fromIso), temps: all.temps.filter((t) => t.recorded_at >= fromIso) }
+      : all
+
+    // Every ten-minute reading up to three days; beyond that about 500 points across the range
+    const tempSpan = data?.temps.length ? new Date(data.temps.at(-1)!.recorded_at).getTime() - new Date(data.temps[0].recorded_at).getTime() : 0
+    const bucket = Math.max(10 * MIN, Math.ceil(tempSpan / 500 / (10 * MIN)) * 10 * MIN)
+    return { fromIso, data, chartData: data ? mergeChartData(data.readings, data.temps, bucket) : [] }
+  }, [all, since, range])
   const readings = data?.readings ?? []
   const stageEvents = readings.filter((r) => r.plato == null && r.ph == null && r.notes?.startsWith('→'))
   const gravityReadings = readings.filter((r) => r.plato != null || r.ph != null)
-
-  // Every ten-minute reading up to three days; beyond that about 500 points across the range
-  const tempSpan = data?.temps.length ? new Date(data.temps.at(-1)!.recorded_at).getTime() - new Date(data.temps[0].recorded_at).getTime() : 0
-  const bucket = Math.max(10 * MIN, Math.ceil(tempSpan / 500 / (10 * MIN)) * 10 * MIN)
-  const chartData = data ? mergeChartData(data.readings, data.temps, bucket) : []
   const visible = zoom ? chartData.slice(zoom.startIndex, zoom.endIndex + 1) : chartData
 
   const platoVals = readings.map((r) => r.plato).filter((v): v is number => v != null)
@@ -385,7 +389,7 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
         <p className="text-xs">Use the Log button on the tank card to add readings.</p>
       </div>
     ) : (
-      <ResponsiveContainer width="100%" height={height + (chartData.length > 2 ? 44 : 0)}>
+      <ResponsiveContainer width="100%" height={height + (chartData.length > 2 ? 48 : 0)}>
         <ComposedChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
           {/* A true time axis: a day is the same width wherever it falls. Spacing the points
@@ -528,8 +532,8 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
             <Brush
               key={brushKey}
               dataKey="ts"
-              height={32}
-              travellerWidth={12}
+              height={36}
+              travellerWidth={18}
               stroke="var(--chart-muted)"
               fill="transparent"
               tickFormatter={() => ''}

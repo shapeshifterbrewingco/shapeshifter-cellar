@@ -10,6 +10,7 @@ import { coolingOff } from '@/lib/cooling'
 import { writeSplitVolume } from '@/lib/tank-splits'
 import { logActivity, who, esc, logGroupedActivity } from '@/lib/slack'
 import { publishPackReportLater } from '@/lib/pack-report-post'
+import { all } from '@/lib/history'
 import { STAGE_LABELS } from '@/types'
 import type { TankStage, PackageFormat, HopLoad, ExciseCategory, PackagingSplit } from '@/types'
 
@@ -592,6 +593,8 @@ export async function getBrewCogs(brew_id: string): Promise<{
 
 // ── Chart data ────────────────────────────────────────────────
 
+type TempRow = { recorded_at: string; temperature_c: number; set_point_c: number | null }
+
 export async function getBrewChartData(brew_id: string, tank_id: string, brew_day: string) {
   const supabase = await createClient()
 
@@ -611,14 +614,15 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
       .select('id, recorded_at, plato, ph, temperature_c, recorded_by, notes')
       .eq('brew_id', brew_id)
       .order('recorded_at'),
-    Promise.all(legs.map((leg) => {
+    // Every ten-minute reading, paged: a few weeks in one tank runs past the API's 1,000-row cap
+    Promise.all(legs.map((leg) => all<TempRow>((from, to) => {
       let q = supabase.from('temperature_readings')
-        .select('recorded_at, temperature_c')
+        .select('recorded_at, temperature_c, set_point_c')
         .eq('tank_id', leg.tank)
         .gte('recorded_at', leg.from)
       if (leg.to) q = q.lt('recorded_at', leg.to)
-      return q.order('recorded_at')
-    })),
+      return q.order('recorded_at').range(from, to)
+    }))),
     supabase.from('vdk_readings')
       .select('id, recorded_at, result, recorded_by, notes')
       .eq('brew_id', brew_id)
@@ -626,16 +630,10 @@ export async function getBrewChartData(brew_id: string, tank_id: string, brew_da
     supabase.auth.getUser(),
   ])
 
-  const tempsByHour = new Map<string, { recorded_at: string; temperature_c: number }>()
-  const temps = tempLegs.flatMap((r) => r.data ?? [])
-  for (const t of temps) {
-    const hour = t.recorded_at.slice(0, 13)
-    if (!tempsByHour.has(hour)) tempsByHour.set(hour, t)
-  }
-
   return {
     readings: readings ?? [],
-    temps: [...tempsByHour.values()],
+    // Full resolution. The chart thins it to suit the range being looked at.
+    temps: tempLegs.flat(),
     vdk: (vdk ?? []) as { id: string; recorded_at: string; result: string; recorded_by: string; notes: string | null }[],
     /** When it last moved tank, or null. The chart starts here unless asked for the whole brew. */
     transferredAt: (moves?.at(-1)?.transferred_at as string | undefined) ?? null,

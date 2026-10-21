@@ -113,7 +113,7 @@ export function TankDetailSheet({ data, stages, more, onLog, logLabel = 'Log rea
         </section>
 
         <section className="bg-white rounded-2xl pt-3 pb-1 px-1 ring-1 ring-black/5 shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
-          <FermentChart brew={brew} data={chart} loading={loading} height={240} />
+          <FermentChart brew={brew} data={chart} loading={loading} height={260} />
         </section>
 
         <section>

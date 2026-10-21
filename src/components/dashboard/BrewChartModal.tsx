@@ -24,7 +24,10 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
+  Brush,
+  LineChart,
 } from 'recharts'
+import { FRIGID_OFF_SET_POINT } from '@/lib/frigid'
 import { format, parseISO } from 'date-fns'
 import { getBrewChartData } from '@/app/brews/actions'
 import { calcAbv, formatUserName } from '@/lib/utils'
@@ -57,26 +60,90 @@ interface ChartPoint {
   plato: number | null
   ph: number | null
   temp: number | null
+  /** Frigid's set point, null while cooling is off */
+  set: number | null
 }
 
 // Frigid reports to three decimals; one is all a brewer reads
 const oneDp = (n: number) => Math.round(n * 10) / 10
+
+const MIN = 60_000
+const HOUR = 60 * MIN
+const DAY = 24 * HOUR
+
+const UNITS: Record<string, (v: number) => string> = {
+  temp: (v) => `${v.toFixed(1)}°C`,
+  set: (v) => `${v.toFixed(1)}°C`,
+  plato: (v) => `${v}°P`,
+  ph: (v) => `${v}`,
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs space-y-0.5">
-      <p className="font-medium text-gray-600 mb-1">{typeof label === 'number' ? format(new Date(label), 'd MMM HH:mm') : label}</p>
-      {payload.map((p: { color: string; name: string; value: number | null }) =>
+      <p className="font-medium text-gray-600 mb-1">{typeof label === 'number' ? format(new Date(label), 'EEE d MMM, HH:mm') : label}</p>
+      {payload.map((p: { color: string; name: string; dataKey: string; value: number | null }) =>
         p.value != null ? (
           <p key={p.name} style={{ color: p.color }}>
-            {p.name}: <span className="font-semibold tabular-nums">{p.value}</span>
+            {p.name}: <span className="font-semibold tabular-nums">{UNITS[p.dataKey]?.(p.value) ?? p.value}</span>
           </p>
         ) : null
       )}
     </div>
   )
+}
+
+/** Chart ranges, as on the Frigid app. Each runs back from the latest reading. */
+type RangeKey = '24h' | '3d' | '7d' | 'all'
+const RANGES: { key: RangeKey; label: string; ms: number }[] = [
+  { key: '24h', label: '24 hrs', ms: DAY },
+  { key: '3d', label: '3 days', ms: 3 * DAY },
+  { key: '7d', label: '7 days', ms: 7 * DAY },
+  { key: 'all', label: 'All', ms: Infinity },
+]
+const RANGE_KEY = 'ferment-chart-range'
+function loadRange(): RangeKey {
+  if (typeof window === 'undefined') return 'all'
+  try {
+    const r = localStorage.getItem(RANGE_KEY)
+    return RANGES.some((x) => x.key === r) ? (r as RangeKey) : 'all'
+  } catch { return 'all' }
+}
+
+/**
+ * Time ticks on whole local hours or days, at the smallest step that fits up to
+ * seven across a phone, so the axis reads 20:00, 00:00, 04:00 rather than odd minutes.
+ */
+const TICK_STEPS = [HOUR, 2 * HOUR, 3 * HOUR, 4 * HOUR, 6 * HOUR, 12 * HOUR, DAY, 2 * DAY, 7 * DAY, 14 * DAY]
+function timeTicks(start: number, end: number) {
+  const step = TICK_STEPS.find((s) => (end - start) / s <= 7) ?? 28 * DAY
+  const d = new Date(start)
+  d.setMinutes(0, 0, 0)
+  if (step >= DAY) d.setHours(0)
+  else d.setHours(Math.floor(d.getHours() / (step / HOUR)) * (step / HOUR))
+  const ticks: number[] = []
+  // Stepping by date rather than by milliseconds keeps ticks on midnight across a daylight saving change
+  while (d.getTime() <= end) {
+    if (d.getTime() >= start) ticks.push(d.getTime())
+    if (step >= DAY) d.setDate(d.getDate() + step / DAY)
+    else d.setHours(d.getHours() + step / HOUR)
+  }
+  return { ticks, step }
+}
+
+/** A temperature axis tight on the line, in 0.5° steps when the swing is small, so a 3° rise reads as one */
+function tempAxis(vals: number[]) {
+  if (!vals.length) return { domain: [0, 30] as [number, number], ticks: undefined }
+  const lo = Math.min(...vals), hi = Math.max(...vals)
+  const swing = hi - lo
+  const step = swing <= 4 ? 0.5 : swing <= 10 ? 1 : 2
+  const min = Math.floor((lo - step / 2) / step) * step
+  const max = Math.ceil((hi + step / 2) / step) * step
+  const ticks: number[] = []
+  for (let t = min; t <= max + 1e-9; t += step) ticks.push(Math.round(t * 10) / 10)
+  return { domain: [min, max] as [number, number], ticks }
 }
 
 /**
@@ -96,23 +163,25 @@ function StageLabel({ viewBox, text }: { viewBox?: { x: number; y: number }; tex
 
 function mergeChartData(
   readings: ChartData['readings'],
-  temps: ChartData['temps']
+  temps: ChartData['temps'],
+  bucket: number
 ): ChartPoint[] {
   const map = new Map<number, ChartPoint>()
 
-  // Tank temperatures arrive every ten minutes. Over weeks that is thousands of
-  // points for a line that barely moves, so a long history is thinned to one an hour.
-  const HOUR = 3_600_000
-  const thin = temps.length > 300
+  // Tank temperatures arrive every ten minutes. A short range shows every one; a
+  // long one keeps one per bucket so the line stays smooth and the phone stays quick.
   for (const t of temps) {
     const at = new Date(t.recorded_at).getTime()
-    const ts = thin ? Math.floor(at / HOUR) * HOUR : at
+    const ts = Math.floor(at / bucket) * bucket
+    if (map.has(ts)) continue
+    const set = t.set_point_c != null && t.set_point_c !== FRIGID_OFF_SET_POINT ? oneDp(Number(t.set_point_c)) : null
     map.set(ts, {
       ts,
       label: format(parseISO(t.recorded_at), 'd MMM HH:mm'),
       plato: null,
       ph: null,
       temp: oneDp(Number(t.temperature_c)),
+      set,
     })
   }
 
@@ -125,6 +194,7 @@ function mergeChartData(
       plato: r.plato ?? null,
       ph: r.ph ?? null,
       temp: r.temperature_c != null ? oneDp(Number(r.temperature_c)) : existing?.temp ?? null,
+      set: existing?.set ?? null,
     })
   }
 
@@ -171,16 +241,17 @@ export function DeleteReading({ onClick }: { onClick: () => void }) {
   )
 }
 
-type SeriesKey = 'plato' | 'ph' | 'temp'
+type SeriesKey = 'plato' | 'ph' | 'temp' | 'set'
 const SERIES: { key: SeriesKey; label: string; colour: string }[] = [
   { key: 'plato', label: 'Gravity', colour: 'var(--chart-gravity)' },
   { key: 'ph', label: 'pH', colour: 'var(--chart-ph)' },
   { key: 'temp', label: 'Temp', colour: 'var(--chart-temp)' },
+  { key: 'set', label: 'Target', colour: 'var(--chart-muted)' },
 ]
 // Which lines are drawn is a personal choice, remembered on the device
 const SHOWN_KEY = 'ferment-chart-lines'
 function loadShown(): Record<SeriesKey, boolean> {
-  const all = { plato: true, ph: true, temp: true }
+  const all = { plato: true, ph: true, temp: true, set: true }
   if (typeof window === 'undefined') return all
   try { return { ...all, ...(JSON.parse(localStorage.getItem(SHOWN_KEY) ?? '{}') as Partial<Record<SeriesKey, boolean>>) } } catch { return all }
 }
@@ -188,7 +259,8 @@ function loadShown(): Record<SeriesKey, boolean> {
 /**
  * Gravity, pH and temperature over the life of a brew. Each line can be
  * switched off. A transferred beer starts at the transfer, with the whole
- * brew (fermenter included) one tap away.
+ * brew (fermenter included) one tap away. The range buttons and the slider
+ * under the chart narrow it down to hours, as on the Frigid app.
  */
 export function FermentChart({ brew, data: all, loading, height = 280 }: {
   brew: Brew
@@ -197,52 +269,125 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
   height?: number
 }) {
   const [whole, setWhole] = useState(false)
+  const [range, setRange] = useState<RangeKey>(loadRange)
+  // The slider's window, as indexes into the points. Null is the whole range.
+  const [zoom, setZoomState] = useState<{ startIndex: number; endIndex: number } | null>(null)
+  // Bumped to put the slider back to full width; a drag must not remount it
+  const [brushKey, setBrushKey] = useState(0)
+  const setZoom = (z: typeof zoom) => {
+    setZoomState(z)
+    if (!z) setBrushKey((n) => n + 1)
+  }
+  const pickRange = (r: RangeKey) => {
+    setRange(r)
+    setZoom(null)
+    try { localStorage.setItem(RANGE_KEY, r) } catch { /* private mode: it still works for this visit */ }
+  }
+
   const since = all?.transferredAt && !whole ? all.transferredAt : null
-  const data = all && since
-    ? { ...all, readings: all.readings.filter((r) => r.recorded_at >= since), temps: all.temps.filter((t) => t.recorded_at >= since) }
+  // A range runs back from the latest thing on the chart, so a finished brew in History still shows its last days
+  const latest = all
+    ? Math.max(0, ...all.temps.map((t) => new Date(t.recorded_at).getTime()), ...all.readings.map((r) => new Date(r.recorded_at).getTime()))
+    : 0
+  const rangeMs = RANGES.find((r) => r.key === range)!.ms
+  const fromIso = [since, Number.isFinite(rangeMs) && latest ? new Date(latest - rangeMs).toISOString() : null]
+    .filter((x): x is string => !!x).sort().at(-1) ?? null
+  const data = all && fromIso
+    ? { ...all, readings: all.readings.filter((r) => r.recorded_at >= fromIso), temps: all.temps.filter((t) => t.recorded_at >= fromIso) }
     : all
   const readings = data?.readings ?? []
   const stageEvents = readings.filter((r) => r.plato == null && r.ph == null && r.notes?.startsWith('→'))
   const gravityReadings = readings.filter((r) => r.plato != null || r.ph != null)
-  const chartData = data ? mergeChartData(data.readings, data.temps) : []
+
+  // Every ten-minute reading up to three days; beyond that about 500 points across the range
+  const tempSpan = data?.temps.length ? new Date(data.temps.at(-1)!.recorded_at).getTime() - new Date(data.temps[0].recorded_at).getTime() : 0
+  const bucket = Math.max(10 * MIN, Math.ceil(tempSpan / 500 / (10 * MIN)) * 10 * MIN)
+  const chartData = data ? mergeChartData(data.readings, data.temps, bucket) : []
+  const visible = zoom ? chartData.slice(zoom.startIndex, zoom.endIndex + 1) : chartData
 
   const platoVals = readings.map((r) => r.plato).filter((v): v is number => v != null)
   const platoMin = platoVals.length ? Math.min(...platoVals) : 0
-  // Since a transfer the gravity has stopped moving: scale to the readings, not the OG
-  const platoMax = (since ? null : brew.og_plato) ?? (platoVals.length ? Math.max(...platoVals) : 20)
+  // Since a transfer, or over a short range, the gravity has stopped moving: scale to the readings, not the OG
+  const platoMax = (fromIso ? null : brew.og_plato) ?? (platoVals.length ? Math.max(...platoVals) : 20)
   const platoPad = Math.max((platoMax - platoMin) * 0.2, 1)
 
-  const tempVals = chartData.map((p) => p.temp).filter((v): v is number => v != null)
-  const tempMin = tempVals.length ? Math.floor(Math.min(...tempVals)) - 2 : 0
-  const tempMax = tempVals.length ? Math.ceil(Math.max(...tempVals)) + 2 : 30
-
-  const hasTemp = tempVals.length > 0
   const [show, setShow] = useState<Record<SeriesKey, boolean>>(loadShown)
   const flip = (k: SeriesKey) => setShow((s) => {
     const next = { ...s, [k]: !s[k] }
     try { localStorage.setItem(SHOWN_KEY, JSON.stringify(next)) } catch { /* private mode: it still works for this visit */ }
     return next
   })
+
+  const hasTemp = chartData.some((p) => p.temp != null)
+  const hasSet = chartData.some((p) => p.set != null)
   const showTemp = hasTemp && show.temp
-  const spanDays = chartData.length > 1 ? (chartData[chartData.length - 1].ts - chartData[0].ts) / 86_400_000 : 0
+  const showSet = hasSet && show.set
+  // The axis fits what is on screen, so zooming in on a dip gives it the full height
+  const visTemps = visible.map((p) => p.temp).filter((v): v is number => v != null)
+  const tAxis = tempAxis([
+    ...(showTemp ? visTemps : []),
+    ...(showSet ? visible.map((p) => p.set).filter((v): v is number => v != null) : []),
+  ])
+  const tempOnAxis = showTemp || showSet
+
+  const start = visible[0]?.ts ?? 0
+  const end = visible.at(-1)?.ts ?? 0
+  const { ticks: xTicks, step: xStep } = timeTicks(start, end)
+  // Ticks within a day read as clock times, with the date on the midnight tick
+  const xLabel = (t: number) => {
+    const d = new Date(t)
+    if (xStep >= DAY) return format(d, 'd MMM')
+    return d.getHours() === 0 ? format(d, 'd MMM') : format(d, 'HH:mm')
+  }
+
   const hasReadings = gravityReadings.length > 0 || stageEvents.length > 0
+  const nothing = !hasReadings && !hasTemp
+  const lo = visTemps.length ? Math.min(...visTemps) : null
+  const hi = visTemps.length ? Math.max(...visTemps) : null
+  const now = visTemps.at(-1) ?? null
 
   return (
     <>
+    {!loading && all && (all.temps.length > 0 || all.readings.length > 0) && (
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+        <div role="group" aria-label="Time range" className="inline-flex h-8 rounded-full border border-gray-200 p-0.5">
+          {RANGES.map((r) => (
+            <button key={r.key} type="button" onClick={() => pickRange(r.key)} aria-pressed={range === r.key}
+              className={`px-3 rounded-full text-xs font-semibold whitespace-nowrap ${range === r.key ? 'bg-primary text-white' : 'text-gray-500'}`}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        {zoom && (
+          <button type="button" onClick={() => setZoom(null)}
+            className="h-8 px-3 rounded-full border border-gray-200 text-xs font-semibold text-gray-500">
+            Reset zoom
+          </button>
+        )}
+      </div>
+    )}
+    {!loading && lo != null && hi != null && (
+      <p className="text-xs text-gray-500 tabular-nums pb-1">
+        {format(new Date(start), 'd MMM HH:mm')} to {format(new Date(end), 'd MMM HH:mm')}
+        {' · '}Low <span className="font-semibold text-gray-700">{lo.toFixed(1)}°</span>
+        {' · '}High <span className="font-semibold text-gray-700">{hi.toFixed(1)}°</span>
+        {now != null && <>{' · '}Latest <span className="font-semibold" style={{ color: 'var(--chart-temp)' }}>{now.toFixed(1)}°</span></>}
+      </p>
+    )}
     {loading ? (
       <div className="h-56 flex items-center justify-center text-sm text-gray-400">
         Loading…
       </div>
-    ) : !hasReadings && !hasTemp ? (
+    ) : nothing ? (
       <div className="h-56 flex flex-col items-center justify-center gap-2 text-gray-400">
         <FlaskConical className="h-8 w-8 text-gray-200" />
-        <p className="text-sm">No readings logged yet.</p>
+        <p className="text-sm">{all && (all.temps.length || all.readings.length) ? 'Nothing logged in this range.' : 'No readings logged yet.'}</p>
         <p className="text-xs">Use the Log button on the tank card to add readings.</p>
       </div>
     ) : (
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={height + (chartData.length > 2 ? 44 : 0)}>
         <ComposedChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
           {/* A true time axis: a day is the same width wherever it falls. Spacing the points
               evenly instead gave two days of ten-minute tank temperatures most of the chart
               and squeezed five weeks of gravity readings into the left edge. */}
@@ -251,11 +396,12 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
             type="number"
             scale="time"
             domain={['dataMin', 'dataMax']}
-            tickCount={6}
-            tickFormatter={(t) => format(new Date(Number(t)), spanDays > 2 ? 'd MMM' : 'd MMM HH:mm')}
+            ticks={xTicks}
+            tickFormatter={(t) => xLabel(Number(t))}
             tick={{ fontSize: 10, fill: 'var(--chart-muted)' }}
-            tickLine={false}
+            tickLine={{ stroke: 'var(--chart-grid)' }}
             axisLine={false}
+            interval={0}
           />
 
           {/* Left: Gravity °P */}
@@ -268,32 +414,36 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => `${Number(v).toFixed(1)}°P`}
-            width={46}
+            // No gravity on screen: the temperature gets the room
+            hide={!show.plato || platoVals.length === 0}
+            width={show.plato && platoVals.length ? 46 : 0}
           />
 
-          {/* Right: Temperature °C */}
+          {/* Right: Temperature °C, in half degrees when the swing is small */}
           <YAxis
             yAxisId="temp"
             orientation="right"
-            domain={[tempMin, tempMax]}
+            domain={tAxis.domain}
+            ticks={tAxis.ticks}
+            interval={0}
+            allowDataOverflow
             tick={{ fontSize: 10, fill: 'var(--chart-temp)' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `${Math.round(Number(v))}°C`}
-            allowDecimals={false}
+            tickFormatter={(v) => `${Number(v).toFixed(1)}°C`}
             // With temperature switched off the axis goes too, and the chart takes the room
-            hide={!showTemp}
-            width={showTemp ? 40 : 0}
+            hide={!tempOnAxis}
+            width={tempOnAxis ? 44 : 0}
           />
 
           {/* pH axis: hidden, domain [3,6] keeps the line in a sensible position. Width 0 because a
               hidden axis still pushes the temperature axis outwards by its width, off the edge. */}
           <YAxis yAxisId="ph" orientation="right" domain={[3, 6]} hide width={0} />
 
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--chart-muted)', strokeDasharray: '3 3' }} />
 
           {/* OG reference */}
-          {brew.og_plato != null && !since && (
+          {brew.og_plato != null && !fromIso && (
             <ReferenceLine
               yAxisId="plato"
               y={brew.og_plato}
@@ -315,18 +465,35 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
             />
           ))}
 
+          {/* Target temperature: steps, because a set point changes at a moment, not gradually */}
+          {showSet && (
+            <Line
+              yAxisId="temp"
+              type="stepAfter"
+              dataKey="set"
+              name="Target"
+              stroke="var(--chart-muted)"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          )}
+
           {/* Temperature line */}
           {showTemp && (
             <Line
               yAxisId="temp"
               type="monotone"
               dataKey="temp"
-              name="Temp (°C)"
+              name="Temp"
               stroke="var(--chart-temp)"
-              strokeWidth={1.5}
+              strokeWidth={2}
               dot={false}
-              activeDot={{ r: 3 }}
+              activeDot={{ r: 4 }}
               connectNulls
+              isAnimationActive={false}
             />
           )}
 
@@ -335,7 +502,7 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
             yAxisId="plato"
             type="monotone"
             dataKey="plato"
-            name="Gravity (°P)"
+            name="Gravity"
             stroke="var(--chart-gravity)"
             strokeWidth={2}
             dot={{ r: 4, fill: 'var(--chart-gravity)', strokeWidth: 0 }}
@@ -355,6 +522,29 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
             activeDot={{ r: 5 }}
             connectNulls
           />}
+
+          {/* Zoom: drag the handles to close in on part of the range. Keyed so a new range starts unzoomed. */}
+          {chartData.length > 2 && (
+            <Brush
+              key={brushKey}
+              dataKey="ts"
+              height={32}
+              travellerWidth={12}
+              stroke="var(--chart-muted)"
+              fill="transparent"
+              tickFormatter={() => ''}
+              onChange={(r) => {
+                const { startIndex, endIndex } = r as { startIndex?: number; endIndex?: number }
+                if (startIndex == null || endIndex == null) return
+                setZoomState(startIndex === 0 && endIndex === chartData.length - 1 ? null : { startIndex, endIndex })
+              }}
+            >
+              <LineChart data={chartData}>
+                <YAxis hide domain={['dataMin', 'dataMax']} />
+                <Line dataKey="temp" stroke="var(--chart-temp)" strokeWidth={1} dot={false} connectNulls isAnimationActive={false} />
+              </LineChart>
+            </Brush>
+          )}
         </ComposedChart>
       </ResponsiveContainer>
     )}
@@ -363,8 +553,8 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
         {all?.transferredAt && (
           <div role="group" aria-label="Chart range" className="inline-flex h-8 rounded-full border border-gray-200 p-0.5 mr-1">
             {[
-              { on: !whole, label: `Since transfer ${format(new Date(all.transferredAt), 'd MMM')}`, pick: () => setWhole(false) },
-              { on: whole, label: 'Whole brew', pick: () => setWhole(true) },
+              { on: !whole, label: `Since transfer ${format(new Date(all.transferredAt), 'd MMM')}`, pick: () => { setWhole(false); setZoom(null) } },
+              { on: whole, label: 'Whole brew', pick: () => { setWhole(true); setZoom(null) } },
             ].map((o) => (
               <button key={o.label} type="button" onClick={o.pick} aria-pressed={o.on}
                 className={`px-3 rounded-full text-xs font-semibold whitespace-nowrap ${o.on ? 'bg-primary text-white' : 'text-gray-500'}`}>
@@ -373,7 +563,7 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
             ))}
           </div>
         )}
-        {SERIES.filter((s) => s.key !== 'temp' || hasTemp).map((s) => (
+        {SERIES.filter((s) => (s.key !== 'temp' || hasTemp) && (s.key !== 'set' || hasSet)).map((s) => (
           <button key={s.key} type="button" onClick={() => flip(s.key)} aria-pressed={show[s.key]}
             className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-xs font-medium ${show[s.key] ? 'bg-white border-gray-200 text-gray-700' : 'bg-transparent border-gray-200 text-gray-400 line-through'}`}>
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: show[s.key] ? s.colour : 'transparent', boxShadow: `inset 0 0 0 1.5px ${s.colour}` }} />

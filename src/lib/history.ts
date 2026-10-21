@@ -114,7 +114,7 @@ export interface BrewHistoryItem {
 const PAGE = 1000
 
 /** Every row of a query, a page at a time. The API hands back at most 1,000 rows per request. */
-async function all<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
+export async function all<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
   const out: T[] = []
   for (let from = 0; from < 20000; from += PAGE) {
     const { data, error } = await page(from, from + PAGE - 1)

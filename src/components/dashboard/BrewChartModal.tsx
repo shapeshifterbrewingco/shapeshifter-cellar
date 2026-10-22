@@ -38,6 +38,8 @@ interface Props {
   brew: Brew
   tank: Tank
   days_in_tank: number | null
+  /** The tank's live Frigid set point, so the target is visible without going back to the card */
+  set_point_c?: number | null
   /** Opens the volume dialog. Without it the volume is shown but cannot be changed. */
   onVolume?: () => void
   /** The Splits sheet plan. A brite, or a beer transferred into an FV, shows it first: packing is what is next. */
@@ -580,7 +582,7 @@ export function FermentChart({ brew, data: all, loading, height = 280 }: {
   )
 }
 
-export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, transferred = false, stages, onStage, onLog, more, onClose }: Props) {
+export function BrewChartModal({ brew, tank, days_in_tank, set_point_c, onVolume, split, transferred = false, stages, onStage, onLog, more, onClose }: Props) {
   const { data, loading, remove } = useBrewChart(brew, tank)
   const canDelete = !!data?.canDelete
 
@@ -614,6 +616,12 @@ export function BrewChartModal({ brew, tank, days_in_tank, onVolume, split, tran
               {onVolume
                 ? <button type="button" onClick={onVolume} aria-label="Change volume" className="rounded underline decoration-dotted decoration-black/25 underline-offset-4 hover:text-gray-700">{Math.round(brew.volume_l).toLocaleString('en-AU')} L</button>
                 : `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`}
+              {set_point_c !== undefined && (
+                <span className="text-gray-600">
+                  {' · '}
+                  {set_point_c != null && set_point_c !== FRIGID_OFF_SET_POINT ? `Set to ${set_point_c.toFixed(1)}°C` : 'Cooling off'}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-1">

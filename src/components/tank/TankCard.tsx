@@ -942,7 +942,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />
         )}
         {showChartModal && brew && (
-          <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} split={sheet_split} transferred={!!data.transferred_at} onVolume={() => setShowEditVolume('taken')}
+          <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} set_point_c={set_point_c} split={sheet_split} transferred={!!data.transferred_at} onVolume={() => setShowEditVolume('taken')}
             stages={sheetStages} onStage={handleStageChange} onLog={() => setShowLogModal(true)} more={sheetMore}
             onClose={() => setShowChartModal(false)} />
         )}
@@ -1410,7 +1410,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         <LogReadingModal brew={brew} tank={tank} currentUser={currentUser} onClose={() => setShowLogModal(false)} />
       )}
       {showChartModal && brew && (
-        <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} split={sheet_split} transferred={!!data.transferred_at} onVolume={() => setShowEditVolume('taken')}
+        <BrewChartModal brew={brew} tank={tank} days_in_tank={days_in_tank} set_point_c={set_point_c} split={sheet_split} transferred={!!data.transferred_at} onVolume={() => setShowEditVolume('taken')}
             stages={sheetStages} onStage={handleStageChange} onLog={() => setShowLogModal(true)} more={sheetMore}
             onClose={() => setShowChartModal(false)} />
       )}

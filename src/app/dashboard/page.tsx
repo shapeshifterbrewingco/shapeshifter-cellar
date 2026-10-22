@@ -61,7 +61,7 @@ const litres = (n: number) => `${Math.round(n).toLocaleString('en-AU')} L`
 const READING_OVERDUE_DAYS = 3
 const OFF_TARGET_C = 3
 
-interface Flag { tank: string; text: string; tone: 'warn' | 'info' }
+interface Flag { tank: string; text: string; tone: 'warn' | 'info'; href?: string }
 
 function buildFlags(tanks: TankDashboardData[], today: string, frigidUp: boolean): Flag[] {
   const flags: Flag[] = []
@@ -73,7 +73,7 @@ function buildFlags(tanks: TankDashboardData[], today: string, frigidUp: boolean
       const next = t.next_scheduled_brew
       if (next) {
         const inDays = daysBetweenISO(today, next.scheduled_date)
-        if (inDays <= 1) flags.push({ tank: tank.name, text: `${next.recipe_name ?? 'Brew'} is booked ${inDays <= 0 ? 'today' : 'tomorrow'}.`, tone: 'info' })
+        if (inDays <= 1) flags.push({ tank: tank.name, text: `${next.recipe_name ?? 'Brew'} is booked ${inDays <= 0 ? 'today' : 'tomorrow'}.`, tone: 'info', href: '/planner' })
       }
       continue
     }
@@ -82,8 +82,8 @@ function buildFlags(tanks: TankDashboardData[], today: string, frigidUp: boolean
     if (fermenting) {
       const last = t.latest_gravity?.recorded_at?.slice(0, 10)
       const days = last ? daysBetweenISO(last, today) : null
-      if (days == null) flags.push({ tank: tank.name, text: `${brew.beer_name} has no gravity or pH logged yet.`, tone: 'warn' })
-      else if (days >= READING_OVERDUE_DAYS) flags.push({ tank: tank.name, text: `${brew.beer_name}: no reading for ${days} days.`, tone: 'warn' })
+      if (days == null) flags.push({ tank: tank.name, text: `${brew.beer_name} has no gravity or pH logged yet.`, tone: 'warn', href: tankHref(tank.id) })
+      else if (days >= READING_OVERDUE_DAYS) flags.push({ tank: tank.name, text: `${brew.beer_name}: no reading for ${days} days.`, tone: 'warn', href: tankHref(tank.id) })
     }
 
     const set = t.set_point_c
@@ -94,6 +94,7 @@ function buildFlags(tanks: TankDashboardData[], today: string, frigidUp: boolean
           tank: tank.name,
           text: `${t.temperature.toFixed(1)}°C against a ${set.toFixed(1)}°C set point${gap > 0 && brew.stage === 'on_chill' ? ' (still chilling)' : ''}.`,
           tone: gap > 0 && brew.stage === 'on_chill' ? 'info' : 'warn',
+          href: tankHref(tank.id),
         })
       }
     }
@@ -198,7 +199,7 @@ export default async function DashboardPage() {
     listEvents(today, addDaysKey(today, 13)).catch((): CalEvent[] | null => null),
     supabase
       .from('gravity_readings')
-      .select('id, recorded_at, plato, ph, recorded_by, brews(beer_name, tanks(name))')
+      .select('id, recorded_at, plato, ph, recorded_by, brews(beer_name, tanks(id, name))')
       .or('plato.not.is.null,ph.not.is.null')
       .order('recorded_at', { ascending: false })
       .limit(6),
@@ -285,7 +286,7 @@ export default async function DashboardPage() {
   const recent = ((recentResult.data ?? []) as any[]).map((r) => {
     const brew = Array.isArray(r.brews) ? r.brews[0] : r.brews
     const tank = Array.isArray(brew?.tanks) ? brew.tanks[0] : brew?.tanks
-    return { id: r.id as string, at: r.recorded_at as string, plato: r.plato as number | null, ph: r.ph as number | null, by: r.recorded_by as string, beer: (brew?.beer_name ?? '-') as string, tank: (tank?.name ?? '-') as string }
+    return { id: r.id as string, at: r.recorded_at as string, plato: r.plato as number | null, ph: r.ph as number | null, by: r.recorded_by as string, beer: (brew?.beer_name ?? '-') as string, tank: (tank?.name ?? '-') as string, tankId: (tank?.id ?? null) as string | null }
   })
 
   // Calendar, grouped by day
@@ -392,12 +393,21 @@ export default async function DashboardPage() {
                 <p className="px-5 pb-5 text-sm text-gray-500">Nothing is overdue or off target.</p>
               ) : (
                 <ul className="pb-2">
-                  {flags.map((f, i) => (
-                    <li key={i} className="flex items-start gap-3 px-5 py-2 border-t border-gray-100 text-sm">
-                      <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${f.tone === 'warn' ? 'bg-malt' : 'bg-gray-300'}`} />
-                      <p className="text-gray-700"><span className="font-semibold text-gray-900">{f.tank}</span> {f.text}</p>
-                    </li>
-                  ))}
+                  {flags.map((f, i) => {
+                    const body = (
+                      <>
+                        <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${f.tone === 'warn' ? 'bg-malt' : 'bg-gray-300'}`} />
+                        <p className="text-gray-700"><span className="font-semibold text-gray-900">{f.tank}</span> {f.text}</p>
+                      </>
+                    )
+                    return (
+                      <li key={i} className="border-t border-gray-100 text-sm">
+                        {f.href
+                          ? <Link href={f.href} className="flex items-start gap-3 px-5 py-2 hover:bg-gray-50">{body}</Link>
+                          : <div className="flex items-start gap-3 px-5 py-2">{body}</div>}
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </Panel>
@@ -428,7 +438,8 @@ export default async function DashboardPage() {
               ) : (
                 <ul className="pb-2">
                   {recent.map((r) => (
-                    <li key={r.id} className="flex items-baseline gap-3 px-5 py-2 border-t border-gray-100 text-sm">
+                    <li key={r.id} className="border-t border-gray-100 text-sm">
+                      <Row href={r.tankId ? tankHref(r.tankId) : undefined}>
                       <span className="w-10 flex-shrink-0 font-semibold tabular-nums text-gray-900">{r.tank}</span>
                       <span className="flex-1 min-w-0 truncate text-gray-700">
                         {r.plato != null ? `${r.plato}°P` : ''}{r.plato != null && r.ph != null ? ' · ' : ''}{r.ph != null ? `pH ${r.ph}` : ''}
@@ -437,6 +448,7 @@ export default async function DashboardPage() {
                       <span className="flex-shrink-0 text-xs text-gray-400 whitespace-nowrap">
                         {relDay(dayKeyOf(r.at), today)} · {formatUserName(r.by)}
                       </span>
+                      </Row>
                     </li>
                   ))}
                 </ul>
@@ -481,6 +493,12 @@ export default async function DashboardPage() {
       </div>
     </main>
   )
+}
+
+/** A list row that opens `href` when there is one. */
+function Row({ href, children }: { href?: string; children: React.ReactNode }) {
+  const cls = 'flex items-baseline gap-3 px-5 py-2'
+  return href ? <Link href={href} className={`${cls} hover:bg-gray-50`}>{children}</Link> : <div className={cls}>{children}</div>
 }
 
 /** Brewery-local calendar day of a timestamp. */

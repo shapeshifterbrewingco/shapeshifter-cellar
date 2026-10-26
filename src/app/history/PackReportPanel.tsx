@@ -155,8 +155,8 @@ function ReportBody({ brewId, report }: { brewId: string; report: PackReport | n
         {STOCK.map((s) => (
           <div key={s.where} className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center mb-2">
             <span className="text-sm text-gray-700">{s.where}</span>
-            <input type="number" inputMode="numeric" step="1" min="0" aria-label={`${s.where} cartons`} value={draft[s.cartons]} onChange={(e) => set(s.cartons, e.target.value)} className={INPUT} />
-            <input type="number" inputMode="numeric" step="1" min="0" aria-label={`${s.where} kegs`} value={draft[s.kegs]} onChange={(e) => set(s.kegs, e.target.value)} className={INPUT} />
+            <input type="number" inputMode="decimal" step="any" min="0" aria-label={`${s.where} cartons`} value={draft[s.cartons]} onChange={(e) => set(s.cartons, e.target.value)} className={INPUT} />
+            <input type="number" inputMode="decimal" step="any" min="0" aria-label={`${s.where} kegs`} value={draft[s.kegs]} onChange={(e) => set(s.kegs, e.target.value)} className={INPUT} />
           </div>
         ))}
       </div>

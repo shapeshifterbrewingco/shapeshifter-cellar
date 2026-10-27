@@ -75,7 +75,12 @@ function Section({ title, hint, id, children }: { title: string; hint?: string; 
 )
 }
 
-export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, baseline = null, recipeVersion = null, targetAbv = null, previous = null, me }: {
+// Where a dilution calculator sits: before knock out, or once it is all in the FV
+type DilutionAt = 'kettle' | 'fv'
+// Over the target OG by more than this and the calculator opens itself. Less is reading noise.
+const OVER_OG = 0.2
+
+export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, baseline = null, recipeVersion = null, targetAbv = null, targetOg = null, previous = null, me }: {
   brew: BrewInfo
   initial: BrewSheetData
   initialUnchecked: string[]
@@ -89,6 +94,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   recipeVersion?: number | null
   /** The recipe's target ABV, where the spirit calculator starts on a lemonade */
   targetAbv?: number | null
+  /** The batch's target OG in °P, where the dilution calculators start */
+  targetOg?: number | null
   /** The last brew of this beer, shown beside each box for comparison */
   previous?: { id: string; brew_day: string; batch_code: string | null; data: BrewSheetData } | null
   me: string
@@ -104,9 +111,15 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   const [confirming, setConfirming] = useState(false)
   const [setTemp, setSetTemp] = useState('')
   const [keepChanges, setKeepChanges] = useState(true)
-  // Dilution calculator: its own boxes, so trying numbers never touches the record
-  const [calcOpen, setCalcOpen] = useState(false)
-  const [calc, setCalc] = useState({ volume: '', gravity: '', target: '' })
+  // Dilution calculators, under Kettle and under All in FV: their own boxes, so trying
+  // numbers never touches the record. Open is null until someone taps it, and until
+  // then it opens itself when the gravity is over the target OG.
+  const [calcOpen, setCalcOpen] = useState<Record<DilutionAt, boolean | null>>({ kettle: null, fv: null })
+  const [calc, setCalc] = useState<Record<DilutionAt, { volume: string; gravity: string; target: string }>>({
+    kettle: { volume: '', gravity: '', target: '' }, fv: { volume: '', gravity: '', target: '' },
+  })
+  // Litres each calculator last put in the Dilution box, so tapping again replaces its share instead of adding twice
+  const [calcApplied, setCalcApplied] = useState<Record<DilutionAt, number>>({ kettle: 0, fv: 0 })
   // Spirit calculator for lemonades, same idea: its own boxes
   const [spirit, setSpirit] = useState({ volume: '', target: targetAbv != null ? String(targetAbv) : '', strength: '96' })
   const [compare, setCompare] = useState(true)
@@ -430,50 +443,65 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     )
   }
 
-  // How much water takes the wort from what is in the tank down to the gravity wanted
-  const dilutionCalc = () => {
-    // Start from All in FV, falling back to the post boil figures
-    const startVolume = data.fv.volume_l.trim() || data.kettle.post_boil_volume_l.trim()
-    const startGravity = data.fv.plato.trim() || data.kettle.post_boil_plato.trim()
-    const volume = calc.volume || startVolume
-    const gravity = calc.gravity || startGravity
-    const v = sheetNumber(volume), g = sheetNumber(gravity), t = sheetNumber(calc.target)
+  // How much water takes the wort from what is measured down to the gravity wanted.
+  // Under Kettle it works from the post boil figures, under All in FV from the FV's.
+  const dilutionCalc = (at: DilutionAt) => {
+    const mine = calc[at]
+    const startVolume = at === 'kettle' ? data.kettle.post_boil_volume_l.trim() : data.fv.volume_l.trim()
+    const startGravity = at === 'kettle' ? data.kettle.post_boil_plato.trim() : data.fv.plato.trim()
+    const volume = mine.volume || startVolume
+    const gravity = mine.gravity || startGravity
+    const target = mine.target || (targetOg != null ? String(targetOg) : '')
+    const v = sheetNumber(volume), g = sheetNumber(gravity), t = sheetNumber(target)
     const result = v != null && g != null && t != null ? dilution(v, g, t) : null
     const tooHigh = g != null && t != null && t >= g
+    // Untouched, it opens itself while the day is on and the measured gravity is over the target OG
+    const sg = sheetNumber(startGravity)
+    const open = calcOpen[at] ?? (!done && targetOg != null && sg != null && sg > targetOg + OVER_OG)
     const box = (label: string, value: string, key: 'volume' | 'gravity' | 'target', placeholder: string) => (
       <label className="block min-w-0">
         <span className="block text-xs text-gray-500 mb-1 whitespace-nowrap">{label}</span>
         <input type="text" inputMode="decimal" autoComplete="off" value={value} placeholder={placeholder}
-          onChange={(e) => setCalc({ ...calc, [key]: e.target.value.replace(/[^0-9.]/g, '') })} className={INPUT} />
+          onChange={(e) => setCalc({ ...calc, [at]: { ...mine, [key]: e.target.value.replace(/[^0-9.]/g, '') } })} className={INPUT} />
       </label>
     )
-    if (!calcOpen) {
+    if (!open) {
       return (
-        <button type="button" onClick={() => setCalcOpen(true)} className="mt-3 inline-flex items-center gap-1.5 h-10 px-1 text-sm font-semibold text-primary">
+        <button type="button" onClick={() => setCalcOpen({ ...calcOpen, [at]: true })} className="mt-3 inline-flex items-center gap-1.5 h-10 px-1 text-sm font-semibold text-primary">
           <Plus className="h-4 w-4" />Dilution calculator
         </button>
       )
     }
+    // The Dilution box is the total for the day: this calculator's share is swapped for the new figure, anything else stays
+    const water = result ? Math.round(result.waterL) : 0
+    const others = Math.max(0, (sheetNumber(data.kettle.dilution_l) ?? 0) - calcApplied[at])
+    const apply = () => {
+      const total = others + water
+      update(setPath(data, 'kettle.dilution_l', String(total)))
+      setCalcApplied({ ...calcApplied, [at]: water })
+      toast.success(`Dilution box now ${total} L. Measure volume and gravity again after adding it.`)
+    }
     return (
       <div className="mt-3 rounded-xl bg-background ring-1 ring-black/5 p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Dilution calculator</h3>
-          <button type="button" onClick={() => setCalcOpen(false)} aria-label="Close the dilution calculator" className="h-8 w-8 -mr-1 flex items-center justify-center text-gray-400"><X className="h-4 w-4" /></button>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Dilution calculator</h3>
+            {calcOpen[at] == null && <p className="text-xs text-malt-dark">Gravity is over the target OG of {targetOg}°P</p>}
+          </div>
+          <button type="button" onClick={() => setCalcOpen({ ...calcOpen, [at]: false })} aria-label="Close the dilution calculator" className="h-8 w-8 -mr-1 flex items-center justify-center text-gray-400"><X className="h-4 w-4" /></button>
         </div>
         <div className="grid grid-cols-3 gap-2">
           {box('Volume (L)', volume, 'volume', '0')}
           {box('Now °P', gravity, 'gravity', '0')}
-          {box('Target °P', calc.target, 'target', '10.4')}
+          {box('Target °P', target, 'target', '10.4')}
         </div>
         {result ? (
           <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">
             <p className="text-xs text-gray-500">Add</p>
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{Math.round(result.waterL)} L of cold liquor</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{water} L of cold liquor</p>
             <p className="text-sm text-gray-600 tabular-nums">for {Math.round(result.finalL).toLocaleString('en-AU')} L at {t}°P</p>
-            <button type="button"
-              onClick={() => { update(setPath(data, 'kettle.dilution_l', String(Math.round(result.waterL)))); toast.success(`${Math.round(result.waterL)} L put in the Dilution box. Measure volume and gravity again after adding it.`) }}
-              className="mt-2 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
-              Put {Math.round(result.waterL)} L in the Dilution box
+            <button type="button" onClick={apply} className="mt-2 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
+              {others > 0 ? `Add ${water} L to the Dilution box (${others + water} L total)` : `Put ${water} L in the Dilution box`}
             </button>
           </div>
         ) : (
@@ -481,7 +509,11 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
             {tooHigh ? 'The gravity wanted has to be lower than the gravity now. Cold liquor only brings it down.' : 'Enter the gravity you want and it works out the cold liquor to add.'}
           </p>
         )}
-        <p className="text-[11px] text-gray-400">This is a working-out tool. Nothing here is saved unless you tap the button, and All in FV still needs the measured numbers.</p>
+        <p className="text-[11px] text-gray-400">
+          {at === 'kettle'
+            ? 'For liquoring back before knock out. Nothing here is saved unless you tap the button.'
+            : 'This is a working-out tool. Nothing here is saved unless you tap the button, and All in FV still needs the measured numbers.'}
+        </p>
       </div>
     )
   }
@@ -793,6 +825,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           {!rtd && field({ label: "Post boil pH", path: "kettle.post_boil_ph" })}
           {field({ label: "Dilution (L)", path: "kettle.dilution_l" })}
         </div>
+        {!rtd && dilutionCalc('kettle')}
         {list({ title: rtd ? "Ingredients" : "Kettle additions", listKey: "kettle_additions", whenLabel: rtd ? "Note" : "Time", unit: "g" })}
         {!rtd && list({ title: "Kettle hops", listKey: "kettle_hops", whenLabel: "Time", unit: "kg" })}
       </Section>
@@ -821,7 +854,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           {!rtd && field({ label: "pH", path: "fv.ph" })}
           {!rtd && field({ label: "Temp °C", path: "fv.temp_c", placeholder: "From the probe" })}
         </div>
-        {!rtd && dilutionCalc()}
+        {!rtd && dilutionCalc('fv')}
         {rtd && spiritCalc()}
         {rtd && (
           <div className="mt-3">

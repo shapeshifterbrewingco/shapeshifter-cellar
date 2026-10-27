@@ -18,7 +18,7 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
   const [{ data: brew }, { data: sheetRow }, { data: { user } }] = await Promise.all([
     supabase
       .from('brews')
-      .select('id, beer_name, style, brew_day, tank_id, recipe_id, deleted_at, og_plato, stage, tanks(name)')
+      .select('id, beer_name, style, brew_day, tank_id, recipe_id, deleted_at, og_plato, target_og_plato, stage, tanks(name)')
       .eq('id', id)
       .maybeSingle(),
     supabase.from('brew_sheets').select('data, unchecked, source, updated_at, updated_by').eq('brew_id', id).maybeSingle(),
@@ -31,7 +31,7 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
   const [{ data: lines }, { data: recipe }] = brew.recipe_id
     ? await Promise.all([
         supabase.from('recipe_ingredients').select('name, addition_stage, quantity, unit, time_minutes, trigger').eq('recipe_id', brew.recipe_id).order('sort_order'),
-        supabase.from('recipes').select('version, target_abv, boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle(),
+        supabase.from('recipes').select('version, target_abv, target_og_plato, boil_duration_min, mash_temp_c, pitch_temp_c, ferment_temp_c').eq('id', brew.recipe_id).maybeSingle(),
       ])
     : [{ data: [] }, { data: null }]
   const baseline = brew.recipe_id ? withRecipeDefaults(sheetFromRecipe(lines ?? []), recipe) : null
@@ -84,6 +84,7 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
           baseline={baseline}
           recipeVersion={recipe?.version ?? null}
           targetAbv={recipe?.target_abv != null ? Number(recipe.target_abv) : null}
+          targetOg={(brew.target_og_plato ?? recipe?.target_og_plato) != null ? Number(brew.target_og_plato ?? recipe?.target_og_plato) : null}
           previous={previous}
           me={formatUserName(user?.email ?? '')}
         />

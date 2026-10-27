@@ -87,6 +87,65 @@ export function logGroupedActivity(key: string, text: string, tail: string) {
   try { after(run) } catch { void run() }
 }
 
+// How long a digest waits after its latest line before it goes to Slack
+const DIGEST_QUIET_MS = 60_000
+const DIGEST_PREFIX = 'digest:'
+
+/**
+ * Log one step of something that happens as a burst, like finishing a brew day
+ * (the sheet, the tank's set point, the recipe). Every line with the same key
+ * goes to Slack as one message, once a minute has passed with nothing new.
+ * The pages that call this must allow for the wait: maxDuration of 120 or more.
+ *
+ * @param key   What the burst is about, e.g. `brew:<id>`
+ * @param text  A full sentence starting with the person's name, as logActivity takes
+ */
+export function logDigestActivity(key: string, text: string) {
+  if (!slackConfigured()) return
+  const groupKey = DIGEST_PREFIX + key
+  const run = async () => {
+    try {
+      const db = createServiceClient()
+      const { data: mine, error } = await db
+        .from('slack_outbox').insert({ group_key: groupKey, body: text }).select('created_at').single()
+      if (error || !mine) { await postSlack(text); return }
+      await new Promise((r) => setTimeout(r, DIGEST_QUIET_MS))
+      // A later line has its own wait, and sends the lot when that ends
+      const { data: newer } = await db
+        .from('slack_outbox').select('id')
+        .eq('group_key', groupKey).is('sent_at', null).gt('created_at', mine.created_at).limit(1)
+      if (newer?.length) return
+      // Marking them sent is what claims them, so two waits can never both post
+      const { data: claimed } = await db
+        .from('slack_outbox').update({ sent_at: new Date().toISOString() })
+        .eq('group_key', groupKey).is('sent_at', null)
+        .select('body, created_at')
+      if (claimed?.length) await postSlack(joinDigest(claimed))
+    } catch (err) {
+      console.error('[slack] digest send failed:', err instanceof Error ? err.message : err)
+      // The poller sends whatever is left unclaimed, still as one message
+    }
+  }
+  try { after(run) } catch { void run() }
+}
+
+/**
+ * Lines in the order they happened, read as one message. The person is named
+ * once: "Zac set FV5 to 19°C." after "Zac finished..." becomes "Set FV5 to 19°C."
+ * Single sentences run on together; a line with a list gets its own paragraph.
+ */
+function joinDigest(rows: { body: string; created_at: string }[]): string {
+  const lines = [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at)).map((r) => r.body)
+  const name = lines[0].split(' ')[0]
+  let out = lines[0]
+  for (const line of lines.slice(1)) {
+    const rest = line.startsWith(`${name} `) ? line.slice(name.length + 1) : line
+    const own = rest.charAt(0).toUpperCase() + rest.slice(1)
+    out += (own.includes('\n') || out.includes('\n') ? '\n\n' : ' ') + own
+  }
+  return out
+}
+
 /** Send anything left waiting, e.g. if the server stopped mid-hold. Run by the poller. */
 export async function flushSlackOutbox(): Promise<number> {
   if (!slackConfigured()) return 0
@@ -94,8 +153,14 @@ export async function flushSlackOutbox(): Promise<number> {
   const { data } = await db
     .from('slack_outbox').update({ sent_at: new Date().toISOString() })
     .is('sent_at', null).lt('created_at', new Date(Date.now() - 2 * 60_000).toISOString())
-    .select('body')
-  for (const row of data ?? []) await postSlack(row.body)
+    .select('group_key, body, created_at')
+  // A digest stays one message even when it is the poller that sends it
+  const digests = new Map<string, { body: string; created_at: string }[]>()
+  for (const row of data ?? []) {
+    if (row.group_key.startsWith(DIGEST_PREFIX)) digests.set(row.group_key, [...(digests.get(row.group_key) ?? []), row])
+    else await postSlack(row.body)
+  }
+  for (const rows of digests.values()) await postSlack(joinDigest(rows))
   // Keep the table small
   await db.from('slack_outbox').delete().lt('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
   return data?.length ?? 0

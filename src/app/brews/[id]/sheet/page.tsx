@@ -8,6 +8,8 @@ import { isRtd } from '@/lib/rtd'
 import { BrewSheetForm } from './BrewSheetForm'
 
 export const dynamic = 'force-dynamic'
+// Server actions here hold brew-day Slack lines for a minute before posting (logDigestActivity)
+export const maxDuration = 120
 
 export default async function BrewSheetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

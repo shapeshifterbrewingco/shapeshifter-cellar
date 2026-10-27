@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getFrigidReadings, FRIGID_OFF_SET_POINT } from '@/lib/frigid'
-import { logGroupedActivity, who } from '@/lib/slack'
+import { logDigestActivity, logGroupedActivity, who } from '@/lib/slack'
 import { coolingOff } from '@/lib/cooling'
 
 // [lowest, highest] set point allowed, by Frigid vessel name
@@ -14,7 +14,8 @@ const LIMITS: Record<string, [number, number]> = {
   Glycol: [-10, 20],  // chiller
 }
 
-export async function setTankTarget(tankId: string, targetTemp: number): Promise<{ success: boolean; message: string }> {
+/** @param opts.brewDay The brew whose brew day this finishes, so its Slack line joins that day's message */
+export async function setTankTarget(tankId: string, targetTemp: number, opts?: { brewDay?: string }): Promise<{ success: boolean; message: string }> {
   if (!Number.isFinite(targetTemp)) return { success: false, message: 'Enter a temperature.' }
 
   const supabase = await createClient()
@@ -77,7 +78,9 @@ export async function setTankTarget(tankId: string, targetTemp: number): Promise
   if (saveError) console.error('[setTankTarget] set point sent to Frigid but not saved:', saveError.message)
 
   const change = `${targetTemp}°C${previous != null ? ` (was ${previous}°C)` : ''}`
-  logGroupedActivity(`${tankId}:${user.email ?? user.id}`, `${who(user.email)} set ${tank.name} to ${change}.`, `set it to ${change}`)
+  const setText = `${who(user.email)} set ${tank.name} to ${change}.`
+  if (opts?.brewDay) logDigestActivity(`brew:${opts.brewDay}`, setText)
+  else logGroupedActivity(`${tankId}:${user.email ?? user.id}`, setText, `set it to ${change}`)
 
   revalidatePath('/')
   revalidatePath('/dashboard')

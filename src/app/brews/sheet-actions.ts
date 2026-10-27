@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { sanitiseSheet, sheetNumber, sheetFromRecipe, withRecipeDefaults, recipeChanges, LIST_KEYS, spiritLitres } from '@/lib/brew-sheet'
 import type { BrewSheetData, SheetReading } from '@/lib/brew-sheet'
-import { logActivity, who, esc } from '@/lib/slack'
+import { logActivity, logDigestActivity, who, esc } from '@/lib/slack'
 import { isRtd } from '@/lib/rtd'
 import { updateBrewStage } from '@/app/brews/actions'
 
@@ -111,7 +111,7 @@ export async function saveBrewSheet(input: {
       })
       if (readingError) console.error('[saveBrewSheet] initial reading failed:', readingError.message)
       else {
-        logActivity(`${who(user.email)} finished the brew day for *${esc(brew.beer_name)}*: OG ${og}°P, pH ${ph}${volume != null ? `, ${volume} L in tank` : ''}.`)
+        logDigestActivity(`brew:${input.brew_id}`, `${who(user.email)} finished the brew day for *${esc(brew.beer_name)}*: OG ${og}°P, pH ${ph}${volume != null ? `, ${volume} L in tank` : ''}.`)
         revalidatePath('/')
       }
     } else if (Number(first.plato) !== og || Number(first.ph) !== ph) {
@@ -133,8 +133,8 @@ export async function saveBrewSheet(input: {
       recorded_by: user.email ?? user.id, notes: `Made: ${volume} L in tank${tempIn != null ? ` at ${tempIn}°C` : ''}`,
     })
     if (noteError) console.error('[saveBrewSheet] finish note failed:', noteError.message)
-    logActivity(`${who(user.email)} finished *${esc(brew.beer_name)}*: ${volume} L in tank${tempIn != null ? ` at ${tempIn}°C` : ''}.`)
-    await updateBrewStage(input.brew_id, brew.tank_id, 'on_chill')
+    logDigestActivity(`brew:${input.brew_id}`, `${who(user.email)} finished *${esc(brew.beer_name)}*: ${volume} L in tank${tempIn != null ? ` at ${tempIn}°C` : ''}.`)
+    await updateBrewStage(input.brew_id, brew.tank_id, 'on_chill', input.brew_id)
     revalidatePath('/')
   }
 
@@ -291,7 +291,7 @@ export async function applySheetToRecipe(brew_id: string): Promise<{ ok: true; v
   }).eq('id', recipe.id)
   if (recipeError) console.error('[applySheetToRecipe] version not bumped:', recipeError.message)
 
-  logActivity(`${who(user.email)} updated the *${esc(recipe.name)}* recipe to v${version} from today's brew:\n${changes.map((c) => `• ${esc(c)}`).join('\n')}`)
+  logDigestActivity(`brew:${brew_id}`, `${who(user.email)} updated the *${esc(recipe.name)}* recipe to v${version} from today's brew:\n${changes.map((c) => `• ${esc(c)}`).join('\n')}`)
   revalidatePath('/recipes')
   revalidatePath(`/recipes/${recipe.id}`)
   return { ok: true, version }

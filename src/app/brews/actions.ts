@@ -8,7 +8,7 @@ import { addPackedStock } from '@/lib/sales-stock'
 import { after } from 'next/server'
 import { coolingOff } from '@/lib/cooling'
 import { writeSplitVolume } from '@/lib/tank-splits'
-import { logActivity, who, esc, logGroupedActivity } from '@/lib/slack'
+import { logActivity, logDigestActivity, who, esc, logGroupedActivity } from '@/lib/slack'
 import { publishPackReportLater } from '@/lib/pack-report-post'
 import { all } from '@/lib/history'
 import { STAGE_LABELS } from '@/types'
@@ -218,7 +218,8 @@ export async function quickLogReading(data: {
 
 // ── Stage change ──────────────────────────────────────────────
 
-export async function updateBrewStage(brew_id: string, tank_id: string, stage: TankStage) {
+/** @param brewDay The brew whose brew day this finishes, so its Slack line joins that day's message */
+export async function updateBrewStage(brew_id: string, tank_id: string, stage: TankStage, brewDay?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -240,11 +241,9 @@ export async function updateBrewStage(brew_id: string, tank_id: string, stage: T
   if (noteError) console.error('[updateBrewStage] stage note failed:', noteError.message)
 
   const { data: moved } = await supabase.from('brews').select('beer_name').eq('id', brew_id).maybeSingle()
-  logGroupedActivity(
-    `${tank_id}:${user.email ?? user.id}`,
-    `${who(user.email)} moved ${await tankName(supabase, tank_id)}${moved?.beer_name ? ` (${esc(moved.beer_name)})` : ''} to *${STAGE_LABELS[stage]}*.`,
-    `moved it to *${STAGE_LABELS[stage]}*`,
-  )
+  const movedText = `${who(user.email)} moved ${await tankName(supabase, tank_id)}${moved?.beer_name ? ` (${esc(moved.beer_name)})` : ''} to *${STAGE_LABELS[stage]}*.`
+  if (brewDay) logDigestActivity(`brew:${brewDay}`, movedText)
+  else logGroupedActivity(`${tank_id}:${user.email ?? user.id}`, movedText, `moved it to *${STAGE_LABELS[stage]}*`)
 
   revalidatePath('/')
 }

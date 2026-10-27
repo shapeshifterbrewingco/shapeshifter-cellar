@@ -540,7 +540,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       setDone(true)
       setStatus('saved')
 
-      const set = await setTankTarget(brew.tank_id, temp).catch(() => ({ success: false, message: 'Frigid could not be reached.' }))
+      const set = await setTankTarget(brew.tank_id, temp, { brewDay: brew.id }).catch(() => ({ success: false, message: 'Frigid could not be reached.' }))
       if (set.success) toast.success(`Brew day finished. ${brew.beer_name} is in ${brew.tank_name}${rtd ? ' on chill' : ''}, set to ${temp}°C.`)
       else toast.warning(`Brew day finished, but ${brew.tank_name} was not set to ${temp}°C: ${set.message} Set it from the tank card or at the panel.`, { duration: 15000 })
       // What was changed on the day becomes the recipe, unless the brewer said it was a one-off

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { saveBrewSheet } from '@/app/brews/sheet-actions'
 
 export const dynamic = 'force-dynamic'
+// Finishing a brew day holds its Slack line for a minute before posting (logDigestActivity)
+export const maxDuration = 120
 
 // The brew sheet's autosave posts here rather than calling the server action
 // directly. A server action makes Next re-render the page it was called from,

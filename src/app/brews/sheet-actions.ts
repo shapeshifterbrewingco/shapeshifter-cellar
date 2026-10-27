@@ -47,12 +47,11 @@ export async function saveBrewSheet(input: {
   const { error } = await supabase.from('brew_sheets').upsert(row, { onConflict: 'brew_id' })
   if (error) return fail(`Not saved: ${error.message}`)
 
-  // Autosave runs constantly, so the log only hears about the two moments that
-  // matter: a sheet being started, and one being read off a photo.
+  // Autosave runs constantly, so the log only hears about a sheet being read
+  // off a photo. Starting a sheet is already covered by assignBrew's
+  // "started a brew day" message, which carries the tank and volume.
   if (input.source === 'photo' && already?.source !== 'photo') {
     logActivity(`${who(user.email)} read the paper brew sheet for *${esc(brew.beer_name)}* from a photo${unchecked.length ? `. ${unchecked.length} value${unchecked.length === 1 ? '' : 's'} still to check` : ''}.`)
-  } else if (!already) {
-    logActivity(`${who(user.email)} started the brew sheet for *${esc(brew.beer_name)}*.`)
   }
 
   // "All in FV" is where the tank card's OG and starting volume come from, so

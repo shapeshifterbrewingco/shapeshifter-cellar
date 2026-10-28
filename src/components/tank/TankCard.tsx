@@ -372,6 +372,13 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
     ['Temp', temperature != null ? `${temperature.toFixed(1)}°` : '-'],
   ]
 
+  // The phone row and the compact brite card had no batch code, so a beer in a brite could not be traced back to its batch
+  const batchPill = brew?.batch_code ? (
+    <span className="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums bg-gray-100 text-gray-700">
+      Batch {brew.batch_code}
+    </span>
+  ) : null
+
   const mobileRow = isEmpty || !brew ? (
     <div className="tank-empty md:hidden flex items-center gap-3 rounded-2xl bg-white/60 ring-1 ring-black/5 px-4 py-3">
       <span className="w-12 flex-shrink-0 text-[15px] font-semibold text-gray-400 tabular-nums">{tank.name}</span>
@@ -404,7 +411,10 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           <p className="text-[11px] font-semibold tracking-wide text-gray-400">
             {tank.name}<span className="font-normal"> · Day {days_in_tank ?? '-'}</span>
           </p>
-          <p className="text-[17px] font-semibold leading-snug text-gray-900 truncate">{brew.beer_name}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-[17px] font-semibold leading-snug text-gray-900 truncate">{brew.beer_name}</p>
+            {batchPill}
+          </div>
           <p className="text-[13px] text-gray-500 truncate">
             {[brew.style, `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`].filter(Boolean).join(' · ')}
           </p>
@@ -480,7 +490,10 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           ) : <p className="text-sm text-gray-300">Nothing booked</p>
         ) : (
           <>
-            <p className="text-[15px] font-semibold text-gray-900 leading-tight truncate">{brew.beer_name}</p>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-[15px] font-semibold text-gray-900 leading-tight truncate">{brew.beer_name}</p>
+              {batchPill}
+            </div>
             <p className="text-xs text-gray-500 truncate tabular-nums">
               {[days_in_tank != null ? `Day ${days_in_tank}` : null, `${Math.round(brew.volume_l).toLocaleString('en-AU')} L`,
                 latest_gravity?.plato != null ? `${latest_gravity.plato}°P` : null,

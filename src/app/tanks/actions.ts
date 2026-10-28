@@ -2,8 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { getFrigidReadings, FRIGID_OFF_SET_POINT } from '@/lib/frigid'
-import { logDigestActivity, logGroupedActivity, who } from '@/lib/slack'
+import { getFrigidReadings } from '@/lib/frigid'
 import { coolingOff } from '@/lib/cooling'
 
 // [lowest, highest] set point allowed, by Frigid vessel name
@@ -14,8 +13,8 @@ const LIMITS: Record<string, [number, number]> = {
   Glycol: [-10, 20],  // chiller
 }
 
-/** @param opts.brewDay The brew whose brew day this finishes, so its Slack line joins that day's message */
-export async function setTankTarget(tankId: string, targetTemp: number, opts?: { brewDay?: string }): Promise<{ success: boolean; message: string }> {
+/** Set points are not posted to Slack: the brewers change them all day and nobody needs to hear about it. */
+export async function setTankTarget(tankId: string, targetTemp: number): Promise<{ success: boolean; message: string }> {
   if (!Number.isFinite(targetTemp)) return { success: false, message: 'Enter a temperature.' }
 
   const supabase = await createClient()
@@ -41,10 +40,6 @@ export async function setTankTarget(tankId: string, targetTemp: number, opts?: {
   const apiKey = process.env.FRIGID_API_KEY
   const apiUrl = process.env.FRIGID_API_URL
   if (!apiKey || !apiUrl) return { success: false, message: 'Frigid API not configured' }
-
-  // What it was before, for the activity log. Read before the change is sent.
-  const before = (await getFrigidReadings()).find((r) => r.name === tank.frigid_tank_name)?.setPoint
-  const previous = before != null && before !== FRIGID_OFF_SET_POINT ? before : null
 
   const body = { assetId: tank.frigid_asset_id, target: targetTemp, unitTemperature: 'C' }
   console.log('[setTankTarget] POST', `${apiUrl}/asset/target`, body)
@@ -76,11 +71,6 @@ export async function setTankTarget(tankId: string, targetTemp: number, opts?: {
     .update({ desired_set_point_c: targetTemp })
     .eq('id', tankId)
   if (saveError) console.error('[setTankTarget] set point sent to Frigid but not saved:', saveError.message)
-
-  const change = `${targetTemp}°C${previous != null ? ` (was ${previous}°C)` : ''}`
-  const setText = `${who(user.email)} set ${tank.name} to ${change}.`
-  if (opts?.brewDay) logDigestActivity(`brew:${opts.brewDay}`, setText)
-  else logGroupedActivity(`${tankId}:${user.email ?? user.id}`, setText, `set it to ${change}`)
 
   revalidatePath('/')
   revalidatePath('/dashboard')
@@ -116,7 +106,6 @@ export async function turnCoolingOff(tankId: string): Promise<{ success: boolean
   const { data: tank } = await supabase.from('tanks').select('name').eq('id', tankId).maybeSingle()
   if (!tank) return { success: false, message: 'Tank not found' }
   if (!(await coolingOff(tankId))) return { success: false, message: `Frigid did not accept that. ${tank.name} cooling is unchanged.` }
-  logGroupedActivity(`${tankId}:${user.email ?? user.id}`, `${who(user.email)} turned ${tank.name} cooling off.`, 'turned its cooling off')
   revalidatePath('/')
   return { success: true, message: `${tank.name} cooling is off` }
 }

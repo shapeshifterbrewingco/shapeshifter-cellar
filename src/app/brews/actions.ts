@@ -728,6 +728,22 @@ export async function updateBrewVolume(brew_id: string, volume_l: number, reason
   revalidatePath('/')
 }
 
+/** Nothing to take off: a line in the tank's log, which also clears the cold break flag. */
+export async function markNoColdBreak(brew_id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('You are signed out. Sign in again and retry.')
+  const { data: brew } = await supabase.from('brews').select('tank_id').eq('id', brew_id).maybeSingle()
+  if (!brew?.tank_id) throw new Error('Brew not found')
+  const { error } = await supabase.from('gravity_readings').insert({
+    brew_id, tank_id: brew.tank_id, plato: null, ph: null,
+    notes: 'Cold break: nothing taken off',
+    recorded_by: user.email ?? user.id,
+  })
+  if (error) throw error
+  revalidatePath('/')
+}
+
 export async function renameBrew(brew_id: string, beer_name: string, style?: string | null, colour?: string | null): Promise<ActionResult> {
   const name = beer_name.trim()
   if (!name) return fail('Give the beer a name.')

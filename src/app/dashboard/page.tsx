@@ -78,6 +78,8 @@ function buildFlags(tanks: TankDashboardData[], today: string, frigidUp: boolean
       continue
     }
 
+    if (t.cold_break_due) flags.push({ tank: tank.name, text: `Action required: ${brew.beer_name} cold break is due.`, tone: 'warn', href: tankHref(tank.id) })
+
     const fermenting = brew.stage === 'active_ferment' || brew.stage === 'diacetyl_rest'
     if (fermenting) {
       const last = t.latest_gravity?.recorded_at?.slice(0, 10)

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TankDashboardData, PackagingSplit, NextScheduledBrew } from '@/types'
 import type { FrigidReading } from '@/lib/frigid'
 import { breweryToday, daysBetweenISO } from '@/lib/dates'
+import { closesColdBreak, inColdBreakWindow } from '@/lib/cold-break'
 
 // A stored reading stands in for a live one only while it is recent. Beyond
 // that the card shows a dash: an old temperature presented as current is how a
@@ -47,6 +48,9 @@ export async function getDashboardData(
   const brewIds = (brews ?? []).map((b: { id: string }) => b.id)
   const recipeIds = [...new Set((brews ?? []).map((b: { recipe_id: string | null }) => b.recipe_id).filter((x): x is string => !!x))]
   const today = breweryToday()
+  const coldBreakIds = (brews ?? [])
+    .filter((b: Parameters<typeof inColdBreakWindow>[0]) => inColdBreakWindow(b, today))
+    .map((b: { id: string }) => b.id)
 
   const none = Promise.resolve({ data: [] as never[] })
 
@@ -59,6 +63,7 @@ export async function getDashboardData(
     { data: sheetRows },
     { data: recipeLines },
     { data: transfers },
+    { data: logNotes },
   ] = await Promise.all([
     brewIds.length > 0
       ? supabase
@@ -98,6 +103,10 @@ export async function getDashboardData(
       : none,
     brewIds.length > 0
       ? supabase.from('transfers').select('brew_id, transferred_at').in('brew_id', brewIds)
+      : none,
+    // Only the beers at the cold break point need their tank log read for it
+    coldBreakIds.length > 0
+      ? supabase.from('gravity_readings').select('brew_id, notes').in('brew_id', coldBreakIds).not('notes', 'is', null)
       : none,
   ])
 
@@ -140,6 +149,10 @@ export async function getDashboardData(
   for (const t of (transfers ?? []) as { brew_id: string; transferred_at: string }[]) {
     if (!transferredAt[t.brew_id] || t.transferred_at > transferredAt[t.brew_id]) transferredAt[t.brew_id] = t.transferred_at
   }
+
+  const coldBreakDone = new Set(
+    ((logNotes ?? []) as { brew_id: string; notes: string | null }[]).filter((r) => closesColdBreak(r.notes)).map((r) => r.brew_id)
+  )
 
   const liveByName = new Map(live.map((r) => [r.name, r]))
 
@@ -208,6 +221,7 @@ export async function getDashboardData(
       packaging_split: brew ? (splitsByBrew[brew.id] ?? null) : null,
       next_scheduled_brew: !brew ? (nextBrews[tank.name] ?? null) : null,
       transferred_at: brew ? (transferredAt[brew.id] ?? null) : null,
+      cold_break_due: !!brew && coldBreakIds.includes(brew.id) && !coldBreakDone.has(brew.id) && !transferredAt[brew.id],
     }
   })
 }

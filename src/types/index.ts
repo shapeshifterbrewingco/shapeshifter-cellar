@@ -275,6 +275,8 @@ export interface TankDashboardData {
   next_scheduled_brew?: NextScheduledBrew | null
   /** When the beer was last transferred into this tank. Set means it is being treated as a brite. */
   transferred_at?: string | null
+  /** The day after brew day or later, and the cold break has not been logged. Shown as action required. */
+  cold_break_due?: boolean
 }
 
 export const STAGE_LABELS: Record<TankStage, string> = {

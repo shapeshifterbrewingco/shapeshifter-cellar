@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber, needsBatchCode, spiritLitres } from '@/lib/brew-sheet'
 import { dilution, spiritDose } from '@/lib/utils'
 import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
+import { LiveTankTemp } from './LiveTankTemp'
 
 type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean }
 
@@ -498,21 +499,21 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         {result ? (
           <div className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-2.5">
             <p className="text-xs text-gray-500">Add</p>
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{water} L of cold liquor</p>
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-gray-900">{water} L of dilution</p>
             <p className="text-sm text-gray-600 tabular-nums">for {Math.round(result.finalL).toLocaleString('en-AU')} L at {t}°P</p>
             <button type="button" onClick={apply} className="mt-2 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
-              {others > 0 ? `Add ${water} L to the Dilution box (${others + water} L total)` : `Put ${water} L in the Dilution box`}
+              Confirm
             </button>
           </div>
         ) : (
           <p className="text-xs text-gray-500">
-            {tooHigh ? 'The gravity wanted has to be lower than the gravity now. Cold liquor only brings it down.' : 'Enter the gravity you want and it works out the cold liquor to add.'}
+            {tooHigh ? 'The gravity wanted has to be lower than the gravity now. Dilution only brings it down.' : 'Enter the gravity you want and it works out the dilution to add.'}
           </p>
         )}
         <p className="text-[11px] text-gray-400">
           {at === 'kettle'
-            ? 'For liquoring back before knock out. Nothing here is saved unless you tap the button.'
-            : 'This is a working-out tool. Nothing here is saved unless you tap the button, and All in FV still needs the measured numbers.'}
+            ? 'For liquoring back before knock out. Nothing here is saved until you tap Confirm, which copies it to the Dilution box.'
+            : 'This is a working-out tool. Nothing here is saved until you tap Confirm, which copies it to the Dilution box. All in FV still needs the measured numbers.'}
         </p>
       </div>
     )
@@ -737,6 +738,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           </p>
         )}
       </header>
+
+      {!done && <LiveTankTemp tankId={brew.tank_id} tankName={brew.tank_name} />}
 
       {unchecked.length > 0 && (
         <div className="rounded-2xl bg-yeast/40 ring-1 ring-yeast px-4 py-3 flex items-center gap-3">

@@ -14,10 +14,13 @@ const digits = (s: string) => s.replace(/[^0-9.]/g, '')
  * was taken and the new volume is worked out. Typing the volume itself is
  * still there for a correction.
  */
-export function VolumeDialog({ name, current, simple = false, onSave, onClose }: {
+export function VolumeDialog({ name, current, simple = false, coldBreak = false, onNoColdBreak, onSave, onClose }: {
   name: string
   /** Just a box for the new volume: no deduction, buckets or note */
   simple?: boolean
+  /** Opened from the cold break flag: the note is filled in, and nothing coming off is an answer */
+  coldBreak?: boolean
+  onNoColdBreak?: () => void
   current: number
   onSave: (volume: number, note: string) => void
   onClose: () => void
@@ -25,7 +28,7 @@ export function VolumeDialog({ name, current, simple = false, onSave, onClose }:
   const [mode, setMode] = useState<'taken' | 'direct'>(simple ? 'direct' : 'taken')
   const [taken, setTaken] = useState('')
   const [direct, setDirect] = useState(String(current))
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState(coldBreak ? 'Cold break' : '')
 
   const t = parseFloat(taken)
   const d = parseFloat(direct)
@@ -40,7 +43,7 @@ export function VolumeDialog({ name, current, simple = false, onSave, onClose }:
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-label="Change volume" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-base font-semibold text-gray-900">{simple ? 'Edit volume' : 'Volume in tank'}</h2>
+          <h2 className="text-base font-semibold text-gray-900">{simple ? 'Edit volume' : coldBreak ? 'Cold break' : 'Volume in tank'}</h2>
           <p className="text-sm text-gray-500">{name} · {litres(current)} now</p>
         </div>
 
@@ -102,6 +105,12 @@ export function VolumeDialog({ name, current, simple = false, onSave, onClose }:
           {mode === 'taken' ? 'Type the volume instead' : 'Type what was taken off instead'}
         </button>
         </>}
+
+        {coldBreak && onNoColdBreak && (
+          <button type="button" onClick={() => { onNoColdBreak(); onClose() }} className="block text-sm font-medium text-primary">
+            Nothing to take off
+          </button>
+        )}
 
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 h-11 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl active:bg-gray-50">Cancel</button>

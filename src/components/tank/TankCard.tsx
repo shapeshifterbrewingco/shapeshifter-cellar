@@ -28,7 +28,7 @@ import { BrewChartModal } from '@/components/dashboard/BrewChartModal'
 import { TransferModal } from '@/components/dashboard/TransferModal'
 import { PackageModal } from '@/components/dashboard/PackageModal'
 import { VdkModal } from '@/components/dashboard/VdkModal'
-import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume, renameBrew } from '@/app/brews/actions'
+import { updateBrewStage, endBrew, updateBatchCode, updateBrewVolume, markNoColdBreak, renameBrew } from '@/app/brews/actions'
 import { setTankTarget } from '@/app/tanks/actions'
 import { calcAbv } from '@/lib/utils'
 import { stageStyle, IN_PRODUCTION, inProduction } from '@/lib/stage-style'
@@ -74,7 +74,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   const [showEditBatch, setShowEditBatch] = useState(false)
   const [batchInput, setBatchInput] = useState(brew?.batch_code ?? '')
   // 'taken' is the tap on the volume (bottoms off); 'simple' is the menu's plain correction
-  const [showEditVolume, setShowEditVolume] = useState<false | 'taken' | 'simple'>(false)
+  const [showEditVolume, setShowEditVolume] = useState<false | 'taken' | 'simple' | 'cold_break'>(false)
   const [showRename, setShowRename] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
   const [nameInput, setNameInput] = useState(brew?.beer_name ?? '')
@@ -237,6 +237,14 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
   ) : null
   const additionsDialog = showAdditions && brew && additions ? (
     <AdditionsDialog key={brew.id} brewId={brew.id} beer={brew.beer_name} tank={tank.name} additions={additions} onClose={() => setShowAdditions(false)} />
+  ) : null
+
+  // Due the day after brew day. Tapping it logs what came off, and that clears it.
+  const coldBreakPill = data.cold_break_due ? (
+    <button type="button" onClick={(e) => { e.stopPropagation(); setShowEditVolume('cold_break') }}
+      className="self-start max-w-full truncate rounded-full border border-red-200 bg-red-50 text-red-700 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap">
+      Action required: cold break
+    </button>
   ) : null
 
   // The planned pack, from the Packaging Splits sheet: day first, then one format per line
@@ -432,6 +440,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
             {look.label}
           </span>
           {vdkLine}
+          {coldBreakPill}
           {additionsPill}
         </div>
       </div>
@@ -591,6 +600,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
             {/* Stage badge — hidden on small screens */}
             {!isEmpty && <div className="hidden sm:block flex-shrink-0"><StageBadge stage={stage} inProduction={inProduction(brew)} /></div>}
+            {coldBreakPill}
 
             {/* Gravity + ABV — hidden on small screens */}
             {showGravity && (
@@ -991,7 +1001,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
           </div>
         )}
         {showEditVolume && brew && (
-        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} simple={showEditVolume === 'simple'} onClose={() => setShowEditVolume(false)}
+        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} simple={showEditVolume === 'simple'} coldBreak={showEditVolume === 'cold_break'} onNoColdBreak={() => run(() => markNoColdBreak(brew.id), 'Could not save that. Try again.')} onClose={() => setShowEditVolume(false)}
           onSave={(v, note) => run(() => updateBrewVolume(brew.id, v, note), 'Could not save the volume. Try again.')} />
       )}
       </>
@@ -1090,6 +1100,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
 
               {/* Stage badge */}
               <StageBadge stage={stage} inProduction={inProduction(brew)} />
+              {coldBreakPill}
               {additionsPill}
 
               {/* Latest VDK result — diacetyl rest only */}
@@ -1480,7 +1491,7 @@ export function TankCard({ data, recipes, currentUser, allTanks, settings, cardS
         </div>
       )}
       {showEditVolume && brew && (
-        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} simple={showEditVolume === 'simple'} onClose={() => setShowEditVolume(false)}
+        <VolumeDialog name={`${tank.name} · ${brew.beer_name}`} current={Number(brew.volume_l)} simple={showEditVolume === 'simple'} coldBreak={showEditVolume === 'cold_break'} onNoColdBreak={() => run(() => markNoColdBreak(brew.id), 'Could not save that. Try again.')} onClose={() => setShowEditVolume(false)}
           onSave={(v, note) => run(() => updateBrewVolume(brew.id, v, note), 'Could not save the volume. Try again.')} />
       )}
     </>

@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Pencil } from 'lucide-react'
+import { Camera, Loader2, Pencil } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { savePackagingReport } from './actions'
 import { doRange } from '@/lib/history'
 import type { PackReport } from '@/lib/history'
 import { PackPhotos } from '@/components/packaging/PackPhotos'
+import { shrinkPhoto } from '@/lib/shrink-photo'
+import { readPackSheet, sameBeer } from '@/lib/pack-sheet'
 
 const EMPTY: PackReport = {
   best_before: null, bbt_temp_c: null, bbt_co2_vol: null, bbt_do_ppb: null, bbt_do_ppb_high: null, pack_co2_vol: null, pack_do_ppb: null, pack_do_ppb_high: null, unders: null,
@@ -40,27 +42,79 @@ const STOCK: { where: string; kegs: Key; cartons: Key }[] = [
 ]
 
 const INPUT = 'w-full h-11 rounded-xl border border-gray-200 bg-white px-3 text-base text-gray-900 tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30'
+// A value read off a photo that nobody has confirmed yet
+const UNSURE = 'bg-yeast/40 border-yeast'
 const show = (v: number | string | null, unit = '') => (v == null || v === '' ? '-' : `${v}${unit ? ` ${unit}` : ''}`)
+const toDraft = (r: PackReport) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v == null ? '' : String(v)])) as Record<Key, string>
 
 /** The packaging report for one batch and its photos. */
-export function PackReportPanel({ brewId, report }: { brewId: string; report: PackReport | null }) {
+export function PackReportPanel({ brewId, beerName, report }: { brewId: string; beerName: string; report: PackReport | null }) {
   return (
     <div className="space-y-3">
-      <ReportBody brewId={brewId} report={report} />
+      <ReportBody brewId={brewId} beerName={beerName} report={report} />
       <PackPhotos brewId={brewId} />
     </div>
   )
 }
 
 /** The report itself: read by default, a form when Edit is tapped. */
-function ReportBody({ brewId, report }: { brewId: string; report: PackReport | null }) {
+function ReportBody({ brewId, beerName, report }: { brewId: string; beerName: string; report: PackReport | null }) {
   const [saved, setSaved] = useState<PackReport>(report ?? EMPTY)
   const [draft, setDraft] = useState<Record<Key, string> | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  // Fill from a photo of the paper report. Opens the form with empty boxes
+  // filled in; nothing is saved until Save report.
+  const [reading, setReading] = useState(false)
+  const [unsure, setUnsure] = useState<Set<string>>(new Set())
+  const sheetInput = useRef<HTMLInputElement>(null)
+
   function startEdit() {
-    setDraft(Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, v == null ? '' : String(v)])) as Record<Key, string>)
+    setDraft(toDraft(saved))
   }
+
+  async function readSheet(files: FileList | null) {
+    const file = files?.[0]
+    if (!file || reading) return
+    setReading(true)
+    try {
+      const r = await readPackSheet([await shrinkPhoto(file)], { beer_name: beerName })
+      const before = draft ?? toDraft(saved)
+      const filled = new Set<string>()
+      for (const k of Object.keys(EMPTY) as Key[]) {
+        const v = r[k]
+        if (v != null && v !== '' && !before[k].trim()) filled.add(k)
+      }
+      // Typed entries win, even ones typed while the photo was being read
+      setDraft((d) => {
+        const next = { ...(d ?? before) }
+        for (const k of filled as Set<Key>) if (!next[k].trim()) next[k] = String(r[k])
+        return next
+      })
+      setUnsure(new Set(r.uncertain.filter((k) => filled.has(k))))
+      if (!sameBeer(r.beer_name, beerName)) {
+        toast.warning(`That sheet says "${r.beer_name}", but this is ${beerName}. Check it is the right sheet.`, { duration: 12000 })
+      }
+      const flagged = r.uncertain.filter((k) => filled.has(k)).length
+      toast.success(!filled.size
+        ? 'Report read, but there were no empty boxes it could fill.'
+        : flagged ? `Report read. ${flagged} value${flagged === 1 ? '' : 's'} highlighted to check.` : 'Report read. Check it over, then save.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'The photo could not be read.')
+    } finally {
+      setReading(false)
+      if (sheetInput.current) sheetInput.current.value = ''
+    }
+  }
+
+  const photoButton = (
+    <>
+      <input ref={sheetInput} type="file" accept="image/*" className="hidden" onChange={(e) => void readSheet(e.target.files)} />
+      <button type="button" onClick={() => sheetInput.current?.click()} disabled={reading || isPending} className="inline-flex items-center gap-1 text-xs font-semibold text-primary disabled:opacity-60">
+        {reading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}{reading ? 'Reading…' : 'From photo'}
+      </button>
+    </>
+  )
 
   function save() {
     if (!draft) return
@@ -75,11 +129,21 @@ function ReportBody({ brewId, report }: { brewId: string; report: PackReport | n
       if (!res.ok) { toast.error(`Not saved. ${res.message ?? ''}`.trim()); return }
       setSaved(next as unknown as PackReport)
       setDraft(null)
+      setUnsure(new Set())
       toast.success('Packaging report saved')
     })
   }
 
-  const set = (k: Key, v: string) => setDraft((d) => (d ? { ...d, [k]: v } : d))
+  const set = (k: Key, v: string) => {
+    setDraft((d) => (d ? { ...d, [k]: v } : d))
+    setUnsure((s) => {
+      if (!s.has(k)) return s
+      const next = new Set(s)
+      next.delete(k)
+      return next
+    })
+  }
+  const cls = (k: Key, base = INPUT) => (unsure.has(k) ? `${base} ${UNSURE}` : base)
   const empty = Object.values(saved).every((v) => v == null || v === '')
 
   if (!draft) {
@@ -87,9 +151,12 @@ function ReportBody({ brewId, report }: { brewId: string; report: PackReport | n
       <section>
         <div className="flex items-center justify-between mb-1.5">
           <h3 className="text-xs font-semibold text-gray-500">Packaging report</h3>
-          <button type="button" onClick={startEdit} className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
-            <Pencil className="h-3.5 w-3.5" />{empty ? 'Fill in' : 'Edit'}
-          </button>
+          <div className="flex items-center gap-4">
+            {photoButton}
+            <button type="button" onClick={startEdit} disabled={reading} className="inline-flex items-center gap-1 text-xs font-semibold text-primary disabled:opacity-60">
+              <Pencil className="h-3.5 w-3.5" />{empty ? 'Fill in' : 'Edit'}
+            </button>
+          </div>
         </div>
         {empty ? (
           <p className="text-sm text-gray-400">Nothing recorded yet. Brite and pack DO, CO2, best before and where the stock went.</p>
@@ -130,21 +197,24 @@ function ReportBody({ brewId, report }: { brewId: string; report: PackReport | n
 
   return (
     <section className="rounded-xl bg-white ring-1 ring-black/5 px-3 py-3 space-y-3">
-      <h3 className="text-xs font-semibold text-gray-500">Packaging report</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-gray-500">Packaging report</h3>
+        {photoButton}
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {MEASURES.map((m) => (
           <label key={m.key} className="block min-w-0">
             <span className="block text-xs text-gray-500 mb-1">{m.label} ({m.unit})</span>
-            <input type="number" inputMode="decimal" step={m.whole ? '1' : '0.01'} min={m.key === 'bbt_temp_c' ? undefined : '0'} value={draft[m.key]} onChange={(e) => set(m.key, e.target.value)} className={INPUT} />
+            <input type="number" inputMode="decimal" step={m.whole ? '1' : '0.01'} min={m.key === 'bbt_temp_c' ? undefined : '0'} value={draft[m.key]} onChange={(e) => set(m.key, e.target.value)} className={cls(m.key)} />
           </label>
         ))}
         <label className="block min-w-0">
           <span className="block text-xs text-gray-500 mb-1">Best before</span>
-          <input type="date" value={draft.best_before} onChange={(e) => set('best_before', e.target.value)} className={`${INPUT} min-w-0 appearance-none`} />
+          <input type="date" value={draft.best_before} onChange={(e) => set('best_before', e.target.value)} className={cls('best_before', `${INPUT} min-w-0 appearance-none`)} />
         </label>
         <label className="block min-w-0 col-span-2 sm:col-span-3">
           <span className="block text-xs text-gray-500 mb-1">Unders / SOR</span>
-          <input type="text" value={draft.unders} onChange={(e) => set('unders', e.target.value)} className={INPUT} />
+          <input type="text" value={draft.unders} onChange={(e) => set('unders', e.target.value)} className={cls('unders')} />
         </label>
       </div>
 
@@ -155,20 +225,20 @@ function ReportBody({ brewId, report }: { brewId: string; report: PackReport | n
         {STOCK.map((s) => (
           <div key={s.where} className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center mb-2">
             <span className="text-sm text-gray-700">{s.where}</span>
-            <input type="number" inputMode="decimal" step="any" min="0" aria-label={`${s.where} cartons`} value={draft[s.cartons]} onChange={(e) => set(s.cartons, e.target.value)} className={INPUT} />
-            <input type="number" inputMode="decimal" step="any" min="0" aria-label={`${s.where} kegs`} value={draft[s.kegs]} onChange={(e) => set(s.kegs, e.target.value)} className={INPUT} />
+            <input type="number" inputMode="decimal" step="any" min="0" aria-label={`${s.where} cartons`} value={draft[s.cartons]} onChange={(e) => set(s.cartons, e.target.value)} className={cls(s.cartons)} />
+            <input type="number" inputMode="decimal" step="any" min="0" aria-label={`${s.where} kegs`} value={draft[s.kegs]} onChange={(e) => set(s.kegs, e.target.value)} className={cls(s.kegs)} />
           </div>
         ))}
       </div>
 
       <label className="block">
         <span className="block text-xs text-gray-500 mb-1">Notes</span>
-        <textarea rows={2} value={draft.notes} onChange={(e) => set('notes', e.target.value)} className={`${INPUT} h-auto py-2`} />
+        <textarea rows={2} value={draft.notes} onChange={(e) => set('notes', e.target.value)} className={cls('notes', `${INPUT} h-auto py-2`)} />
       </label>
 
       <div className="flex gap-2">
-        <button type="button" onClick={() => setDraft(null)} disabled={isPending} className="flex-1 h-11 rounded-xl ring-1 ring-black/10 text-sm font-medium text-gray-700">Cancel</button>
-        <button type="button" onClick={save} disabled={isPending} className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
+        <button type="button" onClick={() => { setDraft(null); setUnsure(new Set()) }} disabled={isPending} className="flex-1 h-11 rounded-xl ring-1 ring-black/10 text-sm font-medium text-gray-700">Cancel</button>
+        <button type="button" onClick={save} disabled={isPending || reading} className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
           {isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save report
         </button>
       </div>

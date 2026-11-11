@@ -186,7 +186,7 @@ export function HistoryList({ items, top }: {
               ))}
             </dl>
 
-            <PackReportPanel brewId={item.id} report={item.report} />
+            <PackReportPanel brewId={item.id} beerName={item.beer_name} report={item.report} />
 
             {(item.hops.length > 0 || item.yeast.length > 0) && (
               <p className="text-sm text-gray-600 leading-relaxed">

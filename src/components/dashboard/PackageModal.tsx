@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useTransition } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { toast } from 'sonner'
 import { X, Package, Loader2, ChevronDown, ChevronUp, Camera } from 'lucide-react'
 import { shrinkPhoto, uploadPackPhoto } from '@/lib/shrink-photo'
+import { readPackSheet, sameBeer } from '@/lib/pack-sheet'
 import { packageBrew, getBrewCogs } from '@/app/brews/actions'
 import { PACKAGE_FORMATS } from '@/types'
 import type { Brew, Tank, PackageFormat } from '@/types'
@@ -17,11 +19,14 @@ interface Props {
 type Qtys = Record<PackageFormat, string>
 const EMPTY_QTYS: Qtys = { '24x375': '', '16x440': '', keg20: '', keg30: '', keg50: '' }
 
+// A value read off a photo that nobody has confirmed yet
+const UNSURE = 'bg-yeast/40 border-yeast'
+
 function NumInput({
-  label, value, onChange, unit, placeholder = '—', step = '0.01',
+  label, value, onChange, unit, placeholder = '—', step = '0.01', unsure,
 }: {
   label: string; value: string; onChange: (v: string) => void
-  unit?: string; placeholder?: string; step?: string
+  unit?: string; placeholder?: string; step?: string; unsure?: boolean
 }) {
   return (
     <div className="flex-1 min-w-0">
@@ -33,7 +38,7 @@ function NumInput({
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 pr-8"
+          className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 pr-8 ${unsure ? UNSURE : ''}`}
         />
         {unit && (
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-medium">{unit}</span>
@@ -43,9 +48,10 @@ function NumInput({
   )
 }
 
-function StockRow({ label, kegs, cartons, onKegs, onCartons }: {
+function StockRow({ label, kegs, cartons, onKegs, onCartons, unsureKegs, unsureCartons }: {
   label: string; kegs: string; cartons: string
   onKegs: (v: string) => void; onCartons: (v: string) => void
+  unsureKegs?: boolean; unsureCartons?: boolean
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -53,12 +59,12 @@ function StockRow({ label, kegs, cartons, onKegs, onCartons }: {
       <div className="flex-1">
         <input type="number" inputMode="decimal" min="0" step="any" value={kegs} onChange={e => onKegs(e.target.value)}
           placeholder="0"
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30 ${unsureKegs ? UNSURE : ''}`} />
       </div>
       <div className="flex-1">
         <input type="number" inputMode="decimal" min="0" step="any" value={cartons} onChange={e => onCartons(e.target.value)}
           placeholder="0"
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30 ${unsureCartons ? UNSURE : ''}`} />
       </div>
     </div>
   )
@@ -107,6 +113,97 @@ export function PackageModal({ brew, tank, onClose }: Props) {
     } finally {
       setShrinking(false)
       if (photoInput.current) photoInput.current.value = ''
+    }
+  }
+
+  // Fill from a photo of the paper report. Typed entries win: the photo only
+  // fills empty boxes, and what it was unsure of stays highlighted until edited.
+  const [reading, setReading] = useState(false)
+  const [unsure, setUnsure] = useState<Set<string>>(new Set())
+  const sheetInput = useRef<HTMLInputElement>(null)
+
+  const unflag = (key: string) => setUnsure((s) => {
+    if (!s.has(key)) return s
+    const next = new Set(s)
+    next.delete(key)
+    return next
+  })
+  const edit = (key: string, set: (v: string) => void) => (v: string) => { set(v); unflag(key) }
+
+  async function readSheet(files: FileList | null) {
+    const file = files?.[0]
+    if (!file || reading) return
+    setReading(true)
+    try {
+      const [forReading, forPost] = await Promise.all([shrinkPhoto(file), shrinkPhoto(file, 1600)])
+      const r = await readPackSheet([forReading], { beer_name: brew.beer_name, batch_code: brew.batch_code })
+
+      const filled = new Set<string>()
+      const fill = (key: string, before: string, set: Dispatch<SetStateAction<string>>, v: number | string | null) => {
+        if (v == null || v === '' || before.trim()) return
+        set((p) => (p.trim() ? p : String(v)))
+        filled.add(key)
+      }
+      fill('batch_code', batchCode, setBatchCode, r.batch_code)
+      fill('best_before', bestBefore, setBestBefore, r.best_before)
+      fill('bbt_temp_c', bbtTemp, setBbtTemp, r.bbt_temp_c)
+      fill('bbt_co2_vol', bbtCo2, setBbtCo2, r.bbt_co2_vol)
+      fill('bbt_do_ppb', bbtDo, setBbtDo, r.bbt_do_ppb)
+      fill('bbt_do_ppb_high', bbtDoHigh, setBbtDoHigh, r.bbt_do_ppb_high)
+      fill('pack_co2_vol', canCo2, setCanCo2, r.pack_co2_vol)
+      fill('pack_do_ppb', canDo, setCanDo, r.pack_do_ppb)
+      fill('pack_do_ppb_high', canDoHigh, setCanDoHigh, r.pack_do_ppb_high)
+      fill('unders', undersSor, setUndersSor, r.unders)
+      fill('stock_venue_kegs', venueKegs, setVenueKegs, r.stock_venue_kegs)
+      fill('stock_venue_cartons', venueCartons, setVenueCartons, r.stock_venue_cartons)
+      fill('stock_options_kegs', optionsKegs, setOptionsKegs, r.stock_options_kegs)
+      fill('stock_options_cartons', optionsCartons, setOptionsCartons, r.stock_options_cartons)
+      fill('stock_sales_kegs', salesKegs, setSalesKegs, r.stock_sales_kegs)
+      fill('stock_sales_cartons', salesCartons, setSalesCartons, r.stock_sales_cartons)
+      // Notes is one line here; the sheet's box and margin remarks become sentences
+      fill('notes', notes, setNotes, r.notes.split('\n').map((s) => s.trim()).filter(Boolean).map((s) => (/[.!?]$/.test(s) ? s : `${s}.`)).join(' '))
+
+      const onSheet: Partial<Record<PackageFormat, number | null>> = {
+        '24x375': r.qty_24x375, '16x440': r.qty_16x440, keg30: r.qty_keg30, keg50: r.qty_keg50,
+      }
+      for (const f of PACKAGE_FORMATS) {
+        const v = onSheet[f.format]
+        if (v && !qtys[f.format].trim()) filled.add(`qty_${f.format}`)
+      }
+      setQtys((p) => {
+        const next = { ...p }
+        for (const f of PACKAGE_FORMATS) {
+          const v = onSheet[f.format]
+          if (v && !next[f.format].trim()) next[f.format] = String(v)
+        }
+        return next
+      })
+
+      setUnsure(new Set(r.uncertain.filter((k) => filled.has(k))))
+      setQcOpen(true)
+      setStockOpen(true)
+      // The sheet is the photo they post anyway, so it goes with the report
+      if (photos.length < 6) setPhotos((p) => [...p, { key: crypto.randomUUID(), data: forPost, uploaded: false }])
+
+      if (!sameBeer(r.beer_name, brew.beer_name)) {
+        toast.warning(`That sheet says "${r.beer_name}", but this is ${brew.beer_name}. Check it is the right sheet.`, { duration: 12000 })
+      }
+      if (r.batch_code && batchCode.trim() && r.batch_code.replace(/\s/g, '') !== batchCode.trim()) {
+        toast.warning(`The sheet says batch ${r.batch_code}; this form has ${batchCode.trim()}. The form's number is kept.`, { duration: 12000 })
+      }
+      const counted = PACKAGE_FORMATS.reduce((s, f) => s + (onSheet[f.format] ?? 0) * f.volume_l, 0)
+      if (r.litres_total && counted > 0 && Math.abs(counted - r.litres_total) > Math.max(10, r.litres_total * 0.03)) {
+        toast.warning(`The sheet's litres total reads ${r.litres_total} L, but its keg and carton counts make ${Math.round(counted)} L. Check the counts against the sheet.`, { duration: 12000 })
+      }
+      const flagged = r.uncertain.filter((k) => filled.has(k)).length
+      toast.success(flagged
+        ? `Report read. ${flagged} value${flagged === 1 ? '' : 's'} highlighted to check.`
+        : 'Report read. Check it over before you log it.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'The photo could not be read.')
+    } finally {
+      setReading(false)
+      if (sheetInput.current) sheetInput.current.value = ''
     }
   }
 
@@ -211,6 +308,17 @@ export function PackageModal({ brew, tank, onClose }: Props) {
 
         <form onSubmit={handleSubmit}>
           <div className="p-5 space-y-4">
+            {/* Fill from the paper report */}
+            <div>
+              <input ref={sheetInput} type="file" accept="image/*" className="hidden" onChange={(e) => void readSheet(e.target.files)} />
+              <button type="button" onClick={() => sheetInput.current?.click()} disabled={reading || isPending}
+                className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary/10 text-primary text-sm font-semibold disabled:opacity-60">
+                {reading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                {reading ? 'Reading the report…' : 'Fill from a photo of the paper report'}
+              </button>
+              {reading && <p className="text-[11px] text-gray-400 mt-1.5">This takes up to a minute. Keep this open.</p>}
+            </div>
+
             {/* Batch + best before */}
             <div className="flex gap-3">
               <div className="flex-1">
@@ -220,10 +328,10 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                 <input
                   type="text"
                   value={batchCode}
-                  onChange={e => setBatchCode(e.target.value)}
+                  onChange={e => edit('batch_code', setBatchCode)(e.target.value)}
                   placeholder="e.g. 376"
                   required
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${unsure.has('batch_code') ? UNSURE : ''}`}
                 />
               </div>
               <div className="flex-1">
@@ -231,8 +339,8 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                 <input
                   type="date"
                   value={bestBefore}
-                  onChange={e => setBestBefore(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  onChange={e => edit('best_before', setBestBefore)(e.target.value)}
+                  className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${unsure.has('best_before') ? UNSURE : ''}`}
                 />
               </div>
             </div>
@@ -247,11 +355,11 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                     <input
                       type="number" inputMode="decimal"
                       value={qtys[f.format]}
-                      onChange={e => setQtys(prev => ({ ...prev, [f.format]: e.target.value }))}
+                      onChange={e => { setQtys(prev => ({ ...prev, [f.format]: e.target.value })); unflag(`qty_${f.format}`) }}
                       min="0"
                       step="any"
                       placeholder="0"
-                      className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className={`w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30 ${unsure.has(`qty_${f.format}`) ? UNSURE : ''}`}
                     />
                     <span className="text-xs text-gray-400 tabular-nums w-16">
                       {q > 0 ? `${(q * f.volume_l).toFixed(1)} L` : ''}
@@ -369,24 +477,24 @@ export function PackageModal({ brew, tank, onClose }: Props) {
               <div className="px-5 pb-4 space-y-3">
                 <p className="text-[11px] text-gray-400">BBT</p>
                 <div className="flex gap-2">
-                  <NumInput label="Temp" value={bbtTemp} onChange={setBbtTemp} unit="°C" />
-                  <NumInput label="CO₂" value={bbtCo2} onChange={setBbtCo2} unit="vol" />
-                  <NumInput label="DO low" value={bbtDo} onChange={setBbtDo} unit="ppb" />
-                  <NumInput label="DO high" value={bbtDoHigh} onChange={setBbtDoHigh} unit="ppb" />
+                  <NumInput label="Temp" value={bbtTemp} onChange={edit('bbt_temp_c', setBbtTemp)} unit="°C" unsure={unsure.has('bbt_temp_c')} />
+                  <NumInput label="CO₂" value={bbtCo2} onChange={edit('bbt_co2_vol', setBbtCo2)} unit="vol" unsure={unsure.has('bbt_co2_vol')} />
+                  <NumInput label="DO low" value={bbtDo} onChange={edit('bbt_do_ppb', setBbtDo)} unit="ppb" unsure={unsure.has('bbt_do_ppb')} />
+                  <NumInput label="DO high" value={bbtDoHigh} onChange={edit('bbt_do_ppb_high', setBbtDoHigh)} unit="ppb" unsure={unsure.has('bbt_do_ppb_high')} />
                 </div>
                 <p className="text-[11px] text-gray-400 pt-1">Can</p>
                 <div className="flex gap-2">
-                  <NumInput label="CO₂" value={canCo2} onChange={setCanCo2} unit="vol" />
-                  <NumInput label="DO low" value={canDo} onChange={setCanDo} unit="ppb" />
-                  <NumInput label="DO high" value={canDoHigh} onChange={setCanDoHigh} unit="ppb" />
+                  <NumInput label="CO₂" value={canCo2} onChange={edit('pack_co2_vol', setCanCo2)} unit="vol" unsure={unsure.has('pack_co2_vol')} />
+                  <NumInput label="DO low" value={canDo} onChange={edit('pack_do_ppb', setCanDo)} unit="ppb" unsure={unsure.has('pack_do_ppb')} />
+                  <NumInput label="DO high" value={canDoHigh} onChange={edit('pack_do_ppb_high', setCanDoHigh)} unit="ppb" unsure={unsure.has('pack_do_ppb_high')} />
                   <div className="flex-1 min-w-0">
                     <label className="block text-[11px] font-medium text-gray-500 mb-1">Unders/SOR</label>
                     <input
                       type="text"
                       value={undersSor}
-                      onChange={e => setUndersSor(e.target.value)}
+                      onChange={e => edit('unders', setUndersSor)(e.target.value)}
                       placeholder="—"
-                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${unsure.has('unders') ? UNSURE : ''}`}
                     />
                   </div>
                 </div>
@@ -416,13 +524,16 @@ export function PackageModal({ brew, tank, onClose }: Props) {
                 </div>
                 <StockRow label="At venue"
                   kegs={venueKegs} cartons={venueCartons}
-                  onKegs={setVenueKegs} onCartons={setVenueCartons} />
+                  onKegs={edit('stock_venue_kegs', setVenueKegs)} onCartons={edit('stock_venue_cartons', setVenueCartons)}
+                  unsureKegs={unsure.has('stock_venue_kegs')} unsureCartons={unsure.has('stock_venue_cartons')} />
                 <StockRow label="At Options"
                   kegs={optionsKegs} cartons={optionsCartons}
-                  onKegs={setOptionsKegs} onCartons={setOptionsCartons} />
+                  onKegs={edit('stock_options_kegs', setOptionsKegs)} onCartons={edit('stock_options_cartons', setOptionsCartons)}
+                  unsureKegs={unsure.has('stock_options_kegs')} unsureCartons={unsure.has('stock_options_cartons')} />
                 <StockRow label="Taken by sales"
                   kegs={salesKegs} cartons={salesCartons}
-                  onKegs={setSalesKegs} onCartons={setSalesCartons} />
+                  onKegs={edit('stock_sales_kegs', setSalesKegs)} onCartons={edit('stock_sales_cartons', setSalesCartons)}
+                  unsureKegs={unsure.has('stock_sales_kegs')} unsureCartons={unsure.has('stock_sales_cartons')} />
               </div>
             )}
           </div>
@@ -461,9 +572,9 @@ export function PackageModal({ brew, tank, onClose }: Props) {
               <input
                 type="text"
                 value={notes}
-                onChange={e => setNotes(e.target.value)}
+                onChange={e => edit('notes', setNotes)(e.target.value)}
                 placeholder="e.g. Line down 20 mins, 50 L waste"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${unsure.has('notes') ? UNSURE : ''}`}
               />
             </div>
 
@@ -477,7 +588,7 @@ export function PackageModal({ brew, tank, onClose }: Props) {
               </button>
               <button
                 type="submit"
-                disabled={isPending || shrinking || !canSubmit}
+                disabled={isPending || shrinking || reading || !canSubmit}
                 className="flex-1 bg-primary text-primary-foreground text-sm font-medium py-2.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}

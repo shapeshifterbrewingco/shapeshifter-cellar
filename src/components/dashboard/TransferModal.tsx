@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { X, ArrowRight, Loader2, Check, RefreshCw, Snowflake, Power } from 'lucide-react'
 import { transferBrew } from '@/app/brews/actions'
 import { readTankTemps, setTankTarget, turnCoolingOff } from '@/app/tanks/actions'
+import { BRITE_HOLD_C } from '@/lib/frigid'
 import type { Brew, Tank, TankDashboardData } from '@/types'
 
 interface Props {
@@ -199,6 +200,8 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
       })
       if (!result.ok) { toast.error(result.message); return }
       try { localStorage.removeItem(draftKey(brew.id)) } catch { /* nothing to clear */ }
+      // The brite left at its sani temperature is what this step exists to stop, so it must not be missed
+      if (result.note) toast.error(result.note, { duration: Infinity, closeButton: true })
       toast.success(num(f.briteVolume) != null ? `${brew.beer_name} is in ${dest.name}.` : `${brew.beer_name} is in ${dest.name}. Tap its volume to set what arrived.`)
       onClose()
     })
@@ -317,6 +320,11 @@ export function TransferModal({ brew, sourceTank, allTanks, onClose }: Props) {
                 </button>
               )}
             </div>
+
+            <p className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Snowflake className="h-3.5 w-3.5 flex-shrink-0" />
+              Finish transfer drops {dest?.name ?? 'the brite'} to {BRITE_HOLD_C}°C.
+            </p>
           </div>
 
           <div className="p-5 pt-4 space-y-4 border-t border-gray-100">

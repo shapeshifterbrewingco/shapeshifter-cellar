@@ -5,7 +5,7 @@
 // a tank that sits off its set point all night is one message, not fifty.
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { FRIGID_OFF_SET_POINT } from '@/lib/frigid'
+import { FRIGID_OFF_SET_POINT, BRITE_HOLD_C } from '@/lib/frigid'
 import type { FrigidReading } from '@/lib/frigid'
 import { postSlack, slackConfigured, cellarLink, esc } from '@/lib/slack'
 
@@ -28,6 +28,11 @@ const UTILITY_OFF_BY_C: Record<string, number> = { HLT: 15, CLT: 5, Glycol: 5 }
  */
 const MUTED = new Set<string>(['Glycol'])
 const UTILITY_NAMES: Record<string, string> = { HLT: 'Hot liquor', CLT: 'Cold liquor', Glycol: 'Glycol chiller' }
+/**
+ * A brite with beer in it set above this is still on its sani temperature (2°C).
+ * Transfers drop it to BRITE_HOLD_C; this catches the ones that did not.
+ */
+const BRITE_WARM_SET_C = 1
 /** Frigid silent for this long */
 const FRIGID_DOWN_MINUTES = 15
 
@@ -51,7 +56,7 @@ export async function runAlerts(readings: FrigidReading[]): Promise<{ raised: nu
   } else {
     const since = new Date(now - 50 * 60 * 1000).toISOString()
     const [{ data: tanks }, { data: brews }, { data: history }] = await Promise.all([
-      db.from('tanks').select('id, name, frigid_tank_name, is_utility').not('frigid_tank_name', 'is', null),
+      db.from('tanks').select('id, name, type, frigid_tank_name, is_utility').not('frigid_tank_name', 'is', null),
       db.from('brews').select('tank_id, beer_name, stage').is('deleted_at', null).not('stage', 'in', '(empty,transferred,packaged)'),
       db.from('temperature_readings').select('tank_id, temperature_c, recorded_at').gte('recorded_at', since).order('recorded_at', { ascending: true }),
     ])
@@ -65,7 +70,7 @@ export async function runAlerts(readings: FrigidReading[]): Promise<{ raised: nu
     const brewByTank = new Map(((brews ?? []) as { tank_id: string; beer_name: string; stage: string }[]).map((b) => [b.tank_id, b]))
     const live = new Map(readings.map((r) => [r.name, r]))
 
-    for (const tank of (tanks ?? []) as { id: string; name: string; frigid_tank_name: string; is_utility: boolean }[]) {
+    for (const tank of (tanks ?? []) as { id: string; name: string; type: string; frigid_tank_name: string; is_utility: boolean }[]) {
       const r = live.get(tank.frigid_tank_name)
       if (!r || r.temperature == null) continue
       const temp = r.temperature
@@ -93,6 +98,14 @@ export async function runAlerts(readings: FrigidReading[]): Promise<{ raised: nu
       const brew = brewByTank.get(tank.id)
       if (!brew) continue // an empty tank drifting is not an emergency
       const beer = esc(brew.beer_name)
+
+      if (tank.type === 'brite' && set > BRITE_WARM_SET_C) {
+        conditions.push({
+          key: `brite-warm:${tank.id}`,
+          holdMinutes: HOLD_MINUTES,
+          message: `${tank.name} (${beer}) has beer in it but is still set to ${t(set)}. Set it to ${t(BRITE_HOLD_C)}.`,
+        })
+      }
 
       if (brew.stage === 'on_chill' && change != null && change >= CHILL_WARMING_C && gap > 1) {
         conditions.push({
@@ -154,7 +167,7 @@ export async function runAlerts(readings: FrigidReading[]): Promise<{ raised: nu
     if (row.notified_at) {
       const mins = Math.round((now - new Date(row.first_seen_at).getTime()) / 60000)
       const lasted = mins >= 90 ? `${(mins / 60).toFixed(1)} hours` : `${mins} minutes`
-      await postSlack(`*Cleared:* ${row.message.replace(/ is at .*/, ' is back in range.').replace(/ is on chill but warming.*/, ' has stopped warming.').replace(/^Frigid is not responding.*/, 'Frigid is responding again.')} It lasted ${lasted}.`)
+      await postSlack(`*Cleared:* ${row.message.replace(/ is at .*/, ' is back in range.').replace(/ is on chill but warming.*/, ' has stopped warming.').replace(/ has beer in it but is still set to.*/, ' is set cold again.').replace(/^Frigid is not responding.*/, 'Frigid is responding again.')} It lasted ${lasted}.`)
       cleared++
     }
     await db.from('alert_state').delete().eq('key', key)

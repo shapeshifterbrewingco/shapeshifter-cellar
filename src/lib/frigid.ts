@@ -13,6 +13,9 @@ const UTILITY_TANK_NAMES = ['HLT', 'CLT', 'Glycol']
 // Frigid reports 200 as the set point of a tank with cooling switched off
 export const FRIGID_OFF_SET_POINT = 200
 
+// A brite sits at 2°C on sani before a transfer and holds beer at this once it is in
+export const BRITE_HOLD_C = -0.5
+
 const toNumber = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN
   return Number.isFinite(n) ? n : null

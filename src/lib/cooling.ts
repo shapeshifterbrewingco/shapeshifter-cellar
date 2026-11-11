@@ -1,14 +1,14 @@
-// Switching a tank's cooling off when it is emptied. Frigid has no "off": a
+// Set points the app sends on its own when beer moves. Frigid has no "off": a
 // set point of 200°C is its way of saying the tank is not being held anywhere.
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { FRIGID_OFF_SET_POINT } from '@/lib/frigid'
+import { FRIGID_OFF_SET_POINT, BRITE_HOLD_C } from '@/lib/frigid'
 
 /**
- * Put a tank back to Frigid's resting set point. Never throws: the tank has
- * already been emptied, so a failure comes back as false for the caller to mention.
+ * Send a set point to Frigid and remember it on the tank. Never throws: the beer
+ * has already moved, so a failure comes back as false for the caller to mention.
  */
-export async function coolingOff(tankId: string): Promise<boolean> {
+async function sendSetPoint(tankId: string, target: number, label: string): Promise<boolean> {
   try {
     const db = createServiceClient()
     const { data: tank } = await db.from('tanks').select('frigid_asset_id, name').eq('id', tankId).maybeSingle()
@@ -19,18 +19,28 @@ export async function coolingOff(tankId: string): Promise<boolean> {
     const res = await fetch(`${apiUrl}/asset/target`, {
       method: 'POST',
       headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId: tank.frigid_asset_id, target: FRIGID_OFF_SET_POINT, unitTemperature: 'C' }),
+      body: JSON.stringify({ assetId: tank.frigid_asset_id, target, unitTemperature: 'C' }),
       signal: AbortSignal.timeout(8000),
     })
     const json = await res.json().catch(() => ({})) as { success?: boolean }
     if (!res.ok || !json.success) {
-      console.error('[coolingOff] Frigid refused for', tank.name, res.status)
+      console.error(`[${label}] Frigid refused for`, tank.name, res.status)
       return false
     }
-    await db.from('tanks').update({ desired_set_point_c: FRIGID_OFF_SET_POINT }).eq('id', tankId)
+    await db.from('tanks').update({ desired_set_point_c: target }).eq('id', tankId)
     return true
   } catch (err) {
-    console.error('[coolingOff] failed:', err instanceof Error ? err.message : err)
+    console.error(`[${label}] failed:`, err instanceof Error ? err.message : err)
     return false
   }
+}
+
+/** Put a tank back to Frigid's resting set point once it has been emptied. */
+export function coolingOff(tankId: string): Promise<boolean> {
+  return sendSetPoint(tankId, FRIGID_OFF_SET_POINT, 'coolingOff')
+}
+
+/** Drop a brite from its sani temperature to the holding temperature once beer is in it. */
+export function holdBrite(tankId: string): Promise<boolean> {
+  return sendSetPoint(tankId, BRITE_HOLD_C, 'holdBrite')
 }

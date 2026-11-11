@@ -3,10 +3,10 @@
 import { isOwnerEmail } from '@/lib/auth-domain'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getFrigidReadings } from '@/lib/frigid'
+import { getFrigidReadings, BRITE_HOLD_C } from '@/lib/frigid'
 import { addPackedStock } from '@/lib/sales-stock'
 import { after } from 'next/server'
-import { coolingOff } from '@/lib/cooling'
+import { coolingOff, holdBrite } from '@/lib/cooling'
 import { writeSplitVolume } from '@/lib/tank-splits'
 import { logActivity, logDigestActivity, who, esc, logGroupedActivity } from '@/lib/slack'
 import { publishPackReportLater } from '@/lib/pack-report-post'
@@ -353,20 +353,23 @@ export async function transferBrew(data: {
   })
   if (noteError) console.error('[transferBrew] transfer note failed:', noteError.message)
 
+  let note: string | undefined
   {
     const [{ data: b }, from, to] = await Promise.all([
       supabase.from('brews').select('beer_name').eq('id', data.brew_id).maybeSingle(),
       tankName(supabase, data.source_tank_id),
       tankName(supabase, data.dest_tank_id),
     ])
-    // The fermenter it left is empty: stop holding it cold
-    await coolingOff(data.source_tank_id)
+    // The fermenter it left is empty: stop holding it cold. The brite was at its
+    // sani temperature for the transfer and has to come down now beer is in it.
+    const [, held] = await Promise.all([coolingOff(data.source_tank_id), holdBrite(data.dest_tank_id)])
+    if (!held) note = `${to} is still at its sani temperature. Frigid did not take the change, so set it to ${BRITE_HOLD_C}°C by hand.`
     if (data.volume_out_l != null) after(() => writeSplitVolume(data.brew_id).then(() => undefined))
-    logActivity(`${who(user.email)} transferred *${esc(b?.beer_name ?? 'a beer')}* from ${from} to ${to}${data.volume_out_l != null ? `: ${volume} L arrived${volumeIn - volume > 0 ? ` (${Math.round(volumeIn - volume)} L lost)` : ''}` : ''}.`)
+    logActivity(`${who(user.email)} transferred *${esc(b?.beer_name ?? 'a beer')}* from ${from} to ${to}${data.volume_out_l != null ? `: ${volume} L arrived${volumeIn - volume > 0 ? ` (${Math.round(volumeIn - volume)} L lost)` : ''}` : ''}.${held ? ` ${to} set to ${BRITE_HOLD_C}°C.` : ` *${to} could not be set to ${BRITE_HOLD_C}°C and is still at its sani temperature.*`}`)
   }
 
   revalidatePath('/')
-  return { ok: true }
+  return { ok: true, note }
 }
 
 // ── Package ───────────────────────────────────────────────────

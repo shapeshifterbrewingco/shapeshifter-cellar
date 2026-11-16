@@ -37,7 +37,7 @@ Return ONE JSON object and nothing else, in exactly this shape:
     "kettle_hops":      [ same line shape ],
     "dry_hops":         [ same line shape, "when" is the DAY / °P column e.g. "0", "Active", "FG", "Chill"; put a handwritten date in "note" ],
     "mash": { "time": "HH:MM mash-in", "target_temp_c": "", "actual_temp_c": "", "ph": "", "acid": "any lactic acid note, e.g. +100 mL LA" },
-    "runnings": { "first": { "time": "", "plato": "", "ph": "" }, "mid": { ... }, "last": { ... } },
+    "runnings": { "first": { "time": "", "plato": "", "ph": "" }, "mid": { ... }, "last": { ... }, "acid": "a lactic acid note written beside the runnings, e.g. +50 mL LA; '' if the only acid note is the mash's" },
     "kettle": { "volume_l": "all in kettle", "boil_start": "HH:MM", "boil_minutes": "", "post_boil_volume_l": "", "post_boil_plato": "", "post_boil_ph": "", "dilution_l": "" },
     "fv": { "temp_c": "", "volume_l": "", "plato": "", "ph": "" },
     "yeast": { "strain": "", "amount": "", "lot": "", "best_before": "", "pitch_temp_c": "", "set_temp_c": "" },

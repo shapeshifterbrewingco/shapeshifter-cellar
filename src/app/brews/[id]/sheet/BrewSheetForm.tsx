@@ -242,6 +242,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           first: merge(data.runnings.first, got.runnings.first) as BrewSheetData['runnings']['first'],
           mid: merge(data.runnings.mid, got.runnings.mid) as BrewSheetData['runnings']['mid'],
           last: merge(data.runnings.last, got.runnings.last) as BrewSheetData['runnings']['last'],
+          acid: data.runnings.acid.trim() ? data.runnings.acid : got.runnings.acid ?? '',
         },
         notes: data.notes || got.notes,
         malt: got.malt.length ? got.malt : data.malt,
@@ -815,6 +816,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
             </div>
           </div>
         ))}
+        {field({ label: "Acid added", path: "runnings.acid", mode: "text", placeholder: "e.g. 50 mL LA" })}
       </Section>
       </>}
 

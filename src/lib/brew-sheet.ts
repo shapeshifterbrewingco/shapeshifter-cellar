@@ -39,7 +39,8 @@ export interface BrewSheetData {
   dry_hops: SheetLine[]
 
   mash: { time: string; target_temp_c: string; actual_temp_c: string; ph: string; acid: string }
-  runnings: { first: Runnings; mid: Runnings; last: Runnings }
+  /** `acid` is any lactic added during run off, written the same way as the mash's */
+  runnings: { first: Runnings; mid: Runnings; last: Runnings; acid: string }
   kettle: {
     volume_l: string; boil_start: string; boil_minutes: string
     post_boil_volume_l: string; post_boil_plato: string; post_boil_ph: string
@@ -80,7 +81,7 @@ export function emptySheet(): BrewSheetData {
     brewer: '', cellar: '', base_malt_batch: '',
     malt: [], mash_additions: [], kettle_additions: [], kettle_hops: [], dry_hops: [],
     mash: { time: '', target_temp_c: '', actual_temp_c: '', ph: '', acid: '' },
-    runnings: { first: emptyRunnings(), mid: emptyRunnings(), last: emptyRunnings() },
+    runnings: { first: emptyRunnings(), mid: emptyRunnings(), last: emptyRunnings(), acid: '' },
     kettle: { volume_l: '', boil_start: '', boil_minutes: '', post_boil_volume_l: '', post_boil_plato: '', post_boil_ph: '', dilution_l: '' },
     fv: { temp_c: '', volume_l: '', plato: '', ph: '' },
     yeast: { strain: '', amount: '', lot: '', best_before: '', pitch_temp_c: '', set_temp_c: '' },
@@ -122,7 +123,7 @@ export function sanitiseSheet(input: unknown): BrewSheetData {
     brewer: text(o.brewer, 60), cellar: text(o.cellar, 60), base_malt_batch: text(o.base_malt_batch, 40),
     ...lists,
     mash: group(e.mash, o.mash),
-    runnings: { first: group(emptyRunnings(), r.first), mid: group(emptyRunnings(), r.mid), last: group(emptyRunnings(), r.last) },
+    runnings: { first: group(emptyRunnings(), r.first), mid: group(emptyRunnings(), r.mid), last: group(emptyRunnings(), r.last), acid: text(r.acid, 60) },
     kettle: group(e.kettle, o.kettle),
     fv: group(e.fv, o.fv),
     yeast: group(e.yeast, o.yeast),

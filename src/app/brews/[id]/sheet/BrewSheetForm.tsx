@@ -13,12 +13,12 @@ import { importSheetReadings, applySheetToRecipe, cancelBrewDay } from '@/app/br
 import Link from 'next/link'
 import { readTankTemps, setTankTarget } from '@/app/tanks/actions'
 import { useRouter } from 'next/navigation'
-import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber, needsBatchCode, spiritLitres } from '@/lib/brew-sheet'
+import { sheetProgress, bagsLabel, isDayZero, recipeChanges, sheetNumber, needsBatchCode, spiritLitres, emptyTurn, blendedOg, MAX_EXTRA_TURNS } from '@/lib/brew-sheet'
 import { dilution, spiritDose } from '@/lib/utils'
-import type { BrewSheetData, ListKey, SheetLine, SheetReading } from '@/lib/brew-sheet'
+import type { BrewSheetData, ListKey, SheetLine, SheetReading, SheetTurn, TurnListKey } from '@/lib/brew-sheet'
 import { LiveTankTemp } from './LiveTankTemp'
 
-type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean }
+type SaveInput = { brew_id: string; data: BrewSheetData; unchecked: string[]; source?: 'app' | 'photo'; finish?: boolean; finish_turn?: number }
 
 /** Save through a plain request, so the page is never re-rendered under the brewer's thumbs. */
 async function postSheet(input: SaveInput): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -56,14 +56,34 @@ function setPath<T>(obj: T, path: string, value: string): T {
   const out = { ...(obj as Record<string, unknown>) }
   let cur = out
   for (let i = 0; i < keys.length - 1; i++) {
-    cur[keys[i]] = { ...(cur[keys[i]] as Record<string, unknown>) }
+    // "turns.0.mash.ph" walks through a list on the way
+    const next = cur[keys[i]]
+    cur[keys[i]] = Array.isArray(next) ? [...next] : { ...(next as Record<string, unknown>) }
     cur = cur[keys[i]] as Record<string, unknown>
   }
   cur[keys[keys.length - 1]] = value
   return out as T
 }
 
-/** Shrink a phone photo so it uploads quickly and stays under the size limits. */
+// ── Lists, on the sheet itself or on one of its further turns ───────────────
+// `turn` is the turn's place in `data.turns`. Left out, it is the sheet's own list.
+
+const linesOf = (d: BrewSheetData, key: ListKey, turn?: number): SheetLine[] =>
+  turn == null ? d[key] : d.turns[turn]?.[key as TurnListKey] ?? []
+
+const withLines = (d: BrewSheetData, key: ListKey, turn: number | undefined, lines: SheetLine[]): BrewSheetData =>
+  turn == null ? { ...d, [key]: lines } : { ...d, turns: d.turns.map((t, i) => (i === turn ? { ...t, [key]: lines } : t)) }
+
+const turnPath = (turn?: number) => (turn == null ? '' : `turns.${turn}.`)
+
+/** Today in the brewery, YYYY-MM-DD. Local getters: toISOString() is a day behind until mid-morning here. */
+function today(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const longDate = (day: string) => new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+
 function Section({ title, hint, id, children }: { title: string; hint?: string; id?: string; children: React.ReactNode }) {
   return (
   <section id={id} className={`${CARD} p-4 space-y-3 scroll-mt-20`}>
@@ -81,7 +101,7 @@ type DilutionAt = 'kettle' | 'fv'
 // Over the target OG by more than this and the calculator opens itself. Less is reading noise.
 const OVER_OG = 0.2
 
-export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, baseline = null, recipeVersion = null, targetAbv = null, targetOg = null, previous = null, me }: {
+export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finished, rtd = false, canAddTurn = false, tankVolume = null, baseline = null, recipeVersion = null, targetAbv = null, targetOg = null, previous = null, me }: {
   brew: BrewInfo
   initial: BrewSheetData
   initialUnchecked: string[]
@@ -90,6 +110,10 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   finished: boolean
   /** A hard lemonade: no mash, no yeast, no gravity or pH, and it goes straight on chill */
   rtd?: boolean
+  /** Still fermenting in the tank it was brewed into: the only time another turn can go on top */
+  canAddTurn?: boolean
+  /** What the tank card says is in the tank now, to show what a further turn takes it to */
+  tankVolume?: number | null
   /** The recipe as a sheet, to see what was changed on the day. Null if the brew has no recipe. */
   baseline?: BrewSheetData | null
   recipeVersion?: number | null
@@ -126,6 +150,8 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   const [compare, setCompare] = useState(true)
   const router = useRouter()
   const fileInput = useRef<HTMLInputElement>(null)
+  // Which turn the photo being picked is for. Null is the sheet itself.
+  const photoTurn = useRef<number | null>(null)
 
   // Latest values for the autosave, which runs outside render
   const latest = useRef({ data, unchecked, source: undefined as 'photo' | undefined })
@@ -214,22 +240,69 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
 
   async function readPhotos(files: FileList | null) {
     if (!files?.length || reading) return
-    if (sheetProgress(data).filled > 0 && !window.confirm('Fill the sheet from this photo? Anything you have already typed is kept; only empty boxes and the ingredient lists are filled.')) return
+    const turn = photoTurn.current
+    const target = turn != null ? data.turns[turn] : null
+    if (turn != null && !target) return
+    const started = target
+      ? [target.mash.actual_temp_c, target.kettle.volume_l, target.fv.volume_l, target.fv.plato].some((v) => v.trim())
+      : sheetProgress(data).filled > 0
+    if (started && !window.confirm(`Fill ${target ? `turn ${turn! + 2}` : 'the sheet'} from this photo? Anything you have already typed is kept; only empty boxes and the ingredient lists are filled.`)) return
     setReading(true)
     try {
       const images = await Promise.all([...files].slice(0, 4).map((f) => shrinkPhoto(f)))
       const res = await fetch('/api/parse-brew-sheet', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, brew_day: brew.brew_day, beer_name: brew.beer_name }),
+        body: JSON.stringify({ images, brew_day: target?.date || brew.brew_day, beer_name: brew.beer_name }),
       })
       const out = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(out.error || 'The photo could not be read.')
 
       const got = out.sheet as BrewSheetData
+      const sheetDate = String(out.header?.brew_date ?? '')
+      // A sheet from another day is most likely a further turn: reading it in here would lay it over the first
+      if (!target && done && canAddTurn && sheetDate && sheetDate !== brew.brew_day
+        && !window.confirm(`That sheet is dated ${longDate(sheetDate)}, but this brew day was ${longDate(brew.brew_day)}.\n\nIf it is another turn into ${brew.tank_name}, press Cancel, then use "Add a turn" under All in FV and fill it from the photo there.\n\nFill the first brew day from it anyway?`)) return
       // Typed entries win. The photo fills blanks, and replaces a list only when
       // it found lines for it.
       const merge = (mine: Record<string, string>, theirs: Record<string, string>) =>
         Object.fromEntries(Object.keys(mine).map((k) => [k, mine[k].trim() ? mine[k] : theirs?.[k] ?? ''])) as Record<string, string>
+      const mergeRunnings = (mine: BrewSheetData['runnings']): BrewSheetData['runnings'] => ({
+        first: merge(mine.first, got.runnings.first) as BrewSheetData['runnings']['first'],
+        mid: merge(mine.mid, got.runnings.mid) as BrewSheetData['runnings']['mid'],
+        last: merge(mine.last, got.runnings.last) as BrewSheetData['runnings']['last'],
+        acid: mine.acid.trim() ? mine.acid : got.runnings.acid ?? '',
+      })
+      const named = String(out.header?.beer_name ?? '').trim()
+      const wrongBeer = () => {
+        if (named && !brew.beer_name.toLowerCase().includes(named.toLowerCase().slice(0, 6)) && !named.toLowerCase().includes(brew.beer_name.toLowerCase().slice(0, 6))) {
+          toast.warning(`That sheet says "${named}", but this is ${brew.beer_name}. Check it is the right sheet.`, { duration: 12000 })
+        }
+      }
+      if (target && turn != null) {
+        // A turn takes the brew-day half of the sheet. Yeast, dry hops and sign-offs belong to the tank, not the turn.
+        const filled: SheetTurn = {
+          ...target,
+          date: /^\d{4}-\d{2}-\d{2}$/.test(sheetDate) ? sheetDate : target.date,
+          brewer: target.brewer || got.brewer,
+          mash: merge(target.mash, got.mash) as BrewSheetData['mash'],
+          kettle: merge(target.kettle, got.kettle) as BrewSheetData['kettle'],
+          fv: merge(target.fv, got.fv) as BrewSheetData['fv'],
+          runnings: mergeRunnings(target.runnings),
+          notes: target.notes || got.notes,
+          malt: got.malt.length ? got.malt : target.malt,
+          mash_additions: got.mash_additions.length ? got.mash_additions : target.mash_additions,
+          kettle_additions: got.kettle_additions.length ? got.kettle_additions : target.kettle_additions,
+          kettle_hops: got.kettle_hops.length ? got.kettle_hops : target.kettle_hops,
+        }
+        const flagged = ((out.uncertain ?? []) as string[])
+          .filter((p) => /^(brewer|notes|mash|runnings|kettle|fv|malt|mash_additions|kettle_additions|kettle_hops)(\.|$)/.test(p))
+          .map((p) => `turns.${turn}.${p}`)
+        update({ ...data, turns: data.turns.map((t, i) => (i === turn ? filled : t)) }, [...new Set([...latest.current.unchecked, ...flagged])])
+        setFound((out.readings ?? []) as SheetReading[])
+        wrongBeer()
+        toast.success(flagged.length ? `Turn ${turn + 2} read. ${flagged.length} value${flagged.length === 1 ? '' : 's'} highlighted to check.` : `Turn ${turn + 2} read. Have a look over it.`)
+        return
+      }
       const next: BrewSheetData = {
         ...data,
         brewer: data.brewer || got.brewer, cellar: data.cellar || got.cellar, base_malt_batch: data.base_malt_batch || got.base_malt_batch,
@@ -238,12 +311,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         fv: merge(data.fv, got.fv) as BrewSheetData['fv'],
         yeast: merge(data.yeast, got.yeast) as BrewSheetData['yeast'],
         signoffs: merge(data.signoffs, got.signoffs) as BrewSheetData['signoffs'],
-        runnings: {
-          first: merge(data.runnings.first, got.runnings.first) as BrewSheetData['runnings']['first'],
-          mid: merge(data.runnings.mid, got.runnings.mid) as BrewSheetData['runnings']['mid'],
-          last: merge(data.runnings.last, got.runnings.last) as BrewSheetData['runnings']['last'],
-          acid: data.runnings.acid.trim() ? data.runnings.acid : got.runnings.acid ?? '',
-        },
+        runnings: mergeRunnings(data.runnings),
         notes: data.notes || got.notes,
         malt: got.malt.length ? got.malt : data.malt,
         mash_additions: got.mash_additions.length ? got.mash_additions : data.mash_additions,
@@ -256,10 +324,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       update(next, [...new Set([...latest.current.unchecked, ...flagged])])
       setFound((out.readings ?? []) as SheetReading[])
 
-      const named = String(out.header?.beer_name ?? '').trim()
-      if (named && !brew.beer_name.toLowerCase().includes(named.toLowerCase().slice(0, 6)) && !named.toLowerCase().includes(brew.beer_name.toLowerCase().slice(0, 6))) {
-        toast.warning(`That sheet says "${named}", but this is ${brew.beer_name}. Check it is the right sheet.`, { duration: 12000 })
-      }
+      wrongBeer()
       toast.success(flagged.length ? `Sheet read. ${flagged.length} value${flagged.length === 1 ? '' : 's'} highlighted to check.` : 'Sheet read. Have a look over it.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'The photo could not be read.')
@@ -289,11 +354,15 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   // defined inside render is a new type on every render, so React would rebuild
   // every input and the keyboard would drop after each keystroke.
 
-  const field = ({ label, path, mode = 'decimal', placeholder, wide }: { label: string; path: string; mode?: 'decimal' | 'text' | 'time'; placeholder?: string; wide?: boolean }) => (
+  const field = ({ label, path, mode = 'decimal', placeholder, wide, turn1 }: {
+    label: string; path: string; mode?: 'decimal' | 'text' | 'time' | 'date'; placeholder?: string; wide?: boolean
+    /** On a further turn: where the first turn's figure for this box is, to show under it */
+    turn1?: string
+  }) => (
     <label className={`block min-w-0 ${wide ? 'col-span-2' : ''}`}>
       <span className="block text-xs text-gray-500 mb-1">{label}</span>
       <input
-        type={mode === 'time' ? 'time' : 'text'}
+        type={mode === 'time' || mode === 'date' ? mode : 'text'}
         inputMode={mode === 'decimal' ? 'decimal' : undefined}
         autoComplete="off"
         value={getPath(data, path)}
@@ -302,34 +371,40 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         onBlur={() => confirm(path)}
         className={`${INPUT} ${unsure(path) ? UNSURE : ''}`}
       />
-      {compare && previous && getPath(previous.data, path).trim() && (
+      {turn1 ? getPath(data, turn1).trim() && (
+        <span className="block mt-0.5 text-[11px] text-malt-dark tabular-nums truncate">Turn 1 {getPath(data, turn1)}</span>
+      ) : compare && previous && getPath(previous.data, path).trim() && (
         <span className="block mt-0.5 text-[11px] text-malt-dark tabular-nums truncate">Last time {getPath(previous.data, path)}</span>
       )}
     </label>
   )
 
-  const setLine = (key: ListKey, i: number, patch: Partial<SheetLine>) => {
-    const list = data[key].map((l, j) => (j === i ? { ...l, ...patch } : l))
-    update({ ...data, [key]: list })
-    confirm(`${key}.${i}`)
+  const setLine = (key: ListKey, i: number, patch: Partial<SheetLine>, turn?: number) => {
+    update(withLines(data, key, turn, linesOf(data, key, turn).map((l, j) => (j === i ? { ...l, ...patch } : l))))
+    confirm(`${turnPath(turn)}${key}.${i}`)
   }
 
   // The first Coopers line is the base malt. Its code also fills the sheet's
   // older single "base malt batch" slot, so sheets saved before this still show theirs.
+  // A further turn keeps each code on its own line only.
   const baseMaltIndex = data.malt.findIndex((l) => /coopers/i.test(l.name))
-  const isBaseMalt = (i: number) => i === baseMaltIndex
-  const setBatch = (i: number, value: string) => {
-    const malt = data.malt.map((l, j) => (j === i ? { ...l, batch: value.slice(0, 40) } : l))
-    update({ ...data, malt, ...(isBaseMalt(i) ? { base_malt_batch: value.slice(0, 40) } : {}) })
+  const isBaseMalt = (i: number, turn?: number) => turn == null && i === baseMaltIndex
+  const setBatch = (i: number, value: string, turn?: number) => {
+    const next = withLines(data, 'malt', turn, linesOf(data, 'malt', turn).map((l, j) => (j === i ? { ...l, batch: value.slice(0, 40) } : l)))
+    update(isBaseMalt(i, turn) ? { ...next, base_malt_batch: value.slice(0, 40) } : next)
   }
 
-  const list = ({ title, listKey, whenLabel, unit, only, newWhen = '' }: {
+  const list = ({ title, listKey, whenLabel, unit, only, newWhen = '', turn }: {
     title: string; listKey: ListKey; whenLabel: string; unit: string
     /** Show just the lines that pass. Indexes still point into the whole list. */
     only?: (l: SheetLine) => boolean
     newWhen?: string
+    /** A further turn's list, by its place in `data.turns` */
+    turn?: number
   }) => {
-    const shown = data[listKey].map((l, i) => ({ l, i })).filter(({ l }) => !only || only(l))
+    const all = linesOf(data, listKey, turn)
+    const at = (i: number) => `${turnPath(turn)}${listKey}.${i}`
+    const shown = all.map((l, i) => ({ l, i })).filter(({ l }) => !only || only(l))
     return (
     <div>
       <div className="flex items-baseline justify-between mb-1.5">
@@ -340,16 +415,16 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
       </div>
       <ul className="space-y-1.5">
         {shown.map(({ l, i }) => (
-          <li key={i} data-brewday={listKey !== 'dry_hops' || isDayZero(l) ? (l.done ? 'done' : 'todo') : undefined} className={`rounded-xl border px-2 py-1.5 ${unsure(`${listKey}.${i}`) ? UNSURE : l.done ? 'border-transparent bg-water/25' : 'border-gray-200 bg-white'}`}>
+          <li key={i} data-brewday={turn == null && (listKey !== 'dry_hops' || isDayZero(l)) ? (l.done ? 'done' : 'todo') : undefined} className={`rounded-xl border px-2 py-1.5 ${unsure(at(i)) ? UNSURE : l.done ? 'border-transparent bg-water/25' : 'border-gray-200 bg-white'}`}>
             {/* Name gets the whole row: on a phone, half a name is no name */}
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setLine(listKey, i, { done: !l.done })} aria-pressed={l.done} aria-label={`${l.name || 'Line'} done`}
+              <button type="button" onClick={() => setLine(listKey, i, { done: !l.done }, turn)} aria-pressed={l.done} aria-label={`${l.name || 'Line'} done`}
                 className={`h-9 w-9 flex-shrink-0 rounded-lg border flex items-center justify-center ${l.done ? 'bg-hops border-hops text-white' : 'bg-white border-gray-300 text-transparent'}`}>
                 <Check className="h-5 w-5" />
               </button>
-              <input value={l.name} onChange={(e) => setLine(listKey, i, { name: e.target.value })} placeholder="Name" aria-label="Name"
+              <input value={l.name} onChange={(e) => setLine(listKey, i, { name: e.target.value }, turn)} placeholder="Name" aria-label="Name"
                 className="flex-1 min-w-0 h-9 bg-transparent text-base font-medium text-gray-900 placeholder:text-gray-300 placeholder:font-normal focus:outline-none" />
-              <button type="button" onClick={() => removeLine(listKey, i)} aria-label={`Remove ${l.name || 'line'}`}
+              <button type="button" onClick={() => removeLine(listKey, i, turn)} aria-label={`Remove ${l.name || 'line'}`}
                 className="h-9 w-7 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500">
                 <X className="h-4 w-4" />
               </button>
@@ -358,23 +433,23 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
               {listKey === 'malt' && bagsLabel(l.amount, l.unit, l.name) && (
                 <span className="text-base font-semibold tabular-nums text-gray-900 whitespace-nowrap">{bagsLabel(l.amount, l.unit, l.name)}</span>
               )}
-              <input value={l.amount} onChange={(e) => setLine(listKey, i, { amount: e.target.value })} inputMode="decimal" placeholder="0" aria-label="Amount"
+              <input value={l.amount} onChange={(e) => setLine(listKey, i, { amount: e.target.value }, turn)} inputMode="decimal" placeholder="0" aria-label="Amount"
                 className="w-16 h-9 rounded-lg bg-black/[0.04] px-1.5 text-right text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
-              <input value={l.unit} onChange={(e) => setLine(listKey, i, { unit: e.target.value })} placeholder={unit} aria-label="Unit"
+              <input value={l.unit} onChange={(e) => setLine(listKey, i, { unit: e.target.value }, turn)} placeholder={unit} aria-label="Unit"
                 className="w-10 h-9 bg-transparent text-base text-gray-500 placeholder:text-gray-300 focus:outline-none" />
               {listKey === 'malt' ? <span className="flex-1" /> : (
-                <input value={l.when} onChange={(e) => setLine(listKey, i, { when: e.target.value })} placeholder={whenLabel} aria-label={whenLabel}
+                <input value={l.when} onChange={(e) => setLine(listKey, i, { when: e.target.value }, turn)} placeholder={whenLabel} aria-label={whenLabel}
                   className="flex-1 min-w-0 h-9 bg-transparent text-base text-gray-500 placeholder:text-gray-300 focus:outline-none" />
               )}
-              <button type="button" onClick={() => substitute(listKey, i)} className="flex-shrink-0 h-9 px-1 text-xs font-semibold text-primary whitespace-nowrap">
+              <button type="button" onClick={() => substitute(listKey, i, turn)} className="flex-shrink-0 h-9 px-1 text-xs font-semibold text-primary whitespace-nowrap">
                 Substitute
               </button>
             </div>
             {listKey === 'malt' && needsBatchCode(l.name) && (
               <label className="flex items-center gap-2 pl-11 pr-1 mt-1 mb-0.5">
                 <span className="text-xs text-gray-500 whitespace-nowrap">Batch code</span>
-                <input type="text" autoComplete="off" autoCapitalize="characters" value={l.batch ?? (isBaseMalt(i) ? data.base_malt_batch : '')} placeholder="Off the bag" aria-label={`${l.name} batch code`}
-                  onChange={(e) => setBatch(i, e.target.value)}
+                <input type="text" autoComplete="off" autoCapitalize="characters" value={l.batch ?? (isBaseMalt(i, turn) ? data.base_malt_batch : '')} placeholder="Off the bag" aria-label={`${l.name} batch code`}
+                  onChange={(e) => setBatch(i, e.target.value, turn)}
                   className="flex-1 min-w-0 h-9 rounded-lg bg-black/[0.04] px-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30" />
               </label>
             )}
@@ -383,7 +458,7 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         ))}
       </ul>
       <button type="button"
-        onClick={() => update({ ...data, [listKey]: [...data[listKey], { name: '', amount: '', unit, when: newWhen, done: false, note: '' }] })}
+        onClick={() => update(withLines(data, listKey, turn, [...all, { name: '', amount: '', unit, when: newWhen, done: false, note: '' }]))}
         className="mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-primary h-9 px-1">
         <Plus className="h-4 w-4" />Add a line
       </button>
@@ -521,14 +596,14 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
   }
 
   // Something else went in instead: the line takes the new name and keeps a note of what it replaced
-  function substitute(listKey: ListKey, index: number) {
-    const line = data[listKey][index]
+  function substitute(listKey: ListKey, index: number, turn?: number) {
+    const line = linesOf(data, listKey, turn)[index]
     if (!line) return
     const used = window.prompt(`What was used in place of ${line.name || 'this'}?`)?.trim()
     if (!used || used === line.name) return
     // Keep the first original if it is substituted twice
     const original = /^Substituted for /.test(line.note) ? line.note : line.name ? `Substituted for ${line.name}` : ''
-    setLine(listKey, index, { name: used, note: original })
+    setLine(listKey, index, { name: used, note: original }, turn)
   }
 
   // The one deliberate step of the day: the All in FV figures go onto the tank
@@ -604,13 +679,76 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     router.push('/')
   }
 
+  // ── Further turns into the same tank ─────────────────────────────────────
+
+  // The same beer again: the turn starts with the first turn's lines, nothing ticked
+  function addTurn() {
+    const now = latest.current.data
+    if (now.turns.length >= MAX_EXTRA_TURNS) return
+    const again = (lines: SheetLine[]) => lines.filter((l) => l.name.trim()).map(({ name, amount, unit, when }) => ({ name, amount, unit, when, done: false, note: '' }))
+    const turn: SheetTurn = {
+      ...emptyTurn(today()),
+      malt: again(now.malt), mash_additions: again(now.mash_additions), kettle_additions: again(now.kettle_additions), kettle_hops: again(now.kettle_hops),
+    }
+    turn.mash.target_temp_c = now.mash.target_temp_c
+    turn.kettle.boil_minutes = now.kettle.boil_minutes
+    update({ ...now, turns: [...now.turns, turn] })
+    const id = `turn-${now.turns.length}`
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 150)
+  }
+
+  // Only a turn that has not gone into the tank can be taken off again, and that is always the last one
+  function removeTurn(i: number) {
+    const now = latest.current.data
+    if (!now.turns[i] || now.turns[i].finished) return
+    if (!window.confirm(`Remove turn ${i + 2} from this brew sheet? Everything entered for it is lost.`)) return
+    update({ ...now, turns: now.turns.filter((_, j) => j !== i) }, latest.current.unchecked.filter((p) => !p.startsWith(`turns.${i}.`)))
+  }
+
+  // What the tank will hold once an open turn is finished
+  const afterTurn = (i: number) => {
+    const added = sheetNumber(data.turns[i]?.fv.volume_l)
+    return {
+      added,
+      total: tankVolume != null && added != null && added > 0 ? Math.round((tankVolume + added) * 10) / 10 : null,
+      og: blendedOg(data, i),
+    }
+  }
+
+  // The turn's one deliberate step: its litres go onto the tank and the OG becomes the blend
+  async function finishTurn(i: number) {
+    const turn = latest.current.data.turns[i]
+    if (!turn || finishing) return
+    const missing = [!turn.fv.volume_l.trim() && 'the volume added', !turn.fv.plato.trim() && 'the wort gravity'].filter(Boolean)
+    if (missing.length) { toast.error(`Enter ${missing.join(' and ')} first.`); return }
+    const { added, total, og } = afterTurn(i)
+    if (!window.confirm(`Finish turn ${i + 2}?\n\n${added} L goes onto ${brew.tank_name}${total != null ? `, taking it to ${total} L` : ''}${og != null ? ` at a blended OG of ${og}°P` : ''}.`)) return
+    setFinishing(true)
+    try {
+      // Let a save already on its way land first: arriving after this one, it would put the turn back to unfinished
+      if (timer.current) clearTimeout(timer.current)
+      dirty.current = false
+      while (saving.current) await new Promise((r) => setTimeout(r, 100))
+      const snap = latest.current
+      const res = await postSheet({ brew_id: brew.id, data: snap.data, unchecked: snap.unchecked, source: snap.source, finish_turn: i })
+      if (!res.ok) { toast.error(res.message); return }
+      setStatus('saved')
+      toast.success(`Turn ${i + 2} finished. ${brew.tank_name} now holds ${total != null ? `${total} L` : 'both turns'}${og != null ? `, OG ${og}°P` : ''}.`)
+      router.push('/')
+    } catch {
+      toast.error('Not finished. Check the connection and tap it again.')
+    } finally {
+      setFinishing(false)
+    }
+  }
+
   // Removing a line asks first, and can be undone for a few seconds after
-  function removeLine(listKey: ListKey, index: number) {
-    const line = data[listKey][index]
+  function removeLine(listKey: ListKey, index: number, turn?: number) {
+    const line = linesOf(data, listKey, turn)[index]
     if (!line) return
     const label = [line.name || 'this line', [line.amount, line.unit].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-    if (!window.confirm(`Remove ${label} from this brew sheet?`)) return
-    update({ ...data, [listKey]: data[listKey].filter((_, j) => j !== index) })
+    if (!window.confirm(`Remove ${label} from ${turn == null ? 'this brew sheet' : `turn ${turn + 2}`}?`)) return
+    update(withLines(data, listKey, turn, linesOf(data, listKey, turn).filter((_, j) => j !== index)))
     toast(`Removed ${line.name || 'the line'}`, {
       duration: 10000,
       action: {
@@ -618,9 +756,10 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
         onClick: () => {
           // Put it back into the sheet as it is now, not as it was when removed
           const now = latest.current.data
-          const list = [...now[listKey]]
+          if (turn != null && !now.turns[turn]) return
+          const list = [...linesOf(now, listKey, turn)]
           list.splice(Math.min(index, list.length), 0, line)
-          update({ ...now, [listKey]: list })
+          update(withLines(now, listKey, turn, list))
         },
       },
     })
@@ -640,6 +779,134 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
     if (i < 0 || now.dry_hops[i].done || (now.dry_hops[i].amount === litres && now.dry_hops[i].unit === 'L')) return
     update({ ...now, dry_hops: now.dry_hops.map((l, n) => (n === i ? { ...l, amount: litres, unit: 'L' } : l)) })
   }, [rtd, done, spiritBase, spirit.target, spirit.strength, update])
+
+  // One further turn: the brew-day half of the sheet again, under its own heading
+  const turnBlock = (turn: SheetTurn, i: number) => {
+    const n = i + 2
+    const at = `turns.${i}`
+    const { added, total, og } = afterTurn(i)
+    const first = sheetNumber(data.fv.volume_l)
+    return (
+      <div key={i} id={`turn-${i}`} className="space-y-3 scroll-mt-20">
+        <header className={`${CARD} p-4`}>
+          <p className="text-[11px] font-semibold tracking-wide text-gray-400">
+            TURN {n} · {brew.tank_name}{turn.date ? ` · ${longDate(turn.date)}` : ''}
+          </p>
+          <h2 className="text-xl font-bold tracking-tight text-gray-900 leading-tight">Turn {n}</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{brew.beer_name} brewed again, on top of what is already in {brew.tank_name}. Yeast, dry hops and cellar additions stay on the main sheet.</p>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            {field({ label: "Brewed on", path: `${at}.date`, mode: "date" })}
+            {field({ label: "Brewer", path: `${at}.brewer`, mode: "text", turn1: "brewer" })}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+            <button type="button" onClick={() => { photoTurn.current = i; fileInput.current?.click() }} disabled={reading}
+              className="inline-flex items-center gap-2 h-11 px-4 rounded-xl bg-primary/10 text-primary text-sm font-semibold disabled:opacity-60">
+              {reading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              {reading ? 'Reading the sheet…' : `Fill turn ${n} from a photo`}
+            </button>
+            {!turn.finished && (
+              <button type="button" onClick={() => removeTurn(i)} disabled={finishing} className="h-11 px-1 text-sm font-semibold text-red-600 disabled:opacity-60">Remove this turn</button>
+            )}
+          </div>
+          {!turn.finished && (
+            <p className="mt-3 rounded-xl bg-yeast/40 px-3 py-2 text-xs text-charcoal">
+              Turn {n} in progress. It saves as you type. Nothing reaches the tank card until you tap Finish turn {n}.
+            </p>
+          )}
+        </header>
+
+        <Section title={`Turn ${n} malt`}>
+          {list({ title: "Grain bill", listKey: "malt", whenLabel: "Bags", unit: "kg", turn: i })}
+        </Section>
+
+        <Section title={`Turn ${n} mash`}>
+          <div className="grid grid-cols-2 gap-3">
+            {field({ label: "Mash in", path: `${at}.mash.time`, mode: "time", turn1: "mash.time" })}
+            {field({ label: "Target temp °C", path: `${at}.mash.target_temp_c`, turn1: "mash.target_temp_c" })}
+            {field({ label: "Actual temp °C", path: `${at}.mash.actual_temp_c`, turn1: "mash.actual_temp_c" })}
+            {field({ label: "pH", path: `${at}.mash.ph`, turn1: "mash.ph" })}
+            {field({ label: "Acid added", path: `${at}.mash.acid`, mode: "text", placeholder: "e.g. 100 mL LA", wide: true, turn1: "mash.acid" })}
+          </div>
+          {list({ title: "Mash additions", listKey: "mash_additions", whenLabel: "Note", unit: "g", turn: i })}
+        </Section>
+
+        <Section title={`Turn ${n} runnings`}>
+          {(['first', 'mid', 'last'] as const).map((k) => (
+            <div key={k}>
+              <p className="text-sm font-semibold text-gray-900 capitalize mb-1">{k}</p>
+              <div className="grid grid-cols-3 gap-2">
+                {field({ label: "Time", path: `${at}.runnings.${k}.time`, mode: "time", turn1: `runnings.${k}.time` })}
+                {field({ label: "°P", path: `${at}.runnings.${k}.plato`, turn1: `runnings.${k}.plato` })}
+                {field({ label: "pH", path: `${at}.runnings.${k}.ph`, turn1: `runnings.${k}.ph` })}
+              </div>
+            </div>
+          ))}
+          {field({ label: "Acid added", path: `${at}.runnings.acid`, mode: "text", placeholder: "e.g. 50 mL LA", turn1: "runnings.acid" })}
+        </Section>
+
+        <Section title={`Turn ${n} kettle`}>
+          <div className="grid grid-cols-2 gap-3">
+            {field({ label: "All in kettle (L)", path: `${at}.kettle.volume_l`, turn1: "kettle.volume_l" })}
+            {field({ label: "Start of boil", path: `${at}.kettle.boil_start`, mode: "time", turn1: "kettle.boil_start" })}
+            {field({ label: "Boil (minutes)", path: `${at}.kettle.boil_minutes`, turn1: "kettle.boil_minutes" })}
+            {field({ label: "Post boil (L)", path: `${at}.kettle.post_boil_volume_l`, turn1: "kettle.post_boil_volume_l" })}
+            {field({ label: "Post boil °P", path: `${at}.kettle.post_boil_plato`, turn1: "kettle.post_boil_plato" })}
+            {field({ label: "Post boil pH", path: `${at}.kettle.post_boil_ph`, turn1: "kettle.post_boil_ph" })}
+            {field({ label: "Dilution (L)", path: `${at}.kettle.dilution_l`, turn1: "kettle.dilution_l" })}
+          </div>
+          {list({ title: "Kettle additions", listKey: "kettle_additions", whenLabel: "Time", unit: "g", turn: i })}
+          {list({ title: "Kettle hops", listKey: "kettle_hops", whenLabel: "Time", unit: "kg", turn: i })}
+        </Section>
+
+        <Section title={`Turn ${n} into ${brew.tank_name}`} hint={`What this turn added: its own litres and the gravity of its own wort, not what ${brew.tank_name} holds or reads.`}>
+          <div className="grid grid-cols-2 gap-3">
+            {field({ label: "Volume added (L)", path: `${at}.fv.volume_l`, turn1: "fv.volume_l" })}
+            {field({ label: "Wort gravity °P", path: `${at}.fv.plato`, turn1: "fv.plato" })}
+            {field({ label: "pH", path: `${at}.fv.ph`, turn1: "fv.ph" })}
+            {field({ label: "Temp °C", path: `${at}.fv.temp_c`, turn1: "fv.temp_c" })}
+          </div>
+          {!turn.finished && added != null && first != null && added > first * 1.4 && (
+            <p className="mt-3 rounded-xl bg-yeast/40 ring-1 ring-yeast px-3 py-2 text-xs text-charcoal">
+              {added} L is a lot more than turn 1&apos;s {first} L. If that is what the tank holds now, take off what was already in it: this box is only what turn {n} added.
+            </p>
+          )}
+          {turn.finished ? (
+            <p className="mt-3 rounded-xl bg-water/30 px-3 py-2 text-xs text-hops">
+              Turn {n} finished by {turn.finished}. To correct its volume or gravity, change it here: the tank card&apos;s volume and OG follow.
+            </p>
+          ) : (
+            <>
+              {total != null && (
+                <p className="mt-3 rounded-xl bg-background px-3 py-2 text-sm text-gray-900 tabular-nums">
+                  {brew.tank_name} after turn {n}: <span className="font-semibold">{total.toLocaleString('en-AU')} L</span>
+                  {og != null && <> at a blended OG of <span className="font-semibold">{og}°P</span></>}
+                  <span className="text-gray-500"> · {tankVolume} L in tank now + {added} L</span>
+                </p>
+              )}
+              <button type="button" onClick={() => void finishTurn(i)} disabled={finishing}
+                className="mt-3 w-full h-12 rounded-xl bg-malt text-white text-base font-semibold inline-flex items-center justify-center gap-2 active:opacity-90 disabled:opacity-60">
+                {finishing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}Finish turn {n}
+              </button>
+              <p className="mt-1.5 text-xs text-gray-400">Check the volume and gravity first. This adds the litres to the tank card and sets its OG to the blend of every turn.</p>
+            </>
+          )}
+        </Section>
+
+        <Section title={`Turn ${n} notes`}>
+          <textarea
+            value={turn.notes}
+            onChange={(e) => update({ ...data, turns: data.turns.map((t, j) => (j === i ? { ...t, notes: e.target.value } : t)) })}
+            onBlur={() => confirm(`${at}.notes`)}
+            rows={3}
+            placeholder={`Anything worth remembering about turn ${n}`}
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </Section>
+      </div>
+    )
+  }
+  // Another turn can go on top once the day before it is done and the beer has not moved on
+  const turnOffered = done && canAddTurn && !rtd && data.turns.length < MAX_EXTRA_TURNS && data.turns.every((t) => t.finished)
 
   const progress = sheetProgress(data, rtd)
   // What the tank card will show for a lemonade: what was knocked out plus the spirit
@@ -712,10 +979,10 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
           <input ref={fileInput} type="file" accept="image/*" multiple className="hidden" onChange={(e) => void readPhotos(e.target.files)} />
-          <button type="button" onClick={() => fileInput.current?.click()} disabled={reading}
+          <button type="button" onClick={() => { photoTurn.current = null; fileInput.current?.click() }} disabled={reading}
             className="inline-flex items-center gap-2 h-11 px-4 rounded-xl bg-primary/10 text-primary text-sm font-semibold disabled:opacity-60">
             {reading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-            {reading ? 'Reading the sheet…' : 'Fill from a photo'}
+            {reading ? 'Reading the sheet…' : data.turns.length ? 'Fill turn 1 from a photo' : 'Fill from a photo'}
           </button>
           <span className={`text-xs ${status === 'error' ? 'text-red-600' : 'text-gray-400'}`} aria-live="polite">
             {statusText}{progress.total > 0 && status !== 'error' ? ` · ${progress.filled} of ${progress.total} filled` : ''}
@@ -886,6 +1153,17 @@ export function BrewSheetForm({ brew, initial, initialUnchecked, exists, finishe
           </>
         )}
       </Section>
+
+      {data.turns.map(turnBlock)}
+
+      {turnOffered && (
+        <div className="rounded-2xl border border-dashed border-gray-300 px-4 py-3">
+          <button type="button" onClick={addTurn} className="inline-flex items-center gap-1.5 h-11 text-sm font-semibold text-primary">
+            <Plus className="h-4 w-4" />Add a turn into {brew.tank_name}
+          </button>
+          <p className="text-xs text-gray-500">For {brew.beer_name} brewed again and knocked out on top of this one. Turn {data.turns.length + 2} gets its own malt, mash, runnings and kettle, and its litres are added to the tank when you finish it.</p>
+        </div>
+      )}
 
       {!rtd && (
         <Section title="After brew day: dry hop and cellar additions" hint="These go in over the following days. They are not needed to finish the brew day.">

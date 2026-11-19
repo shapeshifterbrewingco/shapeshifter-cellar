@@ -18,7 +18,7 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
   const [{ data: brew }, { data: sheetRow }, { data: { user } }] = await Promise.all([
     supabase
       .from('brews')
-      .select('id, beer_name, style, brew_day, tank_id, recipe_id, deleted_at, og_plato, target_og_plato, stage, tanks(name)')
+      .select('id, beer_name, style, brew_day, tank_id, recipe_id, deleted_at, og_plato, target_og_plato, stage, volume_l, tanks(name)')
       .eq('id', id)
       .maybeSingle(),
     supabase.from('brew_sheets').select('data, unchecked, source, updated_at, updated_by').eq('brew_id', id).maybeSingle(),
@@ -81,6 +81,8 @@ export default async function BrewSheetPage({ params }: { params: Promise<{ id: 
           exists={!!sheetRow}
           finished={brew.og_plato != null || brew.stage !== 'active_ferment'}
           rtd={isRtd(brew.beer_name, brew.style)}
+          canAddTurn={brew.stage === 'active_ferment' && !brew.deleted_at}
+          tankVolume={brew.volume_l != null ? Number(brew.volume_l) : null}
           baseline={baseline}
           recipeVersion={recipe?.version ?? null}
           targetAbv={recipe?.target_abv != null ? Number(recipe.target_abv) : null}

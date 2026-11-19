@@ -8,7 +8,7 @@ import { adelaideNow, dayKey, sheetTabs, sheetValues, sheetUpdate } from '@/lib/
 import { createServiceClient } from '@/lib/supabase/server'
 import type { TankDashboardData } from '@/types'
 import { isRtd } from '@/lib/rtd'
-import { spiritLitres } from '@/lib/brew-sheet'
+import { spiritLitres, turnLitres } from '@/lib/brew-sheet'
 
 type SpiritLines = Parameters<typeof spiritLitres>[0]
 
@@ -88,10 +88,11 @@ async function typicalYields() {
     const [{ data: brews }, { data: finals }, { data: sheets }] = await Promise.all([
       db.from('brews').select('id, beer_name, volume_l').not('deleted_at', 'is', null).limit(2000),
       db.from('brew_finals').select('brew_id, packed_l').limit(2000),
-      db.from('brew_sheets').select('brew_id, fv:data->fv->>volume_l').limit(2000),
+      db.from('brew_sheets').select('brew_id, fv:data->fv->>volume_l, turns:data->turns').limit(2000),
     ])
     const packed = new Map((finals ?? []).map((f) => [f.brew_id as string, Number(f.packed_l)]))
-    const fv = new Map((sheets ?? []).map((s) => [s.brew_id as string, parseFloat((s as { fv: string | null }).fv ?? '')]))
+    // Every turn that went into the tank counts as brewed
+    const fv = new Map((sheets ?? []).map((s) => [s.brew_id as string, parseFloat((s as { fv: string | null }).fv ?? '') + turnLitres((s as { turns?: unknown }).turns)]))
     const perBeer = new Map<string, number[]>()
     const every: number[] = []
     for (const b of brews ?? []) {
@@ -164,14 +165,15 @@ export async function splitsByTank(tanks: Pick<TankDashboardData, 'tank' | 'brew
       : Promise.resolve({ data: [] as { brew_id: string }[] }),
     typicalYields(),
     live.length
-      ? db.from('brew_sheets').select('brew_id, fv:data->fv->>volume_l, dry_hops:data->dry_hops').in('brew_id', live.map((t) => t.brew!.id))
+      ? db.from('brew_sheets').select('brew_id, fv:data->fv->>volume_l, dry_hops:data->dry_hops, turns:data->turns').in('brew_id', live.map((t) => t.brew!.id))
       : Promise.resolve({ data: [] as { brew_id: string; fv: string | null; dry_hops: SpiritLines }[] }),
   ])
   const rtdIds = new Set(live.filter((t) => isRtd(t.brew!.beer_name, t.brew!.style)).map((t) => t.brew!.id))
   // A lemonade's brew day volume is what was knocked out plus the spirit
   const brewDay = new Map((daySheets ?? []).map((d) => {
-    const row = d as { brew_id: string; fv: string | null; dry_hops: SpiritLines }
-    const v = parseFloat(row.fv ?? '') || null
+    const row = d as { brew_id: string; fv: string | null; dry_hops: SpiritLines; turns?: unknown }
+    const first = parseFloat(row.fv ?? '') || null
+    const v = first != null ? first + turnLitres(row.turns) : null
     return [row.brew_id, v != null && rtdIds.has(row.brew_id) ? v + spiritLitres(row.dry_hops) : v]
   }))
   for (const run of (recent ?? []) as { packaged_at: string; brews: { beer_name: string } | { beer_name: string }[] | null }[]) {

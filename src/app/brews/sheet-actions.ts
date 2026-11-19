@@ -5,8 +5,8 @@ import { writeSplitVolume } from '@/lib/tank-splits'
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { sanitiseSheet, sheetNumber, sheetFromRecipe, withRecipeDefaults, recipeChanges, LIST_KEYS, spiritLitres } from '@/lib/brew-sheet'
-import type { BrewSheetData, SheetReading } from '@/lib/brew-sheet'
+import { sanitiseSheet, sanitiseTurns, sheetNumber, sheetFromRecipe, withRecipeDefaults, recipeChanges, LIST_KEYS, spiritLitres, turnLitres, blendedOg } from '@/lib/brew-sheet'
+import type { BrewSheetData, SheetReading, SheetTurn } from '@/lib/brew-sheet'
 import { logActivity, logDigestActivity, who, esc } from '@/lib/slack'
 import { isRtd } from '@/lib/rtd'
 import { updateBrewStage } from '@/app/brews/actions'
@@ -25,6 +25,8 @@ export async function saveBrewSheet(input: {
   source?: 'app' | 'photo'
   /** The brewer tapped Finish brew day: put the All in FV figures onto the tank */
   finish?: boolean
+  /** The brewer finished a further turn (its place in `data.turns`): add it to the tank */
+  finish_turn?: number
 }): Promise<Result> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -37,7 +39,34 @@ export async function saveBrewSheet(input: {
   const { data: brew } = await supabase
     .from('brews').select('id, beer_name, style, tank_id, stage, og_plato, volume_l, deleted_at').eq('id', input.brew_id).maybeSingle()
   if (!brew) return fail('That brew no longer exists.')
-  const { data: already } = await supabase.from('brew_sheets').select('brew_id, source, fv_volume:data->fv->>volume_l, dry_hops:data->dry_hops').eq('brew_id', input.brew_id).maybeSingle()
+  const { data: already } = await supabase.from('brew_sheets').select('brew_id, source, fv_volume:data->fv->>volume_l, dry_hops:data->dry_hops, turns:data->turns').eq('brew_id', input.brew_id).maybeSingle()
+
+  // A hard lemonade is made, not fermented: volume and temperature at the end,
+  // no gravity or pH, and straight on chill.
+  const rtd = isRtd(brew.beer_name, brew.style)
+  const finished = brew.og_plato != null || brew.stage !== 'active_ferment'
+  const firstTank = brew.stage === 'active_ferment' || (rtd && brew.stage === 'on_chill')
+
+  // A turn is finished here and nowhere else, so the form cannot mark one done
+  // or undo it. A page that was open before a turn went in knows nothing about
+  // it: what it sends must not wipe a turn that is already in the tank.
+  const storedTurns = sanitiseTurns((already as { turns?: unknown } | null)?.turns)
+  const sent = Array.isArray((input.data as { turns?: unknown } | null)?.turns) ? data.turns : storedTurns
+  data.turns = Array.from({ length: Math.max(sent.length, storedTurns.length) }, (_, i) =>
+    sent[i] ? { ...sent[i], finished: storedTurns[i]?.finished ?? '' } : storedTurns[i]?.finished ? storedTurns[i] : null,
+  ).filter((t): t is SheetTurn => t != null)
+
+  const finishTurn = Number.isInteger(input.finish_turn) ? Number(input.finish_turn) : null
+  const turn = finishTurn != null ? data.turns[finishTurn] : undefined
+  if (finishTurn != null) {
+    if (!turn) return fail('That turn is no longer on the sheet. Refresh and try again.')
+    if (turn.finished) return fail('That turn is already finished.')
+    if (!finished || !firstTank || rtd || brew.deleted_at) return fail('A turn can only go in while the beer is still fermenting in the tank it was brewed into.')
+    const added = sheetNumber(turn.fv.volume_l), wort = sheetNumber(turn.fv.plato)
+    if (!(added != null && added > 0 && added < 20000)) return fail('Enter the volume this turn added.')
+    if (!(wort != null && wort > 0 && wort < 40)) return fail("Enter the gravity of this turn's wort.")
+    turn.finished = who(user.email)
+  }
 
   const row: Record<string, unknown> = {
     brew_id: input.brew_id, data, unchecked,
@@ -63,14 +92,10 @@ export async function saveBrewSheet(input: {
   // Typing those figures does nothing to the tank on its own: autosave would
   // send a half-typed gravity. They land when the brewer taps Finish brew day.
   // After that, the sheet is the record, so a correction here corrects the tank.
-  // A hard lemonade is made, not fermented: volume and temperature at the end,
-  // no gravity or pH, and straight on chill.
-  const rtd = isRtd(brew.beer_name, brew.style)
   // The spirit dosed into a lemonade is part of what the tank holds
   const withSpirit = (v: number | null, lines: Parameters<typeof spiritLitres>[0]) =>
     v != null && rtd ? Math.round((v + spiritLitres(lines)) * 10) / 10 : v
   const volume = withSpirit(base, data.dry_hops)
-  const finished = brew.og_plato != null || brew.stage !== 'active_ferment'
   const tempIn = sheetNumber(data.fv.temp_c)
   if (input.finish) {
     if (finished) return fail('This brew day is already finished.')
@@ -85,17 +110,32 @@ export async function saveBrewSheet(input: {
     return { ok: true }
   }
   const patch: Record<string, unknown> = {}
-  if (og != null && og > 0 && og < 40 && Number(brew.og_plato) !== og) patch.og_plato = og
-  const firstTank = brew.stage === 'active_ferment' || (rtd && brew.stage === 'on_chill')
+  // With more than one turn in the tank, its OG is the blend of them all
+  const tankOg = blendedOg(data) ?? og
+  if (tankOg != null && tankOg > 0 && tankOg < 40 && Number(brew.og_plato) !== tankOg) patch.og_plato = tankOg
   // Once the brew day is finished the tank's volume has a life of its own (bottoms
   // come off). The sheet only moves it again when its own figure is corrected,
   // otherwise any later autosave would put the bottoms back.
   const before = already as { fv_volume?: string | null; dry_hops?: Parameters<typeof spiritLitres>[0] } | null
-  const sheetVolumeChanged = input.finish || withSpirit(sheetNumber(before?.fv_volume ?? ''), before?.dry_hops) !== volume
-  if (volume != null && volume > 0 && volume < 20000 && firstTank && !brew.deleted_at && sheetVolumeChanged && Number(brew.volume_l) !== volume) {
-    patch.volume_l = volume
-    // The Splits sheet plans off this number
-    after(() => writeSplitVolume(input.brew_id).then(() => undefined))
+  const volumeBefore = withSpirit(sheetNumber(before?.fv_volume ?? ''), before?.dry_hops)
+  const turnsNow = turnLitres(data.turns), turnsBefore = turnLitres(storedTurns)
+  if (turnsNow > 0 || turnsBefore > 0) {
+    // With further turns in the tank the sheet holds what each one added, not
+    // what the tank holds. A turn going in, or a correction to any of them,
+    // moves the tank by the difference, so bottoms already taken off stay off.
+    const delta = (volume ?? 0) + turnsNow - ((volumeBefore ?? volume ?? 0) + turnsBefore)
+    const next = Math.round((Number(brew.volume_l) + delta) * 10) / 10
+    if (Math.abs(delta) >= 0.05 && next > 0 && next < 20000 && firstTank && !brew.deleted_at) {
+      patch.volume_l = next
+      after(() => writeSplitVolume(input.brew_id).then(() => undefined))
+    }
+  } else {
+    const sheetVolumeChanged = input.finish || volumeBefore !== volume
+    if (volume != null && volume > 0 && volume < 20000 && firstTank && !brew.deleted_at && sheetVolumeChanged && Number(brew.volume_l) !== volume) {
+      patch.volume_l = volume
+      // The Splits sheet plans off this number
+      after(() => writeSplitVolume(input.brew_id).then(() => undefined))
+    }
   }
   // OG and pH together are the brew's first reading: the start of its ferment
   // chart. Written once both are in, and kept in step if either is corrected.
@@ -124,6 +164,20 @@ export async function saveBrewSheet(input: {
     const { error: syncError } = await supabase.from('brews').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', input.brew_id)
     if (syncError) console.error('[saveBrewSheet] could not sync OG/volume to the brew:', syncError.message)
     else revalidatePath('/')
+  }
+
+  // A turn going in: a line on the ferment log, so the jump in volume and gravity has its reason beside it
+  if (turn) {
+    const n = (finishTurn ?? 0) + 2
+    const went = `${sheetNumber(turn.fv.volume_l)} L at ${sheetNumber(turn.fv.plato)}°P${sheetNumber(turn.fv.ph) != null ? `, pH ${sheetNumber(turn.fv.ph)}` : ''}`
+    const tank = `${patch.volume_l ?? Number(brew.volume_l)} L${tankOg != null ? `, OG ${tankOg}°P` : ''}`
+    const { error: noteError } = await supabase.from('gravity_readings').insert({
+      brew_id: input.brew_id, tank_id: brew.tank_id, plato: null, ph: null,
+      recorded_by: user.email ?? user.id, notes: `Turn ${n} in: ${went}. Tank now ${tank}`,
+    })
+    if (noteError) console.error('[saveBrewSheet] turn note failed:', noteError.message)
+    logDigestActivity(`brew:${input.brew_id}`, `${who(user.email)} finished turn ${n} of *${esc(brew.beer_name)}*: ${went}. The tank now holds ${tank}.`)
+    revalidatePath('/')
   }
 
   // The lemonade's finish: note what went in, and put it on chill

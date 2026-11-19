@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getBrewHistory, doRange } from '@/lib/history'
 
 type Line = { name?: string; amount?: string | number; unit?: string; when?: string }
-type SheetData = Partial<Record<'malt' | 'mash_additions' | 'kettle_additions' | 'kettle_hops' | 'dry_hops', Line[]>> & { yeast?: { strain?: string; amount?: string } }
+type Lists = Partial<Record<'malt' | 'mash_additions' | 'kettle_additions' | 'kettle_hops' | 'dry_hops', Line[]>>
+type SheetData = Lists & { yeast?: { strain?: string; amount?: string }; turns?: Lists[] }
 
 // The hop lists on a brew sheet also carry finings, enzymes, flavours and spirit
 const NOT_A_HOP = /aldc|enzyme|zinc|antifoam|hop ?aid|biofine|finings|nutrient|servomyces|whirlfloc|poly ?gel|tetra|calcium|gypsum|lactic|acid|flavour|flavor|spirit|sorbate|metabisulph|puree|purée|coffee|colouring|tincture|brewgas|sky farms|sugar|juice|lactose|vanilla|cacao|coconut|salt|ethanol/i
@@ -73,12 +74,15 @@ export async function ingredientUsage(from: string, to: string, kind: UsageKind)
     if (!first || b.brew_day < first) first = b.brew_day
     if (!last || b.brew_day > last) last = b.brew_day
 
-    const hopLines = [...(r.data.kettle_hops ?? []).map((l) => ({ l, side: 'kettle' as const })), ...(r.data.dry_hops ?? []).map((l) => ({ l, side: 'dry' as const }))]
+    // A batch brewed in more than one turn used each turn's grain and kettle lines as well
+    const turns = Array.isArray(r.data.turns) ? r.data.turns.filter((t) => t && typeof t === 'object') : []
+    const every = (key: keyof Lists): Line[] => [r.data, ...turns].flatMap((t) => (Array.isArray(t[key]) ? t[key]! : []))
+    const hopLines = [...every('kettle_hops').map((l) => ({ l, side: 'kettle' as const })), ...(r.data.dry_hops ?? []).map((l) => ({ l, side: 'dry' as const }))]
     const picked: { l: Line; side: 'kettle' | 'dry' | null }[] =
       kind === 'hops' ? hopLines.filter(({ l }) => l.name && !NOT_A_HOP.test(l.name))
-      : kind === 'malt' ? (r.data.malt ?? []).map((l) => ({ l, side: null }))
+      : kind === 'malt' ? every('malt').map((l) => ({ l, side: null }))
       : [
-          ...(r.data.mash_additions ?? []), ...(r.data.kettle_additions ?? []),
+          ...every('mash_additions'), ...every('kettle_additions'),
           ...hopLines.map(({ l }) => l).filter((l) => l.name && NOT_A_HOP.test(l.name)),
         ].map((l) => ({ l, side: null }))
 

@@ -5,6 +5,8 @@
 // and "12.1" must come back as "12.1", not 12.100000001 or null. Numbers are
 // parsed only where something else needs them (the tank card's OG and volume).
 
+import { platoToSg } from '@/lib/utils'
+
 export interface SheetLine {
   name: string
   /** "225", "2.5", "600" */
@@ -26,6 +28,30 @@ export const needsBatchCode = (name: string) => /coopers|\bblm\b|blue lake|(roll
 
 // A type alias, not an interface, so it can be passed where a plain string map is expected
 export type Runnings = { time: string; plato: string; ph: string }
+
+/**
+ * A further turn into the same tank: the same beer brewed again and knocked out
+ * on top of the first. It has its own grain, mash, runnings and kettle. Its
+ * `fv` is what this turn added, the litres knocked out and the gravity of its
+ * own wort, never the tank's. Yeast, cellar additions and sign-offs stay with
+ * the sheet: there is still one beer in one tank.
+ */
+export interface SheetTurn {
+  /** The day it was brewed, YYYY-MM-DD */
+  date: string
+  brewer: string
+  malt: SheetLine[]
+  mash_additions: SheetLine[]
+  kettle_additions: SheetLine[]
+  kettle_hops: SheetLine[]
+  mash: BrewSheetData['mash']
+  runnings: BrewSheetData['runnings']
+  kettle: BrewSheetData['kettle']
+  fv: BrewSheetData['fv']
+  notes: string
+  /** Who finished it. Empty while the turn is still being brewed: nothing reaches the tank until then. */
+  finished: string
+}
 
 export interface BrewSheetData {
   brewer: string
@@ -51,12 +77,18 @@ export interface BrewSheetData {
   /** Initials of whoever signed it off. Empty = not done. */
   signoffs: { aldc: string; frigid_set: string }
   notes: string
+  /** Turns after the first, in the order they went in. Empty for a single brew. */
+  turns: SheetTurn[]
 }
 
 export const LIST_KEYS = ['malt', 'mash_additions', 'kettle_additions', 'kettle_hops', 'dry_hops'] as const
 export type ListKey = (typeof LIST_KEYS)[number]
 /** The lists that are worked through on brew day itself */
 export const BREW_DAY_LISTS = ['malt', 'mash_additions', 'kettle_additions', 'kettle_hops'] as const
+/** A turn carries the brew-day lists and nothing that goes in afterwards */
+export type TurnListKey = (typeof BREW_DAY_LISTS)[number]
+/** Turns after the first. Four into one tank is more than the brewhouse will ever do. */
+export const MAX_EXTRA_TURNS = 3
 
 // Maltsters that pack in 12.5 kg bags, not the usual 25 kg. Matched on the malt's name.
 const SMALL_BAG_BRANDS = ['voyager']
@@ -87,6 +119,17 @@ export function emptySheet(): BrewSheetData {
     yeast: { strain: '', amount: '', lot: '', best_before: '', pitch_temp_c: '', set_temp_c: '' },
     signoffs: { aldc: '', frigid_set: '' },
     notes: '',
+    turns: [],
+  }
+}
+
+export function emptyTurn(date = ''): SheetTurn {
+  const e = emptySheet()
+  return {
+    date, brewer: '',
+    malt: [], mash_additions: [], kettle_additions: [], kettle_hops: [],
+    mash: e.mash, runnings: e.runnings, kettle: e.kettle, fv: e.fv,
+    notes: '', finished: '',
   }
 }
 
@@ -107,6 +150,33 @@ function group<T extends Record<string, string>>(shape: T, v: unknown): T {
   return Object.fromEntries(Object.keys(shape).map((k) => [k, text(o[k], 60)])) as T
 }
 
+const lines = (v: unknown): SheetLine[] =>
+  (Array.isArray(v) ? (v as unknown[]) : []).map(line).filter((l): l is SheetLine => !!l).slice(0, 40)
+
+function runnings(v: unknown): BrewSheetData['runnings'] {
+  const r = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+  return { first: group(emptyRunnings(), r.first), mid: group(emptyRunnings(), r.mid), last: group(emptyRunnings(), r.last), acid: text(r.acid, 60) }
+}
+
+/** The turns off a stored or posted sheet, well-formed. Anything that is not a turn is dropped. */
+export function sanitiseTurns(input: unknown): SheetTurn[] {
+  const e = emptySheet()
+  return (Array.isArray(input) ? (input as unknown[]) : [])
+    .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
+    .slice(0, MAX_EXTRA_TURNS)
+    .map((o) => ({
+      date: /^\d{4}-\d{2}-\d{2}$/.test(text(o.date, 10)) ? text(o.date, 10) : '',
+      brewer: text(o.brewer, 60),
+      malt: lines(o.malt), mash_additions: lines(o.mash_additions), kettle_additions: lines(o.kettle_additions), kettle_hops: lines(o.kettle_hops),
+      mash: group(e.mash, o.mash),
+      runnings: runnings(o.runnings),
+      kettle: group(e.kettle, o.kettle),
+      fv: group(e.fv, o.fv),
+      notes: text(o.notes, 4000),
+      finished: text(o.finished, 60),
+    }))
+}
+
 /**
  * Whatever came in (a save from the form, a model's reading of a photo, an old
  * row), return a complete, well-formed sheet. Unknown keys are dropped and
@@ -115,20 +185,18 @@ function group<T extends Record<string, string>>(shape: T, v: unknown): T {
 export function sanitiseSheet(input: unknown): BrewSheetData {
   const o = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
   const e = emptySheet()
-  const lists = Object.fromEntries(
-    LIST_KEYS.map((k) => [k, (Array.isArray(o[k]) ? (o[k] as unknown[]) : []).map(line).filter((l): l is SheetLine => !!l).slice(0, 40)]),
-  ) as Pick<BrewSheetData, ListKey>
-  const r = (o.runnings && typeof o.runnings === 'object' ? o.runnings : {}) as Record<string, unknown>
+  const lists = Object.fromEntries(LIST_KEYS.map((k) => [k, lines(o[k])])) as Pick<BrewSheetData, ListKey>
   return {
     brewer: text(o.brewer, 60), cellar: text(o.cellar, 60), base_malt_batch: text(o.base_malt_batch, 40),
     ...lists,
     mash: group(e.mash, o.mash),
-    runnings: { first: group(emptyRunnings(), r.first), mid: group(emptyRunnings(), r.mid), last: group(emptyRunnings(), r.last), acid: text(r.acid, 60) },
+    runnings: runnings(o.runnings),
     kettle: group(e.kettle, o.kettle),
     fv: group(e.fv, o.fv),
     yeast: group(e.yeast, o.yeast),
     signoffs: group(e.signoffs, o.signoffs),
     notes: text(o.notes, 4000),
+    turns: sanitiseTurns(o.turns),
   }
 }
 
@@ -139,6 +207,35 @@ export function sheetNumber(v: string | null | undefined): number | null {
   if (!m) return null
   const n = Number(m[0])
   return Number.isFinite(n) ? n : null
+}
+
+const litres = (v: string | null | undefined): number | null => {
+  const n = sheetNumber(v)
+  return n != null && n > 0 && n < 20000 ? n : null
+}
+
+/**
+ * Litres the finished turns after the first put into the tank. Takes the turns
+ * as stored, so a query that pulled only `data->turns` can pass them straight in.
+ */
+export function turnLitres(turns: unknown): number {
+  return sanitiseTurns(turns).reduce((sum, t) => sum + (t.finished ? litres(t.fv.volume_l) ?? 0 : 0), 0)
+}
+
+/**
+ * The OG of the whole tank once more than one turn is in it: each turn's
+ * gravity weighted by the extract it carried (litres x SG x °P), to one
+ * decimal. Null for a single brew, or while the first turn's figures are
+ * missing. `including` counts a turn that is not finished yet, to show what
+ * finishing it will do.
+ */
+export function blendedOg(s: BrewSheetData, including?: number): number | null {
+  const parts = [s.fv, ...s.turns.filter((t, i) => t.finished || i === including).map((t) => t.fv)]
+    .map((fv) => ({ l: litres(fv.volume_l), p: sheetNumber(fv.plato) }))
+  if (parts.length < 2 || parts.some(({ l, p }) => l == null || p == null || p <= 0 || p >= 40)) return null
+  const mass = parts.map(({ l, p }) => l! * platoToSg(p!))
+  const extract = parts.reduce((sum, { p }, i) => sum + mass[i] * p!, 0)
+  return Math.round((extract / mass.reduce((a, b) => a + b, 0)) * 10) / 10
 }
 
 /** "Day 0", "day 0", "0": goes in on brew day itself, even though it sits with the cellar additions */
